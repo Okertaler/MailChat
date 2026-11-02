@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Datenschutzerklärung – MailChat</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; line-height: 1.6; color: #222; max-width: 780px; margin: 0 auto; padding: 24px 16px; }
+  h1 { font-size: 1.6em; border-bottom: 2px solid #4CAF50; padding-bottom: 8px; }
+  h2 { font-size: 1.15em; margin-top: 1.8em; color: #1b5e20; }
+  ul { padding-left: 1.4em; }
+  a { color: #2e7d32; word-break: break-word; }
+  .note { background: #f1f8e9; border-left: 4px solid #4CAF50; padding: 10px 14px; border-radius: 4px; }
+  code { background: #f5f5f5; padding: 1px 5px; border-radius: 3px; font-size: 0.95em; }
+</style>
+</head>
+<body>
+
+<h1>Datenschutzerklärung</h1>
+
+<p class="note">
+  <strong>Verantwortlicher:</strong><br>
+  Marc Florescu<br>
+  Alte Gärtnerei 15<br>
+  24232 Schönkirchen<br>
+  E-Mail: <a href="mailto:florescu@web.de">florescu@web.de</a><br><br>
+  Die App „MailChat“ wird in privater, nicht-gewerblicher Tätigkeit veröffentlicht.
+</p>
+
+<h2>1. Grundsätze der Datenverarbeitung</h2>
+<ul>
+  <li>Die App verarbeitet personenbezogene Daten <strong>überwiegend ausschließlich auf Ihrem eigenen Gerät</strong>. Es werden keine Server des Verfassers zur Speicherung Ihrer Daten genutzt.</li>
+  <li>Es findet <strong>keine Analyse, keine Werbung, kein Tracking und keine Fehlerbericht-Übermittlung</strong> (z. B. keine Crash-Reporter) statt.</li>
+  <li>Rechtsgrundlage für die Verarbeitung auf Ihrem Gerät ist Art. 6 Abs. 1 lit. a DSGVO (Ihre Einwilligung durch erteilte Berechtigungen und aktivierte Funktionen) sowie lit. f (Ihr berechtigtes Interesse an der Nutzung der App-Funktionen).</li>
+</ul>
+
+<h2>2. E-Mail-Konten (IMAP/SMTP)</h2>
+<ul>
+  <li>Sie konfigurieren Ihre eigenen E-Mail-Konten. Die App verbindet sich direkt mit Ihrem E-Mail-Provider (IMAP/SMTP, TLS-verschlüsselt, je nach Provider-Einstellung).</li>
+  <li>E-Mail-Inhalte, Absender, Betreff und Anhänge werden <strong>lokal auf Ihrem Gerät</strong> gespeichert und ausschließlich mit Ihrem E-Mail-Provider ausgetauscht. Der Verfasser hat keinen Zugriff auf Ihre E-Mails.</li>
+  <li>Verschlüsselte E-Mails (OpenPGP) werden auf Ihrem Gerät entschlüsselt; der Klartext verlässt Ihr Gerät nur als verschlüsselte Nachricht an den Empfänger.</li>
+</ul>
+
+<h2>3. Standort</h2>
+<ul>
+  <li>Die Funktionen „Mein Standort“ (Plus-Menü) und die Auto-Antwort „Wo bist Du?“ lesen Ihren Standort <strong>auf Ihrem Gerät</strong> (GPS/Netzwerk) – nur mit Ihrer erteilten Standort-Berechtigung.</li>
+  <li>Ihr Standort wird ausschließlich an den von Ihnen gewählten Kontakt als Karten-Links (OpenStreetMap, Google Maps, Apple Maps) in der E-Mail gesendet.</li>
+  <li><strong>Wetter-Option:</strong> Wenn Sie für einen Kontakt die Wetter-Auto-Antwort aktivieren, werden Ihre aktuellen Koordinaten (Breiten-/Längengrad) an den kostenlosen Wetterdienst <strong>open-meteo.com</strong> (<code>api.open-meteo.com</code>) gesendet, um die Vorhersage für die nächsten 4 Stunden abzurufen. Es werden kein Konto und kein API-Key verwendet; die Anfrage ist nicht personenbezogen und wird dort nicht mit Ihrer Person verknüpft. Diese Option ist standardmäßig deaktiviert und erfordert eine ausdrückliche Bestätigung.</li>
+</ul>
+
+<h2>4. OpenPGP-Verschlüsselung</h2>
+<ul>
+  <li>Beim Versenden verschlüsselter E-Mails kann der öffentliche Schlüssel des Empfängers über die VKS-API von <strong>keys.openpgp.org</strong> abgefragt werden. Dabei wird die <strong>E-Mail-Adresse des Empfängers</strong> an keys.openpgp.org übermittelt.</li>
+  <li>Optional können Sie Ihren eigenen öffentlichen Schlüssel bei keys.openpgp.org veröffentlichen, verifizieren oder löschen (VKS-API). Der private Schlüssel und die Passphrase werden <strong>nur auf Ihrem Gerät</strong> gespeichert (Passphrase im Android Keystore).</li>
+</ul>
+
+<h2>5. KI-Funktionen</h2>
+<ul>
+  <li>Die KI-Modelle (Gemma, LiteRT-Format) werden <strong>einmalig von Hugging Face</strong> (<code>huggingface.co</code>) heruntergeladen. Dabei werden keine personenbezogenen Daten übertragen.</li>
+  <li>Die KI-Verarbeitung (Zusammenfassungen, Spam-/Phishing-Klassifizierung, eigene Tags, Antwortvorschläge, Termin-Erkennung) findet <strong>lokal auf Ihrem Gerät</strong> statt; Ihre E-Mail-Inhalte werden dafür nicht an Dritte gesendet.</li>
+  <li><strong>Optional:</strong> Sie können in den Einstellungen einen Cloud-Endpunkt (OpenAI-kompatibel) konfigurieren. Wenn Sie dies tun, werden die dafür relevanten Texte (z. B. E-Mail-Inhalte) an den von Ihnen gewählten Endpunkt gesendet. Die Wahl und Nutzung des Endpunkts erfolgt in Ihrer Verantwortung.</li>
+</ul>
+
+<h2>6. Kontakte, Kamera, Mikrofon, NFC</h2>
+<ul>
+  <li><strong>Kontakte:</strong> Werden nur lokal gelesen (zur Anzeige und Auswahl) und nicht an Dritte übermittelt.</li>
+  <li><strong>Kamera:</strong> Aufnahmen (z. B. Kontaktfotos, Anhänge) werden lokal gespeichert und nur als E-Mail-Anhang an den von Ihnen gewählten Empfänger gesendet.</li>
+  <li><strong>Mikrofon:</strong> Sprachnachrichten werden lokal aufgenommen und nur als E-Mail-Anhang an den von Ihnen gewählten Empfänger gesendet.</li>
+  <li><strong>NFC:</strong> Der Schlüsselaustausch erfolgt direkt zwischen zwei Geräten, ohne Zwischenschaltung eines Servers.</li>
+</ul>
+
+<h2>7. Benachrichtigungen und lokale Protokolle</h2>
+<ul>
+  <li>Benachrichtigungen (neue E-Mails) werden ausschließlich lokal erzeugt.</li>
+  <li>Technische Protokolle (z. B. zu Sync- und Auto-Antwort-Vorgängen) werden in einer <strong>lokalen Datei</strong> auf Ihrem Gerät gespeichert (max. 500 Zeilen, täglich neu angelegt). Die Protokolle können E-Mail-Adressen enthalten, werden aber <strong>nicht an Dritte übermittelt</strong>. Sie können die App jederzeit deinstallieren; damit werden auch die Protokolle gelöscht.</li>
+</ul>
+
+<h2>8. Externe Links</h2>
+<ul>
+  <li>Karten-Links (OpenStreetMap, Google Maps, Apple Maps) und der optionale PayPal-Spendenlink öffnen die jeweilige Anbieterseite in Ihrem Browser bzw. in der jeweiligen App. Ab diesem Punkt gelten die Datenschutzbestimmungen des jeweiligen Anbieters.</li>
+</ul>
+
+<h2>9. Ihre Rechte</h2>
+<ul>
+  <li>Sie haben das Recht auf Auskunft (Art. 15), Berichtigung (Art. 16), Löschung (Art. 17) und Datenübertragbarkeit (Art. 20 DSGVO).</li>
+  <li>Da Ihre Daten ausschließlich auf Ihrem Gerät gespeichert sind, können Sie sie jederzeit selbst löschen – spätestens durch die Deinstallation der App.</li>
+  <li>Sie haben zudem das Recht, sich bei der zuständigen Aufsichtsbehörde zu beschweren (Art. 77 DSGVO):<br>
+  <strong>Landesbeauftragte für Datenschutz und Informationsfreiheit Schleswig-Holstein</strong><br>
+  Düsternbrooker Weg 70, 24105 Kiel<br>
+  E-Mail: <a href="mailto:post@lda.sh.de">post@lda.sh.de</a></li>
+</ul>
+
+<h2>10. Datensicherheit</h2>
+<ul>
+  <li>Die Kommunikation mit Ihrem E-Mail-Provider erfolgt TLS-verschlüsselt (je nach Provider-Einstellung).</li>
+  <li>Ihr privater OpenPGP-Schlüssel ist durch eine Passphrase geschützt, die im Android Keystore Ihres Geräts gespeichert wird.</li>
+</ul>
+
+<h2>11. Änderungen dieser Datenschutzerklärung</h2>
+<p>Diese Datenschutzerklärung kann mit neuen App-Versionen angepasst werden, um Änderungen der Funktionen oder der Rechtslage abzubilden. Es gilt die jeweils aktuelle Fassung.</p>
+
+</body>
+</html>

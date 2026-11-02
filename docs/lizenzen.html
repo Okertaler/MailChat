@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Open-Source-Lizenzen – MailChat</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; line-height: 1.6; color: #222; max-width: 780px; margin: 0 auto; padding: 24px 16px; }
+  h1 { font-size: 1.6em; border-bottom: 2px solid #4CAF50; padding-bottom: 8px; }
+  h2 { font-size: 1.15em; margin-top: 1.8em; color: #1b5e20; }
+  ul { padding-left: 1.4em; }
+  a { color: #2e7d32; word-break: break-word; }
+  .note { background: #f1f8e9; border-left: 4px solid #4CAF50; padding: 10px 14px; border-radius: 4px; }
+  .lic { font-weight: bold; color: #1b5e20; }
+  code { background: #f5f5f5; padding: 1px 5px; border-radius: 3px; font-size: 0.95em; }
+</style>
+</head>
+<body>
+
+<h1>Open-Source-Lizenzen</h1>
+
+<p class="note">
+  Die App „MailChat" nutzt Open-Source-Bibliotheken. Die App selbst ist proprietär (Closed Source) und wird unter einer proprietären Lizenz (All Rights Reserved) veröffentlicht. Die folgenden Drittanbieter-Bibliotheken unterliegen ihren jeweiligen Open-Source-Lizenzen.
+</p>
+
+<h2>AndroidX / Jetpack</h2>
+<ul>
+  <li>AndroidX Compose (UI, Material3, Icons) – <span class="lic">Apache License 2.0</span></li>
+  <li>AndroidX Activity Compose – <span class="lic">Apache License 2.0</span></li>
+  <li>AndroidX Lifecycle (ViewModel, Runtime) – <span class="lic">Apache License 2.0</span></li>
+  <li>AndroidX Navigation Compose – <span class="lic">Apache License 2.0</span></li>
+  <li>AndroidX Room (Datenbank) – <span class="lic">Apache License 2.0</span></li>
+  <li>AndroidX WorkManager – <span class="lic">Apache License 2.0</span></li>
+  <li>AndroidX DataStore – <span class="lic">Apache License 2.0</span></li>
+  <li>AndroidX Security Crypto – <span class="lic">Apache License 2.0</span></li>
+</ul>
+
+<h2>Google</h2>
+<ul>
+  <li>Dagger / Hilt (Dependency Injection) – <span class="lic">Apache License 2.0</span></li>
+  <li>Google AI Edge LiteRT (On-Device-KI) – <span class="lic">Apache License 2.0</span></li>
+  <li>Google ZXing (QR-Codes) – <span class="lic">Apache License 2.0</span></li>
+</ul>
+
+<h2>Verschlüsselung</h2>
+<ul>
+  <li>Bouncy Castle (OpenPGP, <code>bcpg</code>/<code>bcprov</code>) – <span class="lic">MIT-Lizenz</span> (alternativ LGPL 3.0)</li>
+</ul>
+
+<h2>E-Mail</h2>
+<ul>
+  <li>JavaMail (<code>com.sun.mail:javax.mail</code>, SMTP/IMAP) – <span class="lic">GPL 2.0 mit Classpath-Ausnahme</span> (alternativ LGPL 3.0). Die Classpath-Ausnahme erlaubt die Nutzung in proprietären Anwendungen.</li>
+</ul>
+
+<h2>Bilder</h2>
+<ul>
+  <li>Coil (Bildladen/Caching) – <span class="lic">Apache License 2.0</span></li>
+</ul>
+
+<h2>Archive</h2>
+<ul>
+  <li>zip4j (ZIP-Archive, AES) – <span class="lic">Apache License 2.0</span></li>
+</ul>
+
+<h2>QR-Codes (Android)</h2>
+<ul>
+  <li>zxing-android-embedded (Scanner) – <span class="lic">Apache License 2.0</span></li>
+</ul>
+
+<h2>Kotlin</h2>
+<ul>
+  <li>Kotlin Standard Library – <span class="lic">Apache License 2.0</span></li>
+  <li>Kotlinx Coroutines – <span class="lic">Apache License 2.0</span></li>
+</ul>
+
+<h2>Lizenztexte</h2>
+<p>Die vollständigen Lizenztexte sind bei den jeweiligen Projekten verfügbar:</p>
+<ul>
+  <li>Apache License 2.0: <a href="https://www.apache.org/licenses/LICENSE-2.0">apache.org/licenses/LICENSE-2.0</a></li>
+  <li>MIT-Lizenz: <a href="https://opensource.org/licenses/MIT">opensource.org/licenses/MIT</a></li>
+  <li>GPL 2.0 (mit Classpath-Ausnahme): <a href="https://www.gnu.org/licenses/old-licenses/gpl-2.0.html">gnu.org/licenses/old-licenses/gpl-2.0.html</a></li>
+  <li>LGPL 3.0: <a href="https://www.gnu.org/licenses/lgpl-3.0.html">gnu.org/licenses/lgpl-3.0.html</a></li>
+</ul>
+
+</body>
+</html>
