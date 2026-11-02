@@ -1,0 +1,38 @@
+# ===================== Secrets (NEVER commit) =====================
+signing.properties
+*.keystore
+*.jks
+
+# ===================== Local / machine-specific =====================
+local.properties
+.DS_Store
+
+# ===================== Build outputs =====================
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+out/
+build/
+release/
+
+# ===================== Gradle =====================
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# ===================== Kotlin =====================
+.kotlin/
+
+# ===================== Android Studio / IntelliJ =====================
+.idea/
+*.iml
+*.hprof
+.cxx/
+captures/
+
+# ===================== Logs & temp =====================
+*.log
+tmp/

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy – MailChat</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; line-height: 1.6; color: #222; max-width: 780px; margin: 0 auto; padding: 24px 16px; }
+  h1 { font-size: 1.6em; border-bottom: 2px solid #4CAF50; padding-bottom: 8px; }
+  h2 { font-size: 1.15em; margin-top: 1.8em; color: #1b5e20; }
+  ul { padding-left: 1.4em; }
+  a { color: #2e7d32; word-break: break-word; }
+  .note { background: #f1f8e9; border-left: 4px solid #4CAF50; padding: 10px 14px; border-radius: 4px; }
+  code { background: #f5f5f5; padding: 1px 5px; border-radius: 3px; font-size: 0.95em; }
+</style>
+</head>
+<body>
+
+<h1>Privacy Policy</h1>
+
+<p class="note">
+  <strong>Controller:</strong><br>
+  Marc Florescu<br>
+  Alte Gärtnerei 15<br>
+  24232 Schönkirchen<br>
+  E-mail: <a href="mailto:florescu@web.de">florescu@web.de</a><br><br>
+  The app "MailChat" is published as a private, non-commercial activity.
+</p>
+
+<h2>1. Principles of Data Processing</h2>
+<ul>
+  <li>The app processes personal data <strong>predominantly exclusively on your own device</strong>. No servers of the author are used to store your data.</li>
+  <li>There is <strong>no analytics, no advertising, no tracking and no error report transmission</strong> (e.g. no crash reporters).</li>
+  <li>The legal basis for processing on your device is Art. 6 (1) (a) GDPR (your consent through granted permissions and activated features) as well as (f) (your legitimate interest in using the app's features).</li>
+</ul>
+
+<h2>2. E-mail Accounts (IMAP/SMTP)</h2>
+<ul>
+  <li>You configure your own e-mail accounts. The app connects directly to your e-mail provider (IMAP/SMTP, TLS-encrypted, depending on provider settings).</li>
+  <li>E-mail content, senders, subjects and attachments are stored <strong>locally on your device</strong> and exchanged exclusively with your e-mail provider. The author has no access to your e-mails.</li>
+  <li>Encrypted e-mails (OpenPGP) are decrypted on your device; the plaintext leaves your device only as an encrypted message to the recipient.</li>
+</ul>
+
+<h2>3. Location</h2>
+<ul>
+  <li>The "My Location" feature (plus menu) and the "Where are you?" auto-reply read your location <strong>on your device</strong> (GPS/network) – only with your granted location permission.</li>
+  <li>Your location is sent exclusively to the contact you chose as map links (OpenStreetMap, Google Maps, Apple Maps) in the e-mail.</li>
+  <li><strong>Weather option:</strong> If you enable the weather auto-reply for a contact, your current coordinates (latitude/longitude) are sent to the free weather service <strong>open-meteo.com</strong> (<code>api.open-meteo.com</code>) to retrieve the forecast for the next 4 hours. No account and no API key are used; the request is not personal and is not linked to you there. This option is disabled by default and requires explicit confirmation.</li>
+</ul>
+
+<h2>4. OpenPGP Encryption</h2>
+<ul>
+  <li>When sending encrypted e-mails, the recipient's public key can be queried via the VKA API of <strong>keys.openpgp.org</strong>. In doing so, the <strong>recipient's e-mail address</strong> is transmitted to keys.openpgp.org.</li>
+  <li>Optionally, you can publish, verify or delete your own public key at keys.openpgp.org (VKA API). The private key and the passphrase are stored <strong>only on your device</strong> (passphrase in the Android Keystore).</li>
+</ul>
+
+<h2>5. AI Features</h2>
+<ul>
+  <li>The AI models (Gemma, LiteRT format) are downloaded <strong>once from Hugging Face</strong> (<code>huggingface.co</code>). No personal data is transmitted in doing so.</li>
+  <li>AI processing (summaries, spam/phishing classification, custom tags, reply suggestions, appointment detection) takes place <strong>locally on your device</strong>; your e-mail content is not sent to third parties for this purpose.</li>
+  <li><strong>Optional:</strong> You can configure a cloud endpoint (OpenAI-compatible) in the settings. If you do so, the relevant texts (e.g. e-mail content) are sent to the endpoint you chose. The choice and use of the endpoint is at your own responsibility.</li>
+</ul>
+
+<h2>6. Contacts, Camera, Microphone, NFC</h2>
+<ul>
+  <li><strong>Contacts:</strong> Are read locally only (for display and selection) and not transmitted to third parties.</li>
+  <li><strong>Camera:</strong> Captures (e.g. contact photos, attachments) are stored locally and sent only as an e-mail attachment to the recipient you chose.</li>
+  <li><strong>Microphone:</strong> Voice messages are recorded locally and sent only as an e-mail attachment to the recipient you chose.</li>
+  <li><strong>NFC:</strong> The key exchange takes place directly between two devices, without the intervention of a server.</li>
+</ul>
+
+<h2>7. Notifications and Local Logs</h2>
+<ul>
+  <li>Notifications (new e-mails) are generated locally only.</li>
+  <li>Technical logs (e.g. for sync and auto-reply operations) are stored in a <strong>local file</strong> on your device (max. 500 lines, created anew daily). The logs may contain e-mail addresses but are <strong>not transmitted to third parties</strong>. You can uninstall the app at any time; this also deletes the logs.</li>
+</ul>
+
+<h2>8. External Links</h2>
+<ul>
+  <li>Map links (OpenStreetMap, Google Maps, Apple Maps) and the optional PayPal donation link open the respective provider's page in your browser or in the respective app. From this point on, the privacy policy of the respective provider applies.</li>
+</ul>
+
+<h2>9. Your Rights</h2>
+<ul>
+  <li>You have the right to access (Art. 15), rectification (Art. 16), erasure (Art. 17) and data portability (Art. 20 GDPR).</li>
+  <li>Since your data is stored exclusively on your device, you can delete it yourself at any time – at the latest by uninstalling the app.</li>
+  <li>You also have the right to complain to the competent supervisory authority (Art. 77 GDPR):<br>
+  <strong>State Commissioner for Data Protection and Freedom of Information Schleswig-Holstein</strong><br>
+  Düsternbrooker Weg 70, 24105 Kiel<br>
+  E-mail: <a href="mailto:post@lda.sh.de">post@lda.sh.de</a></li>
+</ul>
+
+<h2>10. Data Security</h2>
+<ul>
+  <li>Communication with your e-mail provider is TLS-encrypted (depending on provider settings).</li>
+  <li>Your private OpenPGP key is protected by a passphrase that is stored in the Android Keystore of your device.</li>
+</ul>
+
+<h2>11. Changes to This Privacy Policy</h2>
+<p>This privacy policy may be adjusted with new app versions to reflect changes in features or the legal situation. The current version always applies.</p>
+
+</body>
+</html>

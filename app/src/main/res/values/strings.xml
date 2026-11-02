@@ -1,0 +1,1121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mailchat</string>
+    <string name="push_active">IMAP Push active</string>
+    <string name="push_channel_name">IMAP Push</string>
+    <string name="push_channel_desc">Keeps a connection to your mail server for instant notifications</string>
+    <string name="push_stop">Stop</string>
+    <string name="imap_push">IMAP Push</string>
+    <string name="imap_push_desc">Receive new emails instantly via persistent connection</string>
+    <string name="battery_optimization_item">Allow background sync</string>
+    <string name="battery_optimization_active">Battery optimization disabled – sync runs reliably in background</string>
+    <string name="battery_optimization_desc">Android otherwise kills background tasks; without this exception email sync can be delayed or suppressed</string>
+    <string name="battery_optimization_action">Allow</string>
+    <string name="battery_optimization_title">Disable battery optimization?</string>
+    <string name="battery_optimization_message">To receive new emails reliably in the background, MailChat should be exempted from battery optimization. Minimal impact on battery life.</string>
+    <string name="backup_restore">Backup / Restore</string>
+    <string name="backup_export">Export config</string>
+    <string name="backup_export_desc">Create encrypted file with all accounts and settings</string>
+    <string name="backup_import">Import config</string>
+    <string name="backup_import_desc">Restore accounts and settings from encrypted file</string>
+    <string name="backup_password">Password</string>
+    <string name="backup_password_hint">Enter a password to encrypt the config file (min. 12 characters)</string>
+    <string name="backup_no_file">No file selected</string>
+    <string name="backup_file_selected">File selected</string>
+    <string name="group_chat">Group chat</string>
+    <string name="group_name">Group name</string>
+    <string name="rename_group">Rename group</string>
+    <string name="sync">Sync</string>
+    <string name="add_account">Add account</string>
+    <string name="settings">Settings</string>
+    <string name="back">Back</string>
+    <string name="welcome_title">Welcome to Mailchat</string>
+    <string name="welcome_subtitle">Add an IMAP account to see your emails as chats.</string>
+    <string name="accounts">Accounts</string>
+    <string name="no_accounts">No accounts configured</string>
+    <string name="info">Info</string>
+    <string name="app_description">Dialog-based email client</string>
+    <string name="add_imap_account">Add IMAP account</string>
+    <string name="edit_account">Edit account</string>
+    <string name="add_account_button">Add account</string>
+    <string name="language">Language</string>
+    <string name="language_system">System default</string>
+    <string name="language_german">German</string>
+    <string name="language_english">English</string>
+    <string name="display_name">Display name (optional)</string>
+    <string name="email_address">Email address</string>
+    <string name="imap_host">IMAP host (e.g. imap.gmail.com)</string>
+    <string name="port">Port (default: 993)</string>
+    <string name="smtp_host">SMTP host (optional, for sending)</string>
+    <string name="smtp_port">SMTP port (default: 587)</string>
+    <string name="username">Username (optional)</string>
+    <string name="password">Password</string>
+    <string name="select_provider">Select provider</string>
+    <string name="password_app_hint">For two-factor authentication, create an app password with your provider and use it here.</string>
+    <string name="test_connection">Test connection</string>
+    <string name="save_account">Save account</string>
+    <string name="connection_success">Connection successful!</string>
+    <string name="error_with_detail">Error: %1$s</string>
+    <string name="fill_required_fields">Please fill in all required fields</string>
+    <string name="connection_failed">Connection failed: %1$s</string>
+    <string name="chat">Chat</string>
+    <string name="days_ago">%1$d d</string>
+    <string name="more_attachments">+%1$d</string>
+    <string name="delete_account">Delete account</string>
+    <string name="delete_account_confirm_title">Delete account?</string>
+    <string name="delete_account_confirm_message">All chats and messages from this account will be permanently deleted.</string>
+    <string name="cancel">Cancel</string>
+    <string name="done">Done</string>
+    <string name="delete">Delete</string>
+    <string name="full_email">Full email</string>
+    <string name="create_event">Create Event</string>
+    <string name="load_images">Load images</string>
+    <string name="from">From</string>
+    <string name="date">Date</string>
+    <string name="attachments">Attachments</string>
+    <string name="version_history">Version history</string>
+    <string name="help">Help</string>
+    <string name="settings_version">Version</string>
+    <string name="help_add_account_title">Add an account</string>
+    <string name="help_add_account_text">Tap the plus icon and enter your email address, IMAP host and password. For most providers the port is 993. Use the test button to check the connection before saving.</string>
+    <string name="help_chats_title">Chats</string>
+    <string name="help_chats_text">Each sender appears as a chat, like you know from messenger apps. The bubble shows the subject and the first lines of the message. The first image of a message is shown in its bubble.</string>
+    <string name="help_full_email_title">Full email</string>
+    <string name="help_full_email_text">Tap any chat bubble to open the complete email with sender, date, full text and attachments. Use the top bar buttons to print, share or forward the email.</string>
+    <string name="help_smtp_title">SMTP server</string>
+    <string name="help_smtp_text">The SMTP server is configured per account. If no SMTP host is set for an account, sending is disabled and "No sending" is shown in red in the settings.</string>
+    <string name="help_sync_title">Sync</string>
+    <string name="help_sync_text">New emails are fetched automatically when you open the app. You can also pull the refresh icon to sync manually.</string>
+    <string name="help_language_title">Language</string>
+    <string name="help_language_text">The app follows your device language. German and English are supported.</string>
+    <string name="help_dark_mode_title">Dark mode</string>
+    <string name="help_dark_mode_text">Choose System, Light or Dark in Settings → Display.</string>
+    <string name="help_search_title">Search</string>
+    <string name="help_search_text">Use the search icon in the chat list to find chats by name or content. Inside a chat you can search all messages of the conversation.</string>
+    <string name="help_hidden_title">Hide, favorites and delete</string>
+    <string name="help_hidden_text">Long-press a chat to select it. You can hide chats, mark up to 5 favorites (always shown at the top) or delete chats including all their messages. Hidden chats can be found in Settings → Hidden chats.</string>
+    <string name="help_delete_title">Message actions</string>
+    <string name="help_delete_text">Long-press a chat bubble to open its actions: mark the message as processed (green check), mark it as to-do (red flag) or delete that single message. Marked messages show an icon next to the timestamp.</string>
+    <string name="help_message_actions_title">Processed and to-do filters</string>
+    <string name="help_message_actions_text">In the chat list top bar you find two filter buttons next to the star: the red flag shows only chats that contain to-do messages, the green check only chats with processed messages. Filters can be combined with each other and with search.</string>
+    <string name="help_swipe_title">Swipe gestures</string>
+    <string name="help_swipe_text">Swipe left on a chat or message to delete it (a confirmation dialog appears first). Swipe right on a chat to toggle its important status. Swipe right on a message inside a chat to cycle through: red flag (to-do), green check (processed) and no marking.</string>
+    <string name="help_permissions_title">Permissions</string>
+    <string name="help_permissions_text">Mailchat uses the contacts permission to show contact photos in the chat list and to suggest recipients. On Android 13 and newer the notification permission is needed to show a status bar notification for incoming emails. You can grant or revoke both in the system settings of your device.</string>
+    <string name="help_group_title">Group chats</string>
+    <string name="help_group_text">Emails with several recipients are collected in a single group chat. You can also start a group chat by entering multiple recipients separated by commas in a new email. Replies are sent to all members of the group.</string>
+    <string name="compose_hint">Write a message…</string>
+    <string name="send">Send</string>
+    <string name="new_email">New email</string>
+    <string name="subject">Subject</string>
+    <string name="compose">Compose</string>
+    <string name="type_message">Message</string>
+    <string name="select_recipient">Select recipient</string>
+    <string name="contact_name">Contact name</string>
+    <string name="filter_favorites">Favorites</string>
+    <string name="filter_unread">Unread</string>
+    <string name="filter_group">Group chats</string>
+    <string name="filter_todo">Todo</string>
+    <string name="filter_processed">Processed</string>
+    <string name="filter_hidden">Hidden</string>
+    <string name="filter_spam">Spam</string>
+    <string name="filter_title">Filter</string>
+    <string name="spam_filter_off">Off</string>
+    <string name="spam_filter_all">All</string>
+    <string name="spam_filter_red">Red</string>
+    <string name="spam_filter_yellow">Yellow</string>
+    <string name="spam_filter_green">Green</string>
+    <string name="select_account">Select Account</string>
+    <string name="app_log">Log</string>
+    <string name="app_log_desc">View app log</string>
+    <string name="attach_log">Attach Log</string>
+    <string name="spam_phishing">Phishing</string>
+    <string name="spam_unwanted">Ungewollt</string>
+    <string name="spam_newsletter">Newsletter</string>
+    <string name="spam_none">Kein Spam</string>
+    <string name="spam_category">Spam-Kategorie</string>
+    <string name="set_custom_tag">Eigener Tag</string>
+    <string name="clear_custom_tag">Tag entfernen</string>
+    <string name="spam_category_info">Filter: Alle → Rot → Gelb → Grün → Aus. Tappe wiederholt um zu wechseln.</string>
+    <string name="copy_5_lines">5 Zeilen kopieren</string>
+    <string name="forward_5_lines">5 Zeilen weiterleiten</string>
+    <string name="mark_spam">Als Spam markieren</string>
+    <string name="not_spam">Kein Spam</string>
+    <string name="reply_quote_5">Antwort mit Zitat (5 Zeilen)</string>
+    <string name="to_processed">Zu bearbeiten</string>
+    <string name="spam_ham">Kein Spam</string>
+    <string name="select_all">Alle auswählen</string>
+    <string name="deselect_all">Deselect all</string>
+    <string name="reverse_selection">Reverse selection</string>
+    <string name="select_last_chat">Select last chat</string>
+    <string name="select_messages">%1$d selected</string>
+    <string name="select_recipients">Select incoming</string>
+    <string name="select_senders">Select outgoing</string>
+    <string name="real_names">AI real names</string>
+    <string name="real_names_done">Extracted %1$d name(s)</string>
+    <string name="no_reply_prohibit">Prohibit reply</string>
+    <string name="no_reply_allow">Allow reply</string>
+    <string name="ai_in_use">AI is working…</string>
+    <string name="ai_stop">Stop</string>
+    <string name="mark_read">Als gelesen markieren</string>
+    <string name="edit">Edit</string>
+    <string name="reply_all">Reply all</string>
+    <string name="reply">Antworten</string>
+    <string name="compress_images">Bilder komprimieren</string>
+    <string name="compress">Komprimieren</string>
+    <string name="compress_desc">Text und Anhänge werden in eine ZIP-Datei gepackt. Optional mit AES-256 verschlüsseln.</string>
+    <string name="password_optional">Passwort (optional)</string>
+    <string name="compress_warning">Symetrische Verschlüsselung. Das Passwort muss dem Empfänger bekannt sein.</string>
+    <string name="password_min_length">Mindestens 12 Zeichen</string>
+    <string name="import_success">Import successful. Starting sync…</string>
+    <string name="import_error">Import failed: %1$s</string>
+    <string name="merge">Merge</string>
+    <string name="select_chats">Edit</string>
+    <string name="merge_confirm_title">Merge chats?</string>
+    <string name="merge_confirm_message">The selected chats will be combined into a single chat.</string>
+    <string name="merge_select_photo">Select contact photo:</string>
+    <string name="split">Split</string>
+    <string name="split_done">Moved %1$s into its own chat.</string>
+    <string name="split_hint">Split this address back into its own chat (undo a merge)</string>
+    <string name="display">Display</string>
+    <string name="dark_mode_system">System default</string>
+    <string name="dark_mode_light">Light</string>
+    <string name="dark_mode_dark">Dark</string>
+    <string name="mail_settings">Mail</string>
+    <string name="max_email_size">Max. email size</string>
+    <string name="max_email_size_value">%1$d MB</string>
+    <string name="sync_period">Download period</string>
+    <string name="sync_period_value">%1$d days</string>
+    <string name="auto_sync">Auto sync</string>
+    <string name="auto_sync_desc">Periodically check for new emails in the background</string>
+    <string name="sync_off">Off</string>
+    <string name="sync_15min">Every 15 minutes</string>
+    <string name="sync_30min">Every 30 minutes</string>
+    <string name="sync_1hour">Every hour</string>
+    <string name="contacts">Contacts</string>
+    <string name="general">General</string>
+    <string name="ai_local">local</string>
+    <string name="members_count">%1$d members</string>
+    <string name="add_recipient">Add recipient</string>
+    <string name="group_members">Group members</string>
+    <string name="send_to_all">Send to all</string>
+    <string name="add_member">Add member</string>
+    <string name="reply_to">Reply to: %1$s</string>
+    <string name="manage_contacts">Manage contacts</string>
+    <string name="manage_contacts_desc">Open the contacts app to edit your contacts</string>
+    <string name="hidden_chats">Hidden chats</string>
+    <string name="no_hidden_chats">No hidden chats</string>
+    <string name="show">Show</string>
+    <string name="hide">Hide</string>
+    <string name="favorite">Favorite</string>
+    <string name="buy_me_coffee">Buy me a coffee</string>
+    <string name="size_limit_title">Email too large</string>
+    <string name="size_limit_message">The email exceeds the maximum size. Please remove attachments or shorten the text.</string>
+    <string name="encryption_error_title">Encryption failed</string>
+    <string name="encryption_error_message">The email cannot be encrypted. See Settings -&gt; Info -&gt; Log for the error code. Send the unencrypted email anyway?</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="ok">OK</string>
+    <string name="from_label">From</string>
+    <string name="to_label">To</string>
+    <string name="search">Search</string>
+    <string name="search_chats">Search chats…</string>
+    <string name="search_messages">Search messages…</string>
+    <string name="no_results">No results</string>
+    <string name="delete_chats">Delete chats</string>
+    <string name="delete_chats_confirm_title">Delete selected chats?</string>
+    <string name="delete_chats_confirm_message">All messages and attachments of the selected chats will be permanently deleted. This cannot be undone.</string>
+    <string name="delete_message_confirm_title">Delete message?</string>
+    <string name="delete_message_confirm_message">This message will be permanently deleted.</string>
+    <string name="notification_channel_name">New emails</string>
+    <string name="notification_channel_desc">Notifications for incoming emails</string>
+    <string name="sync_error_channel_name">Sync status</string>
+    <string name="sync_error_title">Synchronization problems</string>
+    <string name="select_sync_folders">Select sync folders</string>
+    <string name="selected_folders_count">%1$d folders selected</string>
+    <string name="no_folders_found">No folders found</string>
+    <string name="renew_emails">Renew emails</string>
+    <string name="renew_emails_confirm_title">Renew emails?</string>
+    <string name="renew_emails_confirm_message">All emails for this account will be deleted and re-read from the server. This may take a while.</string>
+    <string name="renew_emails_in_progress">Deleting and re-reading emails…</string>
+    <string name="mark_processed">Processed</string>
+    <string name="mark_todo">To do</string>
+    <string name="attach_emails">Attach emails</string>
+    <string name="add_my_location">My location</string>
+    <string name="location_added">Location added</string>
+    <string name="location_unavailable">Location not available</string>
+    <string name="location_permission_needed">Location permission needed</string>
+    <string name="location_error">Location error</string>
+    <string name="where_are_you">Where are you?</string>
+    <string name="where_are_you_text">Where are you?</string>
+    <string name="auto_reply_title">Auto-reply \"Where are you?\"</string>
+    <string name="auto_reply_location">Send my location automatically</string>
+    <string name="auto_reply_weather">Include weather (next 4 hours)</string>
+    <string name="weather_warning_title">Location is sent to open-meteo.com</string>
+    <string name="weather_warning_text">To include the weather in the auto-reply, your current location (latitude and longitude) is sent to the free weather service open-meteo.com. No account or API key is used, and the data is not stored there. Only enable this if you are comfortable with your location being sent to open-meteo.com.</string>
+    <string name="weather_warning_ok">OK, enable weather</string>
+    <string name="compose_options">Compose options</string>
+    <string name="upload_media">Upload media</string>
+    <string name="take_photo">Take photo</string>
+    <string name="attach_contact">Attach contact</string>
+    <string name="attachment">Attachment</string>
+    <string name="ai_apply">Apply</string>
+    <string name="ai_reply">AI reply</string>
+    <string name="ai_summarize">AI summary</string>
+    <string name="ai_reply_tone_question">How should the AI reply?</string>
+    <string name="ai_reply_formal">Formal (you)</string>
+    <string name="ai_reply_informal">Personal (you)</string>
+    <string name="clear_text">Clear text</string>
+    <string name="ai_generating">AI is working…</string>
+    <string name="quote_toggle">Include quote</string>
+    <string name="select_chat_hint">Select a chat</string>
+    <string name="ai_summary_result">AI: %1$d emails summarized</string>
+    <string name="ai_summary_none">AI: nothing to summarize</string>
+    <string name="ai_summary_error">AI error: %1$s</string>
+    <string name="ai_not_enabled">AI is not enabled in Settings</string>
+    <string name="ai_init_failed">AI init failed: %1$s</string>
+    <string name="ai_batch_result">AI: %1$d ok, %2$d failed (%3$s)</string>
+    <string name="ai_batch_done">AI: %1$d messages processed</string>
+    <string name="ai_summarize_warning">This takes approx. 30 seconds per email and may drain the battery.</string>
+    <string name="favorites_limit">Max. 5 favorites allowed</string>
+    <string name="select_emails_to_attach">Select emails to attach</string>
+    <string name="today">Today</string>
+    <string name="yesterday">Yesterday</string>
+    <string name="day_before_yesterday">Day before</string>
+    <string name="important">Important</string>
+    <string name="important_chats">Important chats</string>
+    <string name="no_important_chats">No important chats</string>
+    <string name="signature">Signature</string>
+    <string name="signature_desc">Appended to outgoing emails</string>
+    <string name="text_signature">Text signature</string>
+    <string name="key_signature">Key signature</string>
+    <string name="key_signature_desc">Appended to encrypted emails so the recipient can reply encrypted</string>
+    <string name="key_sig_heading_key">My public key for encryption:</string>
+    <string name="key_sig_heading_link">My link to the public key for encryption:</string>
+    <string name="key_export_title">Export private key</string>
+    <string name="key_export_hint">Save as a .asc file (passphrase-protected)</string>
+    <string name="key_export_success">Private key exported</string>
+    <string name="key_export_failed">Export failed</string>
+    <string name="key_import_title">Import private key</string>
+    <string name="key_import_hint">From a .asc file (replaces the current key)</string>
+    <string name="key_import_passphrase_hint">Enter the passphrase that protects the key.</string>
+    <string name="key_import_passphrase">Passphrase</string>
+    <string name="key_import_confirm">Import</string>
+    <string name="key_import_success">Private key imported</string>
+    <string name="key_import_failed">Import failed (wrong passphrase or invalid file)</string>
+    <string name="key_import_invalid">Invalid file: no PGP private key found.</string>
+    <string name="key_sig_off">Off</string>
+    <string name="key_sig_key">Public key</string>
+    <string name="key_sig_link">Link to key</string>
+    <string name="help_signature_title">Signature</string>
+    <string name="help_signature_text">The text signature is appended to every outgoing email. The key signature is only appended to encrypted emails: it contains your OpenPGP public key (or a link to it) so the recipient can add you to their keyring and reply encrypted.</string>
+    <string name="account_color">Account color</string>
+    <string name="smtp_provider">SMTP server</string>
+    <string name="smtp_sender_account">Sender account</string>
+    <string name="smtp_sender_auto">Account of the chat (default)</string>
+    <string name="smtp_sender_auto_short">Chat account</string>
+    <string name="app_intro_title">About Mailchat</string>
+    <string name="app_intro_text">Mailchat is a dialog-based email client that shows your emails as messenger-style chats. Features: multiple IMAP accounts, group chats, favorites, important markers, account colors, auto sync, signature, search, dark mode, voice messages, end-to-end encryption (OpenPGP), and AI (on-device or cloud: spam detection, summaries, reply suggestions), and more.</string>
+    <string name="help_category_about">About Mailchat</string>
+    <string name="help_category_email">Email &amp; Accounts</string>
+    <string name="help_category_encryption">Encryption</string>
+    <string name="help_category_ai">AI</string>
+    <string name="help_category_handling">Handling</string>
+    <string name="help_category_other">Other topics</string>
+    <string name="voice_record">Hold to record</string>
+    <string name="voice_recording">Recording…</string>
+    <string name="share">Share</string>
+    <string name="forward">Forward</string>
+    <string name="forward_attachments_hint">%d attachment(s) will be forwarded</string>
+    <string name="archive_viewer_title">Archive contents</string>
+    <string name="archive_load_error">Could not read archive</string>
+    <string name="archive_empty">Empty archive</string>
+    <string name="archive_password_label">Password</string>
+    <string name="archive_encrypted_badge">encrypted</string>
+    <string name="archive_extract_error">Extraction failed – wrong password?</string>
+    <string name="archive_open_with_app">Open with app</string>
+    <string name="close">Close</string>
+    <string name="message">Message</string>
+    <string name="help_ai_summary_title">AI Summary</string>
+    <string name="help_ai_summary_text">Tap the AI button in the chat top bar to summarize all emails in the conversation to 5 lines. The original email remains available in the detail view. The summary is written in your selected language.</string>
+    <string name="help_ai_provider_title">AI Provider (On-Device vs OpenAI)</string>
+    <string name="help_ai_provider_text">Two AI providers are available:\n\nON-DEVICE (Gemma via Google LiteRT): The model runs directly on your phone. No email content ever leaves the device and no internet is needed after the one-time model download (0.5–3 GB). Limitations: the small models (2–4B parameters) are slower, less accurate and consume more battery than cloud models.\n\nOPENAI API (OpenAI-compatible): You configure your own endpoint, API key and model. This usually gives better quality and faster answers, but your email content is sent to that external server.\n\nAll AI features (spam/phishing classification, custom tags, summaries, reply suggestions, real name extraction, appointment extraction, assistant) work with both providers — only the engine behind them changes.</string>
+    <string name="help_ai_settings_title">AI Features</string>
+    <string name="help_ai_settings_text">Available AI features: spam/phishing classification, custom tag detection, message summaries, reply suggestions (formal/informal), real name extraction, appointment extraction and the assistant (chat with your data).\n\nOn-Device: fully local and private, but limited by the small model size (2–4B) — lower accuracy, slower, higher battery use.\n\nOpenAI API: better quality, but email content is sent to your configured server.\n\nNot yet available: streaming/real-time answers, translation, and rewriting/editing of existing text. On-device models cannot match cloud-model quality for complex tasks.\n\nThe purple "AI" tag appears on individual emails in the chat view when an AI summary has been generated. In the chat list overview, the highest spam category tag (Phishing, Unwanted, Newsletter) is shown instead.</string>
+    <string name="help_subject_title">Subject selection</string>
+    <string name="help_subject_text">The subject field above the compose bar lets you pick a subject from the conversation or type your own. Use the dropdown arrow to see all subjects from this chat.</string>
+    <string name="help_star_filter_title">Star filter</string>
+    <string name="help_star_filter_text">Tap the star icon in the chat list top bar to show only your favorite and important chats. The star turns yellow when the filter is active. Tap again to show all chats.</string>
+    <string name="help_smtp_title2">Sending (SMTP)</string>
+    <string name="help_smtp_text2">The sender account selected in Settings (E-Mail → Sender account) sends all emails over its own SMTP server. Without a selection, each chat sends over its own account.</string>
+    <string name="help_contact_title">Contact</string>
+    <string name="help_contact_text">Use "Contact Developer" in Settings to open a chat with the developer directly in the app. The subject is pre-filled with "Help Request for MailChat".</string>
+    <string name="help_contact_header_title">Contact photo and name</string>
+    <string name="help_contact_header_text">If the sender of a chat is one of your known contacts, the chat header shows the contact photo and the contact name instead of the email address. If the contact is unknown, the circle uses the color of the account the chat belongs to.</string>
+    <string name="help_ai_reply_title">AI reply</string>
+    <string name="help_ai_reply_text">Use "AI reply" (in the "+" menu next to the subject or in the message menu via long press) to write a reply. You choose between a formal (you) or a personal (you) tone. The AI creates a fitting subject and uses any text already in the reply field as a starting point.</string>
+    <string name="help_two_pane_title">Two-pane view</string>
+    <string name="help_two_pane_text">In landscape mode and on tablets the screen is split: the chat list is shown on the left and the selected chat on the right. In portrait mode on a phone the usual single-screen navigation is used.</string>
+    <string name="help_embedded_images_title">Embedded images</string>
+    <string name="help_embedded_images_text">Emails with embedded images (e.g. from Deutsche Post) show the text in the chat bubble. Open the email (tap the bubble) and use the "Load images" button to display the embedded images on the detail page.</string>
+    <string name="help_ai_spam_title">AI Spam Detection</string>
+    <string name="help_ai_spam_text">Incoming emails are automatically analyzed by AI for spam, phishing, and unwanted ads. A combination of heuristic rules (domain mismatch, urgency phrases, suspicious links) and AI classification determines the category. The result is shown as a colored tag on the email in the chat.</string>
+    <string name="help_ai_phishing_title">Phishing Probability</string>
+    <string name="help_ai_phishing_text">When filtering by "Phishing" in the filter sheet, the average phishing probability percentage is displayed. The probability is calculated from heuristic indicators such as domain mismatches, lookalike domains, urgency language, and suspicious URLs.</string>
+    <string name="help_ai_tag_title">AI Tag</string>
+    <string name="help_ai_tag_text">The purple "AI" tag appears on individual emails in the chat view when an AI summary has been generated. In the chat list overview, the highest spam category tag (Phishing, Unwanted, Newsletter) is shown instead.</string>
+    <string name="help_custom_tags_title">Custom Tags</string>
+    <string name="help_custom_tags_text">Define your own tags (name + short description). The AI reads each incoming email and automatically assigns the matching tag — for example "Invoice", "Package" or "Private". You can also set a tag manually on a chat. Tags are shown as a colored label in the chat list and in the conversation, and you can filter the chat list by tag.</string>
+    <string name="legal_privacy">Privacy Policy</string>
+    <string name="legal_disclaimer">Notes &amp; Disclaimer</string>
+    <string name="legal_imprint">Imprint</string>
+    <string name="legal_licenses">Open Source Licenses</string>
+    <string name="help_ai_image_block_title">Image Blocking for Spam</string>
+    <string name="help_ai_image_block_text">For emails classified as phishing or unwanted ads, images are blocked by default in the detail view to protect against tracking pixels and malicious content. Newsletter images are still loaded. You can manually enable image loading if needed.</string>
+    <string name="help_version_history_title">Versionsverlauf</string>
+    <string name="help_version_history_text">v1.70 – LiteRT-LM (Gemma 4) on-device AI\nv1.69 – Spam-Klassifikation (3 Stufen: Phishing, Ungewollt, Newsletter)\nv1.68 – CC/BCC, Reply All, Komprimieren mit AES-256\nv1.67 – UI-Modernisierung: FAB, Swipe-Gesten, Filter-BottomSheet\nv1.66 – Gruppenchat: Absender-Foto + Name pro E-Mail</string>
+    <string name="contact_developer">Contact Developer</string>
+    <string name="dev_chat_subject">Help Request for MailChat</string>
+    <string name="ai_settings">AI</string>
+    <string name="ai_custom_tags">Custom Tags</string>
+    <string name="add_tag">Add Tag</string>
+    <string name="edit_tag">Edit Tag</string>
+    <string name="delete_tag">Delete Tag</string>
+    <string name="delete_tag_confirm">Delete tag "%1$s"?</string>
+    <string name="tag_name">Name</string>
+    <string name="tag_description">Description (what kind of emails belong here)</string>
+    <string name="ai_tag_name">Tag</string>
+    <string name="ai_tag_desc">Description</string>
+    <string name="ai_enabled">AI Features</string>
+    <string name="ai_embedding_model">Semantic search model</string>
+    <string name="ai_embedding_desc">Improves assistant search with semantic matching</string>
+    <string name="assistant_title">Chat with your data</string>
+    <string name="assistant_loading_model">Model is loading – this may take a moment…</string>
+    <string name="assistant_model_missing">AI model is not available. Please download it in Settings → AI.</string>
+    <string name="assistant_ai_off">Enable AI features in settings to chat with your emails.</string>
+    <string name="assistant_empty">Ask about your emails. Answers use only local data from this device.</string>
+    <string name="assistant_input_hint">Question…</string>
+    <string name="assistant_thinking">Searching and thinking…</string>
+    <string name="assistant_sources">Sources:</string>
+    <string name="assistant_q1">What did Max write to me about taxes last week?</string>
+    <string name="assistant_q2">Summarize the latest emails from this month</string>
+    <string name="assistant_q3">When was my last invoice?</string>
+    <string name="assistant_q4">Which senders were marked as spam?</string>
+    <string name="ai_auto_process">Auto-summarize &amp; classify on receive</string>
+    <string name="ai_auto_process_desc">Incoming emails are summarized and classified automatically.</string>
+    <string name="ai_auto_process_warning">Increased battery usage!</string>
+    <string name="ai_on">On</string>
+    <string name="ai_off">Off</string>
+    <string name="ai_model">AI Model</string>
+    <string name="spam">Spam</string>
+    <string name="ai_warning_title">Enable AI?</string>
+    <string name="ai_warning_message">On-device AI significantly increases battery consumption and may slow down the app. The AI model (~1–4 GB) will be downloaded on first use. Do you want to enable AI features?</string>
+    <string name="ai_enable_confirm">Enable</string>
+    <string name="ai_downloading">Downloading AI model…</string>
+    <string name="ai_download_error">AI model download failed</string>
+    <string name="ai_download_button">Download model</string>
+    <string name="ai_downloaded">Downloaded</string>
+    <string name="ai_provider">AI Provider</string>
+    <string name="ai_provider_on_device">On-Device (Gemma)</string>
+    <string name="ai_provider_openai">OpenAI API</string>
+    <string name="ai_openai_warning_title">Warning</string>
+    <string name="ai_openai_warning_message">By activating this, personal data will be sent to the OpenAI server.</string>
+    <string name="ai_openai_warning_confirm">Activate</string>
+    <string name="ai_api_key">API Key</string>
+    <string name="ai_api_endpoint">API Endpoint</string>
+    <string name="ai_api_model">Model</string>
+
+    <string-array name="version_1_10_changes">
+        <item>Buy me a coffee now links directly to the PayPal account (florescu@web.de)</item>
+        <item>Configurable download period for emails in settings (default 30 days)</item>
+        <item>Full email view keeps the original formatting and links are clickable</item>
+        <item>Settings: version, app info and version history combined into one entry</item>
+        <item>Contact photos shown in the recipient picker</item>
+        <item>Group chats: emails with multiple recipients are collected in one chat</item>
+        <item>New emails can be sent to multiple recipients (comma separated)</item>
+        <item>Replies in a group chat are sent to all members</item>
+    </string-array>
+    <string-array name="version_2_0_changes">
+        <item>New: AI now runs identically on the chat list and the chat detail — spam classification, custom tags (with sender/subject context) and summaries use one shared pipeline</item>
+        <item>New: AI provider choice — on-device (Gemma via LiteRT, fully local, no data leaves the phone) or OpenAI-compatible API (your own endpoint, key and model; email content is sent to that server)</item>
+        <item>New: \"Where are you?\" auto-reply is now sent encrypted (OpenPGP) like a normal email and shows up in your own chat with the lock icon</item>
+        <item>New: Spam classification menu in the full email view (top bar) — same menu as in the chat header</item>
+        <item>New: Chat list always shows the latest subject under the contact name (fixed for background-synced mail)</item>
+        <item>New: GPS fallback for the auto-reply — if no last known position exists, a fresh GPS/network fix is requested (up to ~20 s)</item>
+        <item>Updated: Help and help icons — detailed explanation of the on-device vs OpenAI AI providers and their limitations</item>
+        <item>Updated: Version 2.0 — target Android 15 (API 35), ready for Google Play release</item>
+    </string-array>
+    <string-array name="version_1_78_changes">
+        <item>New: Auto-reply to \"Where are you?\" — per contact, enabled in the recipient dialog (tap the chat header)</item>
+        <item>New: The auto-reply sends your current location as OpenStreetMap / Google Maps / Apple Maps links</item>
+        <item>New: Optional weather for the next 4 hours (open-meteo.com) can be included in the auto-reply</item>
+        <item>New: Location icon (bottom-left) and weather icon (bottom-right) on the contact photo in the chat list and chat header</item>
+        <item>New: \"Where are you?\" entry in the compose (+) menu inserts the question as text</item>
+        <item>Limitation: Only incoming emails are checked, and only the exact question phrases \"wo bist du\", \"wo bist ihr\", \"wo seid ihr\", \"where are you\" are recognized</item>
+        <item>Limitation: The location permission must be granted; the last known position is used, otherwise a fresh GPS/network fix is requested (up to ~20 s) — if no position can be determined, no reply is sent (logged)</item>
+        <item>Limitation: The reply is sent only once per message (deduplicated by message ID)</item>
+        <item>Privacy: Enabling the weather option requires a warning — your location (lat/lon) is sent to open-meteo.com to fetch the forecast</item>
+    </string-array>
+    <string-array name="version_1_77_changes">
+        <item>New: Real OpenPGP (RFC 4880) encryption via BouncyCastle, replacing the previous proprietary RSA/PEM scheme</item>
+        <item>New: Encrypted emails are now standard OpenPGP messages, interoperable with other OpenPGP tools</item>
+        <item>New: Automatic recipient key lookup by email address via keys.openpgp.org when sending</item>
+        <item>New: OpenPGP key generation in Settings (RSA-3072 signing key + encryption subkey)</item>
+        <item>New: QR / NFC key exchange now carries the OpenPGP public key</item>
+        <item>New: OpenPGP identity and peer keys are included in backup / restore</item>
+        <item>Security: The passphrase protecting your private key is now stored encrypted in the Android Keystore</item>
+        <item>Limitation: Automatic key lookup only works if the recipient has published their key on keys.openpgp.org</item>
+        <item>Limitation: Restoring your OpenPGP identity from a backup only works on the same device (the Keystore key is device-specific)</item>
+        <item>New: Attachments are now encrypted too (standard OpenPGP .gpg files; original file name restored on decrypt)</item>
+        <item>New: Toggle to enable/disable automatic key lookup on keys.openpgp.org (Settings → Encryption)</item>
+        <item>New: Publish your public key to keys.openpgp.org so others can find it by email (on demand)</item>
+        <item>Fix: Key generation errors are now shown in the dialog instead of failing silently; the key status updates immediately</item>
+        <item>New: Scan your contacts for encryption-capable addresses (adds found keys as peers automatically)</item>
+        <item>UI: Key Exchange entry renamed to "Key Exchange (without keys.openpgp.org)" and moved to the bottom of the Encryption section</item>
+        <item>UI: "Generate PGP Key" now shows which email address the key is created for</item>
+    </string-array>
+    <string-array name="version_1_76_changes">
+        <item>Fix: Inline CID images now display correctly (case-sensitive MIME type bug)</item>
+        <item>UI: Filter menu changed from bottom sheet to dropdown (top to bottom)</item>
+        <item>UI: New "Unread" filter for chats with unread messages</item>
+        <item>UI: Custom tags now count toward the filter badge</item>
+        <item>UI: Edit menu (overview) restructured with dividers and AI Summarize option</item>
+        <item>UI: AI Summarize in edit menu with battery warning dialog</item>
+        <item>UI: Chat detail edit menu restructured with dividers</item>
+        <item>UI: Pinch-to-zoom enabled in email detail view</item>
+        <item>UI: External images blocked by default in detail view (load via image icon)</item>
+        <item>Fix: "E-Mails erneuern" now fetches all emails (full re-sync)</item>
+        <item>Fix: No-reply icon position adjusted on avatar</item>
+        <item>Fix: Filter badge position adjusted</item>
+    </string-array>
+    <string-array name="version_1_75_changes">
+        <item>Security: Attachment encryption (AES-256-GCM + RSA key wrap, .enc files)</item>
+        <item>Security: Fingerprint (i) copies full fingerprint to clipboard</item>
+        <item>Security: Short fingerprint only shown, long via clipboard</item>
+        <item>Security: Peers dialog shows short fingerprint + (i) + verify button</item>
+        <item>Chat: Camera option in plus menu (compressed to 800px)</item>
+        <item>Chat: Attach contact as .vcf file</item>
+        <item>Chat: My location (3 map links: OSM, Google, Apple)</item>
+        <item>UI: Attachment icons show file suffix (JPG, TXT, PDF, etc.)</item>
+        <item>UI: Attachment file size shown on detail page</item>
+        <item>UI: Office/LibreOffice/programming file types supported for opening</item>
+        <item>UI: Filter badge shows count of active filters</item>
+        <item>UI: No-reply and lock icons at outer corners of avatar</item>
+        <item>Settings: Custom tag per chat (priority over AI tag)</item>
+        <item>Settings: Merge dialog with contact photo selection</item>
+        <item>Fix: AI reply uses correct message (subject + body + quote)</item>
+        <item>Fix: AI reply asks formal/informal tone before generating</item>
+        <item>Fix: Secure Connection email field editable, contact picker works</item>
+    </string-array>
+    <string-array name="version_1_74_changes">
+        <item>Security: Fingerprint-based verification replacing PIN (4-char code, bold display)</item>
+        <item>Security: Clear verification flow with side-by-side fingerprints and instructions</item>
+        <item>Security: Help icons on Secure Connection dialog and all tabs (QR, Scan, NFC, Email)</item>
+        <item>Security: Contact picker with person icon always visible in email tab</item>
+        <item>Security: (+) button always visible for adding email addresses</item>
+        <item>Security: Key generation without PIN (account selection only)</item>
+        <item>Security: QR code includes email address for auto-fill on scan</item>
+        <item>Security: Peer delete button in key management</item>
+        <item>Security: PGP key delete option with warning in Settings</item>
+        <item>UI: Internal compose screen for sending keys via email</item>
+        <item>UI: System-wide sharing (ACTION_SEND) opens MailChat compose</item>
+        <item>UI: Contact picker shows full contact list with photos</item>
+        <item>UI: Account colors expanded to 12 options (2 rows)</item>
+        <item>UI: Custom Tags moved to position 7 in Settings</item>
+        <item>Settings: OpenAI Context Size setting (default 100,000 tokens)</item>
+        <item>Fix: Decryption uses full body (not truncated) for MAILCHAT_ENC detection</item>
+        <item>Fix: Settings PGP status updates in real-time (no stale cache)</item>
+        <item>Fix: Key email uses selected sender account</item>
+    </string-array>
+    <string-array name="version_1_73_changes">
+        <item>Security: QR code scanner for PGP key exchange (camera-based, real-time)</item>
+        <item>Security: NFC phone-to-phone key exchange with foreground dispatch</item>
+        <item>Security: Email-based key exchange (send/paste MAILCHAT_PGP string)</item>
+        <item>Security: Detailed encryption help text with step-by-step setup guide</item>
+        <item>Phishing: AI-classified phishing now shows minimum 40% probability</item>
+        <item>Phishing: Improved header analysis (external images, return-path mismatch)</item>
+        <item>Phishing: English urgency and sensitive info phrases added</item>
+        <item>Phishing: Reply ban on chat when phishing detected (like no-reply emails)</item>
+        <item>Sync: Reset sync button to clear state and re-download all emails</item>
+        <item>Sync: Immediate sync triggered when download period is changed</item>
+        <item>Sync: Fixed period extension not triggering full re-fetch (legacy state)</item>
+        <item>UI: Help icons on all major sections (accounts, emails, contacts, backup, edit menus)</item>
+        <item>UI: Sender address hidden in recipient picker</item>
+        <item>UI: Recipient picker, assistant, and account edit dialogs have help icons</item>
+    </string-array>
+    <string-array name="version_1_72_changes">
+        <item>Security: PGP-compatible asymmetric encryption with AES-256 (RSA-4096)</item>
+        <item>Security: Key exchange via QR code, NFC, or email with PIN verification</item>
+        <item>Security: Lock icon on encrypted messages in chat</item>
+        <item>UI: Unified selection mode in chat and overview (long-press, checkboxes, edit menu)</item>
+        <item>UI: Batch actions: select all, invert, by direction, processed, spam category, AI summarize</item>
+        <item>UI: Swipe to select/deselect in selection mode (both views)</item>
+        <item>UI: Help icons (?) with context-specific help text throughout the app</item>
+        <item>Phishing: Probability always shown (min 40% for AI-classified), reworked scoring system</item>
+        <item>Phishing: Replies and attachments blocked for phishing emails</item>
+        <item>Fixed: AI auto-process now works on manual sync (missing DB ID bug)</item>
+    </string-array>
+    <string-array name="version_1_71_changes">
+        <item>AI: Spam/phishing detection with heuristic + AI classification on incoming emails</item>
+        <item>AI: Phishing probability percentage shown in filter sheet</item>
+        <item>AI: Tag moved from chat list to individual email in chat view</item>
+        <item>Chat list: Highest spam category tag (Phishing/Unwanted/Newsletter) shown per chat</item>
+        <item>Security: Images blocked by default for phishing/unwanted emails in detail view</item>
+        <item>Settings: Merged app name and version into single entry at bottom</item>
+    </string-array>
+    <string-array name="version_1_70_changes">
+        <item>AI: Migrated to Google LiteRT-LM engine with GPU acceleration</item>
+        <item>AI: Faster on-device inference with new LiteRT-LM runtime</item>
+    </string-array>
+    <string-array name="version_1_69_changes">
+        <item>Fixed SMTP fallback bug: no more default to Gmail on fresh install, uses account SMTP settings</item>
+        <item>GMX provider defaults updated: imap.gmx.net:993, mail.gmx.net:465</item>
+        <item>Config import button shown on welcome screen (no accounts)</item>
+        <item>Connection test now also tests SMTP if host is configured</item>
+    </string-array>
+    <string-array name="version_1_68_changes">
+        <item>Embedded CID images now auto-loaded when HTML contains cid: references with matching attachments</item>
+    </string-array>
+    <string-array name="version_1_67_changes">
+        <item>Group chat: explicit "Group chat" toggle in new email dialog with custom group name field</item>
+        <item>Group name replaces auto-generated participant names in chat list</item>
+        <item>Long-press on group chat in list to rename</item>
+    </string-array>
+    <string-array name="version_1_66_changes">
+        <item>Config export: user can now choose save location via system file picker</item>
+        <item>Minimum password length increased to 12 characters</item>
+    </string-array>
+    <string-array name="version_1_65_changes">
+        <item>New: Backup/Restore in Settings - export encrypted config with all accounts (incl. passwords) and settings</item>
+        <item>Import config to restore after fresh install</item>
+        <item>AES-256-GCM encryption with PBKDF2 key derivation</item>
+    </string-array>
+    <string-array name="version_1_64_changes">
+        <item>Fixed opening attachments: MIME type now detected from file content when stored as application/octet-stream</item>
+        <item>Correct file extension (.jpg) added to temp files instead of underscore format</item>
+    </string-array>
+    <string-array name="version_1_63_changes">
+        <item>Fixed SMTP SSL configuration: port 465 now uses proper SSLSocketFactory, port 587 uses STARTTLS</item>
+        <item>Should resolve "534 Authentication credentials invalid" error with GMX and other providers</item>
+    </string-array>
+    <string-array name="version_1_62_changes">
+        <item>Removed "Open chat" button from Help screen</item>
+    </string-array>
+    <string-array name="version_1_61_changes">
+        <item>Contact picker: all three pickers (new email, forward, group members) now show full contact list with photos</item>
+        <item>Removed 20-contact limit from new email dialog</item>
+    </string-array>
+    <string-array name="version_1_60_changes">
+        <item>Fixed opening image attachments: ensures correct file extension is present so external apps can identify the file type</item>
+        <item>Shows app chooser when opening attachments</item>
+    </string-array>
+    <string-array name="version_1_59_changes">
+        <item>Removed print button from detail view (use Share to print instead)</item>
+    </string-array>
+    <string-array name="version_1_58_changes">
+        <item>Share HTML email: now builds a complete HTML document (html/head/body) so receiving apps detect and render HTML correctly</item>
+        <item>Strips existing DOCTYPE/html/head/body wrappers from original email to avoid nested HTML</item>
+    </string-array>
+    <string-array name="version_1_57_changes">
+        <item>IMAP Push: new foreground service maintains persistent IMAP IDLE connection for instant new-mail detection</item>
+        <item>Toggle in Settings - Email to enable/disable push</item>
+        <item>Notification with stop action shown while push is active</item>
+        <item>Auto-reconnect with exponential backoff on connection loss</item>
+    </string-array>
+    <string-array name="version_1_56_changes">
+        <item>Share HTML email: MIME type set to text/html so receiving apps render HTML correctly</item>
+        <item>Headers formatted as HTML paragraphs when sharing HTML emails</item>
+    </string-array>
+    <string-array name="version_1_55_changes">
+        <item>Share HTML email fixed: header lines (Betreff/Von/An/Datum) are wrapped in HTML comments so the following HTML body is detected correctly</item>
+    </string-array>
+    <string-array name="version_1_54_changes">
+        <item>Share HTML email: first 4 lines of body are wrapped in HTML comment markers to preserve HTML detection</item>
+    </string-array>
+    <string-array name="version_1_53_changes">
+        <item>Print fixed: walk up ContextWrapper chain to find real Activity (fixes "can only print from an activity")</item>
+        <item>WebView and PrintManager now created from the actual Activity context</item>
+    </string-array>
+    <string-array name="version_1_52_changes">
+        <item>Print rewritten: explicit measure/layout before printing for reliable print dialog</item>
+        <item>Toast messages shown when print fails or no print service is available</item>
+    </string-array>
+    <string-array name="version_1_51_changes">
+        <item>Forward: chat is now unhidden when forwarding to a hidden contact</item>
+        <item>Forward: subject now stored as lastMessageSubject so forwarded chats show in list correctly</item>
+    </string-array>
+    <string-array name="version_1_50_changes">
+        <item>Print fixed: print WebView now waits for layout before generating PDF</item>
+        <item>Print output includes email headers (Subject, From, To, Date)</item>
+        <item>Plain text emails preserved with line breaks when rendered in detail view</item>
+    </string-array>
+    <string-array name="version_1_49_changes">
+        <item>Forward: custom text now appears at the top of the forwarded email</item>
+        <item>Forward: forwarded email is stored in a chat with the recipient (was placed in original sender chat)</item>
+    </string-array>
+    <string-array name="version_1_48_changes">
+        <item>Plain text emails: text selection now works (wrapped in SelectionContainer)</item>
+    </string-array>
+    <string-array name="version_1_47_changes">
+        <item>Detail view: WebView now scrolls independently - long press text selection works correctly</item>
+        <item>Added CSS rules to ensure all HTML content is selectable</item>
+    </string-array>
+    <string-array name="version_1_46_changes">
+        <item>Removed double-tap gesture from detail page (was blocking long press for text selection)</item>
+    </string-array>
+    <string-array name="version_1_45_changes">
+        <item>WebView text selection fixed (long press to select and copy text now works)</item>
+    </string-array>
+    <string-array name="version_1_44_changes">
+        <item>Removed Prev/Next arrow buttons from TopBar</item>
+        <item>WebView text selection restored (long press to select and copy text)</item>
+    </string-array>
+    <string-array name="version_1_43_changes">
+        <item>Detail view: Prev/Next buttons added to TopBar for navigating between emails</item>
+        <item>Swipe gesture removed (incompatible with WebView text selection and vertical scroll)</item>
+    </string-array>
+    <string-array name="version_1_42_changes">
+        <item>Forward: contact name now shown in "An:" line instead of email address</item>
+    </string-array>
+    <string-array name="version_1_41_changes">
+        <item>Detail view: swipe left/right to navigate between emails (only horizontal swipes detected, vertical scroll works normally)</item>
+        <item>Detail view: text selection and copy restored in WebView (long press to select)</item>
+        <item>Help: added "Background sync" section with instructions for battery optimization</item>
+    </string-array>
+    <string-array name="version_1_40_changes">
+        <item>Background sync: added BootReceiver to schedule sync after device reboot</item>
+        <item>Immediate sync on app start to fetch new emails right away</item>
+        <item>Added RECEIVE_BOOT_COMPLETED, FOREGROUND_SERVICE, WAKE_LOCK permissions</item>
+    </string-array>
+    <string-array name="version_1_39_changes">
+        <item>Compose updated to 1.7.x – swipe left/right to navigate between emails in detail view</item>
+        <item>Forward dialog: added text field to write a custom message</item>
+        <item>Forwarded email now shows "An: &lt;recipient&gt;" in the body</item>
+    </string-array>
+    <string-array name="version_1_38_changes">
+        <item>Detail view: text can now be selected and copied (long press to select)</item>
+        <item>Detail view: prev/next buttons to navigate between chat emails</item>
+        <item>Detail view: "Chat" button opens reply with quoted email</item>
+        <item>Detail view: "Forward" opens dialog to choose recipient from contacts</item>
+        <item>Printing fixed (WebView now properly attached for print)</item>
+        <item>Group chat: all contacts now available for adding members</item>
+    </string-array>
+    <string-array name="version_1_37_changes">
+        <item>Fixed: embedded images (cid:) in deeply nested emails (e.g. Deutsche Post) now display correctly</item>
+        <item>Attachment detection now recurses through all nesting levels of the email structure</item>
+        <item>Image reference (cid:) matching is now case-insensitive and handles both "cid:ID" and "cid:&lt;ID&gt;" forms</item>
+    </string-array>
+    <string-array name="version_1_36_changes">
+        <item>Group chats: members can now be added and removed (tap the chat header)</item>
+        <item>The chat header is now tappable for all chats – select the receiving address for replies (e.g. in merged chats with several senders)</item>
+        <item>The selected recipient is shown in the chat header ("Reply to: …")</item>
+    </string-array>
+    <string-array name="version_1_35_changes">
+        <item>"Add IMAP account": new provider helper – select a provider (Gmail, Outlook, Web.de, GMX, T-Online, Freenet, Yahoo) to auto-fill IMAP/SMTP hosts and ports (email, username and password stay empty)</item>
+        <item>Password field: added a hint about using an app password for two-factor authentication</item>
+    </string-array>
+    <string-array name="version_1_34_changes">
+        <item>New email: recipients are now selected as chips – tap contacts to add them, tap a chip to remove it (no more comma typing)</item>
+        <item>Group chats are now clearly visible: a group avatar (people icon) and the member count are shown in the chat list and chat header</item>
+        <item>Tap the group chat header to see the list of all members</item>
+    </string-array>
+    <string-array name="version_1_33_changes">
+        <item>When the AI feature is switched off in Settings, the AI summary/reply buttons are no longer shown or usable</item>
+        <item>Settings: the AI model is now labeled with "(local)"</item>
+    </string-array>
+    <string-array name="version_1_32_changes">
+        <item>Fixed: known contacts are now reliably shown with photo and name in the chat header</item>
+        <item>Settings: the "Contacts" section is now called "General"</item>
+        <item>Help updated (EN/DE): contact photo and name, AI reply, two-pane view, embedded images</item>
+    </string-array>
+    <string-array name="version_1_31_changes">
+        <item>Swipe actions in chat and chat list: the action icons are now revealed earlier while swiping</item>
+        <item>"AI reply" next to the subject field now asks for formal or personal tone and uses the existing text in the reply field as a starting point</item>
+        <item>The message menu (long press) now closes when tapping outside or pressing back</item>
+    </string-array>
+    <string-array name="version_1_30_changes">
+        <item>Chat header: the avatar circle now uses the account color instead of a fixed color</item>
+        <item>If the sender is a known contact, the contact photo and name are shown in the chat header</item>
+    </string-array>
+    <string-array name="version_1_29_changes">
+        <item>AI summary now also checks the email for spam or scam/fraud and labels it with a "Spam" badge in the chat bubble</item>
+    </string-array>
+    <string-array name="version_1_28_changes">
+        <item>Reply field: small "x" button to clear the field content</item>
+        <item>AI reply: a progress circle is shown while the AI is working (also when the field already contains text)</item>
+        <item>The "AI reply" button stays locked until the first AI reply is finished</item>
+    </string-array>
+    <string-array name="version_1_27_changes">
+        <item>Message menu (long press): normal text size instead of large</item>
+        <item>New menu item "AI summary": summarizes this email (always, even if short or already summarized)</item>
+        <item>New menu item "AI reply": writes a reply to this email with a fitting subject – choose formal (you) or personal (you); existing draft text is used as a starting point</item>
+    </string-array>
+    <string-array name="version_1_26_changes">
+        <item>AI summary in chat: emails that are already summarized or have only 5 lines or fewer are no longer summarized</item>
+    </string-array>
+    <string-array name="version_1_25_changes">
+        <item>Chat bubbles show plain text (5 lines) plus the first attached image again – embedded HTML images are no longer shown in the bubble</item>
+        <item>Embedded images (e.g. from Deutsche Post) are now displayed on the email detail page – via the "Load images" button</item>
+    </string-array>
+    <string-array name="version_1_24_changes">
+        <item>Embedded images in emails (e.g. from Deutsche Post) are now displayed in the chat bubble</item>
+        <item>HTML email content with images is rendered with a proper layout instead of plain text</item>
+    </string-array>
+    <string-array name="version_1_23_changes">
+        <item>Two-pane layout: in landscape mode and on tablets the chat list is shown on the left and the selected chat on the right</item>
+    </string-array>
+    <string-array name="version_1_22_1_changes">
+        <item>"Upload media": attachment filenames with special characters (e.g. ":") are now cleaned up – images can no longer become unopenable</item>
+        <item>Existing attachments with broken file paths are repaired automatically on app start</item>
+    </string-array>
+    <string-array name="version_1_22_changes">
+        <item>"Upload media": files such as PDFs and documents can now be attached, not only images</item>
+        <item>Replies no longer quote the original email automatically – enable via "+" menu → "Include quote"</item>
+        <item>Chat bubbles: text is shown below images instead of on top of them</item>
+        <item>Internal cleanup: AI setup centralized, duplicate delete logic removed, many messages translated (EN/DE)</item>
+    </string-array>
+    <string-array name="version_1_21_changes">
+        <item>Faster sync: emails are now fetched incrementally by IMAP UID instead of re-downloading the whole period every time</item>
+        <item>"Renew emails" resets the sync position and re-downloads everything as before</item>
+        <item>Performance: contact lookup uses one cached query instead of scanning all contacts on every update</item>
+        <item>Performance: chat list counts, unread marking, attachment loading and search filtering are now single queries</item>
+        <item>New database index for faster duplicate detection during sync</item>
+    </string-array>
+    <string-array name="version_1_20_changes">
+        <item>New: replies now use "Re:" subject and In-Reply-To/References headers so emails thread correctly</item>
+        <item>New: quoted original text is appended to replies (toggle via "+" menu → "Include quote")</item>
+        <item>New: drafts – typed text and subject are saved automatically and restored when you reopen the chat</item>
+    </string-array>
+    <string-array name="version_1_19_changes">
+        <item>Security: account passwords and AI API key are now stored encrypted (Android Keystore)</item>
+        <item>Sync errors are no longer silent: failed folders or accounts are reported in the app and via notification</item>
+        <item>Background sync retries with exponential backoff when all accounts fail</item>
+        <item>Connection test now reports folder-level problems</item>
+    </string-array>
+    <string-array name="version_1_18_changes">
+        <item>New: message actions – long-press a bubble to mark it processed (green check) or to-do (red flag), or delete it</item>
+        <item>New: filter buttons in chat list – red flag shows chats with to-do messages, green check shows chats with processed messages</item>
+        <item>Marked messages show a check or flag icon next to the timestamp</item>
+        <item>New: attach emails from the chat to a new message (email icon in the compose bar, multi-select)</item>
+        <item>New: "Chat" button in full email view – copy the email content into the compose field</item>
+        <item>"Renew emails" now shows a spinner and status text while re-loading</item>
+        <item>Fix: emails with nested attachments (e.g. Deutsche Post) are no longer shown empty</item>
+        <item>AI summary: always visible, processes all messages and reports the result as toast</item>
+        <item>New: swipe left on a chat or message to delete it (with confirmation)</item>
+        <item>New: swipe right on a chat to toggle important; in a chat it cycles red flag, green check and off</item>
+        <item>Revised reply area: image upload, AI reply and email attachment combined in one dropdown next to the subject</item>
+    </string-array>
+    <string-array name="version_1_17_changes">
+        <item>New: OpenAI API support – connect your own AI endpoint (configurable model, key, URL)</item>
+        <item>New: AI button in chat – summarizes all emails to 5 lines (original stays in detail view)</item>
+        <item>New: subject dropdown in compose – pick from chat subjects or type your own</item>
+        <item>New: voice messages – record and attach audio to your replies</item>
+        <item>New: attachment delete button – remove all attachments at once</item>
+        <item>AI reply suggestions now respect your language setting (DE/EN/System)</item>
+        <item>AI reply suggestions include the subject line for better context</item>
+        <item>Multi-line signature support</item>
+        <item>Spinning refresh indicator in chat list</item>
+        <item>Sender email shown on outgoing messages</item>
+        <item>Re-fetch button for empty messages</item>
+        <item>AI log viewer in settings (copy/clear)</item>
+        <item>New: star filter in chat list – tap the star to show only favorites and important chats</item>
+        <item>New: "Contact Developer" opens a chat with the developer directly in the app</item>
+        <item>OpenAI API: privacy warning dialog when activating (personal data is sent to external server)</item>
+        <item>SMTP: selected provider (GMX, Gmail, etc.) is now correctly used for sending</item>
+        <item>AI buttons hidden when AI is disabled in settings</item>
+        <item>Already summarized emails are not processed again</item>
+        <item>Spinner shown in the specific message bubble during summarization</item>
+    </string-array>
+    <string-array name="version_1_16_changes">
+        <item>New: on-device AI (Gemma 4) – emails are summarized to 5 lines and translated to your language</item>
+        <item>New: AI spam detection – spam emails are marked with a red "Spam" chip</item>
+        <item>New: smart compose – AI suggests a reply based on the conversation and your previous words</item>
+        <item>Compose field is now larger (8 lines) for better overview</item>
+        <item>AI settings: toggle on/off (off by default), model selection (Gemma 4 E2B / E4B), explicit download button</item>
+        <item>AI is off by default – enabling shows a battery warning</item>
+    </string-array>
+    <string-array name="version_1_15_changes">
+        <item>Chat list shows the subject after ":" in larger font instead of the message body</item>
+        <item>Relative dates now include the time (e.g. "Yesterday 14:30")</item>
+        <item>WebView in full email view resizes dynamically when images load</item>
+        <item>Attachments without a known type are now opened by detecting the file format</item>
+        <item>New: mark chats as "Important" (yellow star) – visible in Settings → Hidden chats</item>
+        <item>Favorites show a red star in the chat list</item>
+        <item>Each account can have a color (6 choices) to visually identify the source</item>
+        <item>Back gesture in selection mode now closes the selection</item>
+        <item>Selection mode title changed to "Edit"</item>
+        <item>New: signature field in settings (default "Sent by MailChat") appended to outgoing emails</item>
+    </string-array>
+    <string-array name="version_1_14_changes">
+        <item>Select which IMAP folders to sync per account (folder picker in account settings)</item>
+        <item>Sent / Gesendet folder is synced for outgoing messages</item>
+        <item>New: "Renew emails" per account – deletes and re-reads all emails from the server</item>
+        <item>Chat list now shows "Yesterday" and "Day before" instead of "2 d" / "3 d"</item>
+        <item>PayPal entry now shows the email address (florescu@web.de)</item>
+    </string-array>
+    <string-array name="version_1_13_changes">
+        <item>Remote images and CSS formatting now render correctly in the full email view (WebView)</item>
+        <item>Attachments can be opened by tapping them (images, PDFs, etc.)</item>
+        <item>Deleting a message or chat also removes it from the IMAP server</item>
+        <item>Fixed duplicate emails with empty Message-ID (e.g. from Deutsche Post)</item>
+        <item>New: automatic background sync (every 15 min, 30 min, or 1 hour)</item>
+    </string-array>
+    <string-array name="version_1_12_changes">
+        <item>Remote images can be loaded on demand in the full email view</item>
+        <item>Line breaks are preserved in the full email view for better formatting</item>
+        <item>Fixed the download period so all emails within the period are fetched</item>
+    </string-array>
+    <string-array name="version_1_11_changes">
+        <item>Links in the full email view are now clickable</item>
+        <item>Version history is now translated to German</item>
+        <item>Fixed the download period so it controls which emails are fetched</item>
+        <item>Open the contacts app from settings to edit your contacts</item>
+        <item>Pressing back closes the search field</item>
+    </string-array>
+    <string-array name="version_1_9_changes">
+        <item>Buy me a coffee now opens PayPal (app or website) instead of the email app</item>
+        <item>Hidden chats moved to their own screen (Settings → Hidden chats)</item>
+        <item>Delete a single chat bubble by long-pressing it</item>
+        <item>Delete chats via multi-selection (with confirmation)</item>
+        <item>Status bar notification for incoming emails (tap to open the chat)</item>
+        <item>Search in the chat list and inside individual chats</item>
+        <item>Contact photos shown in the chat list</item>
+        <item>Total / unread message count per chat (e.g. 7/2)</item>
+        <item>New app icon: red M in a speech bubble</item>
+        <item>Full email view is now full screen with complete header (from, to, date)</item>
+        <item>Full email view keeps HTML formatting and clickable links</item>
+        <item>Help updated with notes on contacts and notification permissions</item>
+    </string-array>
+    <string-array name="version_1_8_changes">
+        <item>Dark mode toggle in settings (System / Light / Dark)</item>
+        <item>Sent emails are now fetched and shown in the chats</item>
+        <item>Own email address shown when composing a new email</item>
+        <item>Buy me a coffee (PayPal) in settings</item>
+        <item>Removed the pen icon from the chat header</item>
+        <item>Hide chats (single or via multi-selection)</item>
+        <item>Hidden chats can be listed and restored in settings</item>
+        <item>Fixed duplicate display of sent replies</item>
+        <item>Configurable max email size with warning before sending (default 5 MB)</item>
+        <item>Attachments are sent with their file extension</item>
+        <item>Favorites (max 5) via multi-selection, always shown at the top</item>
+    </string-array>
+    <string-array name="version_1_7_changes">
+        <item>No-reply senders (noreply, no-reply, keine-antwort, …) no longer show a reply field</item>
+        <item>The + button now composes a new email instead of adding an account</item>
+        <item>Renamed to a dialog-based email client</item>
+        <item>Fixed bubble alignment: own messages now appear on the right</item>
+    </string-array>
+    <string-array name="version_1_6_1_changes">
+        <item>Fixed IMAP sync not starting on app launch</item>
+        <item>Removed CSS / style blocks from email text</item>
+        <item>Cleaned up object placeholder characters in text</item>
+    </string-array>
+    <string-array name="version_1_6_changes">
+        <item>Fixed account deletion</item>
+        <item>Edit account details (incl. SMTP)</item>
+        <item>Email content shown as plain text (no HTML tags)</item>
+        <item>Full email address shown as the name everywhere</item>
+        <item>Add / manage accounts from the settings page</item>
+        <item>In-app language switch (System / German / English)</item>
+        <item>Removed empty lines and invisible characters in bubbles</item>
+    </string-array>
+    <string-array name="version_1_5_changes">
+        <item>Existing info / no-reply chats now show the full email address</item>
+    </string-array>
+    <string-array name="version_1_4_changes">
+        <item>Compose and send emails from a chat</item>
+        <item>New email with contact picker</item>
+        <item>Contact photos in the chat header</item>
+        <item>Attach images when sending</item>
+        <item>Merge chats by selecting senders</item>
+    </string-array>
+    <string-array name="version_1_3_changes">
+        <item>Bilingual interface (German / English)</item>
+        <item>Dark mode (follows system setting)</item>
+        <item>Delete accounts</item>
+        <item>Remove empty lines in chat bubbles</item>
+        <item>Info / no-reply senders show full email address</item>
+        <item>Tap a bubble to view the full email</item>
+    </string-array>
+    <string-array name="version_1_2_changes">
+        <item>Show real app version in settings</item>
+        <item>Stabilized IMAP sync and connection handling</item>
+    </string-array>
+    <string-array name="version_1_1_changes">
+        <item>Fixed crashes when testing and saving accounts</item>
+        <item>Fixed IMAP message parsing</item>
+    </string-array>
+    <string-array name="version_1_0_changes">
+        <item>Initial release</item>
+        <item>Messenger-style chat bubbles for emails</item>
+        <item>Multiple IMAP accounts</item>
+        <item>Attachments and background images</item>
+    </string-array>
+    <string name="select_contact">Select contact</string>
+    <string name="mark_important">Mark as important</string>
+    <string name="hide_quote">Hide quote</string>
+    <string name="show_quote">Show quote</string>
+    <string name="show_raw_source">Show source</string>
+    <string name="block_images">Block images</string>
+    <string name="print_email">Print</string>
+    <string name="mark_open">Mark as open</string>
+    <string name="mark_done">Mark as done</string>
+    <string name="more_options">More options</string>
+    <string name="images_blocked_hint">External images blocked - load via the image icon at top</string>
+    <string name="raw_source_title">Source</string>
+    <string name="copy">Copy</string>
+    <string name="secure_connection">Secure Connection</string>
+    <string name="secure_connected">Secure connection established</string>
+    <string name="secure_no_key">No PGP key generated yet. Generate one in Settings.</string>
+    <string name="secure_fingerprint">Fingerprint: %1$s</string>
+    <string name="secure_tab_qr">QR Code</string>
+    <string name="secure_tab_nfc">NFC</string>
+    <string name="secure_qr_desc">Your public key QR code</string>
+    <string name="secure_qr_hint">Have the recipient scan this QR code to exchange keys</string>
+    <string name="secure_qr_unavailable">QR code could not be generated (key too large for a QR code). Use the Email or NFC tab to exchange keys instead.</string>
+    <string name="nfc_phone_to_phone">Phone-to-Phone Exchange</string>
+    <string name="nfc_exchange_title">NFC Key Exchange</string>
+    <string name="nfc_exchange_instructions">Open this screen on both phones and hold them together (back to back). Each phone will read the other\'s public key.</string>
+    <string name="nfc_my_info">Your Key</string>
+    <string name="nfc_fingerprint">Fingerprint: %1$s</string>
+    <string name="nfc_waiting">Waiting for NFC tap…</string>
+    <string name="nfc_key_received">Key received and verified</string>
+    <string name="nfc_exchange_success">Key Received</string>
+    <string name="nfc_auto_verified">Auto-verified (both phones present)</string>
+    <string name="nfc_exchange_other_direction">Now have the other phone tap yours to send them your key.</string>
+    <string name="secure_nfc_hint">Hold your phone near the recipient\'s phone to exchange keys via NFC</string>
+    <string name="secure_nfc_ready">NFC ready - tap to exchange</string>
+    <string name="secure_nfc_unavailable">NFC is not available on this device</string>
+    <string name="secure_pin_label">Enter your PIN to verify</string>
+    <string name="secure_pin_verify">Verify</string>
+    <string name="secure_pin_wrong">Wrong PIN</string>
+    <string name="secure_generate_key">Generate PGP Key</string>
+    <string name="secure_generate_key_for">for %1$s</string>
+    <string name="secure_key_generated">PGP key generated</string>
+    <string name="secure_key_generated_for">PGP key generated for %1$s</string>
+    <string name="secure_pin_set">Set PIN (4-6 digits)</string>
+    <string name="secure_pin_confirm">Confirm PIN</string>
+    <string name="secure_pin_mismatch">PINs do not match</string>
+    <string name="secure_encrypted">Encrypted</string>
+    <string name="secure_settings_title">Encryption</string>
+    <string name="secure_nfc_setting">NFC Key Exchange</string>
+    <string name="secure_qr_setting">QR Code Key Exchange</string>
+    <string name="help_secure_text">MailChat uses standard OpenPGP (RFC 4880) encryption via BouncyCastle. Setup: 1) Generate your OpenPGP key in Settings (select your account). 2) When you send, MailChat automatically looks up the recipient\'s public key by email address on keys.openpgp.org (you can turn this off in Settings → Encryption). If it isn\'t published, exchange keys via QR code (show/scan), NFC (hold phones together), or email (send/paste the MAILCHAT_OG string). You can also publish your own public key to keys.openpgp.org (Settings → Encryption) so others can find it by your email address. 3) Once a key is available, a short fingerprint appears. Call the recipient and compare: tell them yours, ask for theirs. Tapping (i) copies the full fingerprint to clipboard. Security note: The short fingerprint (first 4 chars) is a human-friendly comparison aid, not a cryptographic mechanism — the real security comes from comparing the full fingerprint. Once a key is available, the message body and attachments are encrypted end-to-end. Contacts with an OpenPGP key show a green lock on their photo, contacts with the legacy MailChat key show a blue lock. The private key never leaves your device, and its passphrase is stored encrypted in the Android Keystore. Limitations: automatic key lookup only works if the recipient has published their key on keys.openpgp.org; restoring your identity from a backup only works on the same device (the Keystore key is device-specific).</string>
+    <string name="help_selection_title">Selection Mode</string>
+    <string name="help_selection_text">Long-press a message or chat to enter selection mode. Use the edit menu (top right) for batch actions: select all, invert, select by direction, mark as processed, set spam category, AI summarize, and more. Swipe right-to-left to deselect, left-to-right to select. The edit menu stays open until you exit selection mode.</string>
+    <string name="help_filter_menu_title">Filter Menu</string>
+    <string name="help_filter_menu_text">Tap the filter icon (top right) to open the filter dropdown. Toggle filters for favorites, unread, processed, todo, hidden, phishing, unwanted, newsletter, and custom tags. The badge shows the total number of active filters including custom tags.</string>
+    <string name="help_unread_filter_title">Unread Filter</string>
+    <string name="help_unread_filter_text">The "Unread" filter shows only chats that have unread messages. Enable it from the filter dropdown menu.</string>
+    <string name="help_pinch_zoom_title">Pinch-to-Zoom</string>
+    <string name="help_pinch_zoom_text">In the email detail view, use two fingers to pinch and zoom in/out on the content. This is useful for reading small text or examining images closely.</string>
+    <string name="help_ai_summarize_menu_title">AI Summarize (Edit Menu)</string>
+    <string name="help_ai_summarize_menu_text">Select one or more chats, then use Edit → AI Summarize to generate summaries, categorize spam, and assign custom tags to all messages in the selected chats. Note: This takes approx. 30 seconds per email and may drain the battery.</string>
+    <string name="help_backup_title">Backup &amp; Restore</string>
+    <string name="help_backup_text">Export all your data (accounts, chats, messages, settings) to a password-protected file. Import a backup to restore on a new device. The backup includes all local data but not server-side emails.</string>
+    <string name="help_recipient_title">Select Recipient</string>
+    <string name="help_recipient_text">Choose who to reply to in a group chat. Your own address is hidden. Select "Send to all" to reply to everyone, or pick a specific person.\n\nAuto-reply \"Where are you?\" (1:1 chats only): when enabled, the app automatically replies to this contact with your current location when they ask \"Where are you?\" (recognized: \"wo bist du\", \"wo bist ihr\", \"wo seid ihr\", \"where are you\"). Notes and limitations: only incoming emails are checked; the location permission must be granted; the last known position is used, and if none is available a fresh GPS/network fix is requested (up to ~20 s, otherwise the reply is skipped and logged); the reply is sent only once per message; if the weather option is enabled, your location is sent to open-meteo.com to fetch the forecast for the next 4 hours.</string>
+    <string name="help_assistant_title">Chat with Your Data</string>
+    <string name="help_assistant_text">Ask questions about your emails in natural language. The AI analyzes your local message data and provides answers, summaries, and insights. No data leaves your device unless AI is enabled. Note: The AI can only consider emails that fit within the configured context size (Settings → AI → Context Size, default 100,000 tokens). With small local models or low context sizes, not all emails may be included in the analysis. Increase the context size for more comprehensive results.</string>
+    <string name="help_accounts_title">Accounts</string>
+    <string name="help_accounts_text">Manage your IMAP/SMTP email accounts. Add, edit, or remove accounts. Each account syncs incoming emails and can be used for sending.</string>
+    <string name="help_account_edit_title">Edit Account</string>
+    <string name="help_account_edit_text">Configure IMAP (receive) and SMTP (send) settings for this account. Host, port, encryption, and credentials. Test the connection before saving.</string>
+    <string name="secure_tab_scan">Scan</string>
+    <string name="secure_scan_hint">Point your camera at the other person\'s QR code to import their public key</string>
+    <string name="secure_scan_button">Scan QR Code</string>
+    <string name="secure_peer_imported">Public key imported successfully</string>
+    <string name="secure_qr_invalid">Invalid QR code - not a MailChat PGP key</string>
+    <string name="secure_qr_decode_error">Could not decode QR code. Try again with better lighting.</string>
+    <string name="secure_camera_permission">Camera permission required for QR scanning</string>
+    <string name="reset_sync">Reset Sync</string>
+    <string name="reset_sync_desc">Clears sync state and re-downloads all emails in the period</string>
+    <string name="secure_tab_email">Email</string>
+    <string name="secure_email_hint">Exchange keys via email. Send your key to the recipient or paste their key below.</string>
+    <string name="secure_email_send">Send Key via Email</string>
+    <string name="secure_email_paste_hint">Paste the MAILCHAT_PGP:... string from the received email:</string>
+    <string name="secure_email_paste_label">Paste key here</string>
+    <string name="secure_email_import">Import Key</string>
+    <string name="secure_nfc_instructions">Hold your phone near the other person\'s phone. Both phones must have MailChat open with the Secure Connection dialog active. The keys will be exchanged automatically via NFC.</string>
+    <string name="secure_exchange_setting">Key Exchange (without keys.openpgp.org)</string>
+    <string name="secure_exchange_hint">Exchange keys directly via QR code, NFC, or email — no key server involved</string>
+    <string name="secure_peers_title">Encryption-capable addresses</string>
+    <string name="secure_peer_verified">Verified (PIN confirmed)</string>
+    <string name="secure_peer_unverified">Not verified yet</string>
+    <string name="secure_encrypted_send">Encrypted</string>
+    <string name="secure_encrypted_receive">Encrypted message</string>
+    <string name="secure_decrypt_error">Could not decrypt message. Wrong PIN or missing key.</string>
+    <string name="secure_no_peers">No encryption-capable addresses yet. Exchange keys via the Key Exchange option.</string>
+    <string name="secure_scan_contacts">Scan contacts for encryption-capable addresses</string>
+    <string name="secure_scan_in_progress">Scanning contacts…</string>
+    <string name="secure_scan_result">Found %1$d encryption-capable contact(s) and added them</string>
+    <string name="ai_context_size">Context Size (tokens)</string>
+    <string name="secure_select_account">Select Account</string>
+    <string name="secure_peer_delete">Delete</string>
+    <string name="secure_peer_email">Contact Email Address</string>
+    <string name="secure_peer_own_address">Cannot add your own address</string>
+    <string name="secure_verified_success">Public key of %1$s verified</string>
+    <string name="secure_verified_hint">The recipient still needs to share their public key with you for encrypted communication in both directions.</string>
+    <string name="secure_close">Close</string>
+    <string name="secure_delete_key">Delete PGP Key</string>
+    <string name="secure_delete_key_hint">Delete your private key (e.g. in case of compromise)</string>
+    <string name="secure_delete_key_warning">Warning: Your public key will need to be shared again with all contacts. Encrypted messages sent to you after deletion cannot be decrypted.</string>
+    <string name="secure_delete_key_confirm">Delete Key</string>
+    <string name="secure_auto_lookup">Automatic key lookup</string>
+    <string name="secure_auto_lookup_hint">Look up the recipient\'s public key on keys.openpgp.org when sending</string>
+    <string name="secure_writeback_title">Decrypted copy in Sent</string>
+    <string name="secure_writeback_hint">After sending, replace the encrypted email in the Sent folder with the decrypted version, so you can read it with all your email clients. The recipient still receives the encrypted version.</string>
+    <string name="secure_writeback_inbox_title">Decrypted copy in Inbox</string>
+    <string name="secure_writeback_inbox_hint">When an encrypted email arrives, replace it in the Inbox with the decrypted version (same thread, same date). The original encrypted message is removed from the Inbox. Off by default.</string>
+    <string name="secure_writeback_button">Save decrypted in Sent</string>
+    <string name="secure_writeback_success">Decrypted version saved in Sent</string>
+    <string name="secure_writeback_failed">Could not replace the message in Sent (not found yet or not PGP-encrypted)</string>
+    <string name="secure_publish_key">Publish key to keys.openpgp.org</string>
+    <string name="secure_publish_key_hint">Make your public key findable by your email address</string>
+    <string name="secure_publish_key_warning">This uploads your PUBLIC key (not your private key) to keys.openpgp.org, so other people can find it by your email address. Your private key never leaves your device.</string>
+    <string name="secure_publish_key_confirm">Publish</string>
+    <string name="secure_publish_key_success">Public key published to keys.openpgp.org. A verification email was sent to the address in your key – please click the link in it so the key becomes findable by email.</string>
+    <string name="secure_publish_key_uploaded">Public key uploaded to keys.openpgp.org, but the verification email could not be sent. Please try again.</string>
+    <string name="secure_publish_key_failed">Could not publish key. Check your connection and try again.</string>
+    <string name="key_delete_title">Delete key from keys.openpgp.org</string>
+    <string name="key_delete_hint">Remove your public key from the keys.openpgp.org directory</string>
+    <string name="key_delete_warning">This removes your PUBLIC key from the keys.openpgp.org directory. People will no longer be able to find your key by your email address. Your private key on this device is NOT affected.</string>
+    <string name="key_delete_confirm">Delete</string>
+    <string name="key_delete_success">Your public key was deleted from keys.openpgp.org.</string>
+    <string name="key_delete_failed">Could not delete key from keys.openpgp.org. Check your connection and try again.</string>
+    <string name="compose_new_email">New Email</string>
+    <string name="compose_to">To</string>
+    <string name="compose_subject">Subject</string>
+    <string name="compose_body">Message</string>
+    <string name="compose_send">Send</string>
+    <string name="compose_sent">Email sent successfully</string>
+    <string name="compose_no_account">No email account configured</string>
+    <string name="compose_send_failed">Failed to send email</string>
+    <string name="compose_add_recipient">Add recipient</string>
+    <string name="compose_add_attachment">Add attachment</string>
+    <string name="compose_cc_bcc">CC/BCC</string>
+    <string name="compose_cc">CC</string>
+    <string name="compose_bcc">BCC</string>
+    <string name="remove">Remove</string>
+    <string name="secure_email_select_own">Your addresses:</string>
+    <string name="secure_select_contact">Select from contacts:</string>
+    <string name="secure_key_gen_hint">A new RSA-4096 key pair will be generated. Share your fingerprint with contacts via a trusted channel (phone, in-person) to prevent man-in-the-middle attacks.</string>
+    <string name="secure_verify_fingerprint">Verified</string>
+    <string name="secure_fingerprint_mismatch">Fingerprint does not match the one shared by the contact</string>
+    <string name="secure_verify_title">Verify Connection</string>
+    <string name="secure_my_fingerprint">Your fingerprint: %1$s</string>
+    <string name="secure_peer_fingerprint">Contact fingerprint: %1$s</string>
+    <string name="secure_verify_hint">Call the contact and compare: Tell them your fingerprint, ask them for theirs. If the contact fingerprint matches what they tell you, the connection is secure.</string>
+    <string name="fingerprint_copied">Fingerprint copied to clipboard</string>
+    <string name="pgp_key_received">Public key received</string>
+    <string name="import_key">Import key</string>
+    <string name="key_imported">Key imported - verify fingerprint</string>
+    <string name="secure_no_peer_found">No key found for this address. Scan or import the contact\'s key first.</string>
+    <string name="secure_exchange_first">Exchange keys first (scan QR or import via email) to see the fingerprint for verification.</string>
+    <string name="help_peers_text">These are the contacts whose public keys you have imported. When you send an email to one of these addresses, it will be encrypted with their public key so only they can read it.\n\nVerification: After importing a key, compare the 4-character fingerprint with the contact via a trusted channel (phone, video call, in person). If they match, tap \"Verified\" to mark the key as trusted. This protects against man-in-the-middle attacks where an attacker could substitute their own key.</string>
+    <string name="help_secure_title">Secure Connection</string>
+    <string name="help_secure_qr">Show your QR code to the contact. They scan it to import your public key.</string>
+    <string name="help_secure_scan">Scan the contact\'s QR code to import their public key.</string>
+    <string name="help_secure_nfc">Tap your phone against the contact\'s phone to exchange keys via NFC.</string>
+    <string name="help_secure_email">Send your public key to the contact via email, or paste their key here.</string>
+</resources>
