@@ -17,12 +17,12 @@ val signingProps = Properties().apply {
 
 android {
     namespace = "com.mailchat"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "de.florescu.mailchat"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 80
         versionName = "2.0"
         ndk {
