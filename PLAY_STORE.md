@@ -185,11 +185,20 @@ Die Play Console verlangt eine **öffentliche Privacy-Policy-URL**.
    - **Einfachste Variante:** Die Dateien `legal/datenschutz.html` + `legal/privacy.html` auf GitHub Pages hosten.
    - Oder: Eine statische Seite mit beiden Versionen (DE + EN).
 
-### Empfohlene URLs:
-- Deutsch: `https://okertaler.github.io/MailChat/legal/datenschutz.html`
-- Englisch: `https://okertaler.github.io/MailChat/legal/privacy.html`
+### ✅ Live-URLs (GitHub Pages, aktiviert):
+- **Landing Page (beide Sprachen):** `https://okertaler.github.io/MailChat/`
+- **Privacy Policy (EN):** `https://okertaler.github.io/MailChat/privacy.html`
+- **Datenschutzerklärung (DE):** `https://okertaler.github.io/MailChat/datenschutz.html`
+- **Disclaimer (EN):** `https://okertaler.github.io/MailChat/disclaimer.html`
+- **Hinweise (DE):** `https://okertaler.github.io/MailChat/hinweise.html`
+- **Impressum (DE):** `https://okertaler.github.io/MailChat/impressum.html`
+- **Imprint (EN):** `https://okertaler.github.io/MailChat/imprint.html`
+- **Open-Source-Lizenzen (DE):** `https://okertaler.github.io/MailChat/lizenzen.html`
+- **Open Source Licenses (EN):** `https://okertaler.github.io/MailChat/licenses.html`
 
-> **Tipp:** In der Play Console kannst du **eine** Privacy-Policy-URL angeben. Am besten eine Seite, die beide Sprachen anbietet (z. B. mit Sprachumschalter) oder die englische Version (internationaler Standard).
+> **Für die Play Console:** Unter **Setup → Account details → Privacy policy** die **englische Version** eintragen (internationaler Standard):
+> `https://okertaler.github.io/MailChat/privacy.html`
+> …oder die Landing Page (bietet beide Sprachen): `https://okertaler.github.io/MailChat/`
 
 ---
 
