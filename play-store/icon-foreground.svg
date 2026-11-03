@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="372" viewBox="22 24 64 54">
+  <g transform="translate(54,51) scale(1.5) translate(-54,-51)">
+    <!-- Chat bubble with border -->
+    <path fill="#FFFFFF" stroke="#0c6156" stroke-width="2"
+          d="M54,28 C38,28 26,38 26,50 C26,56 29,61 34,64 L34,74 L44,66 C47,67 50,67 54,67 C70,67 82,57 82,50 C82,38 70,28 54,28 Z"/>
+    <!-- Envelope body -->
+    <path fill="#0c6156"
+          d="M38,42 L70,42 C71.1,42 72,42.9 72,44 L72,58 C72,59.1 71.1,60 70,60 L38,60 C36.9,60 36,59.1 36,58 L36,44 C36,42.9 36.9,42 38,42 Z"/>
+    <!-- Envelope flap (V shape) -->
+    <path fill="#FFFFFF"
+          d="M36,44 L54,56 L72,44 L72,48 L54,60 L36,48 Z"/>
+  </g>
+</svg>
