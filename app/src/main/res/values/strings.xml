@@ -93,7 +93,7 @@
     <string name="help_search_title">Search</string>
     <string name="help_search_text">Use the search icon in the chat list to find chats by name or content. Inside a chat you can search all messages of the conversation.</string>
     <string name="help_hidden_title">Hide, favorites and delete</string>
-    <string name="help_hidden_text">Long-press a chat to select it. You can hide chats, mark up to 5 favorites (always shown at the top) or delete chats including all their messages. Hidden chats can be found in Settings → Hidden chats.</string>
+    <string name="help_hidden_text">Long-press a chat to select it. You can hide chats, mark up to 5 favorites (always shown at the top) or delete chats including all their messages. To show hidden chats again: enable the Hidden filter, select the chats and use Edit → Show. Hidden chats can also be found in Settings → Hidden chats.</string>
     <string name="help_delete_title">Message actions</string>
     <string name="help_delete_text">Long-press a chat bubble to open its actions: mark the message as processed (green check), mark it as to-do (red flag) or delete that single message. Marked messages show an icon next to the timestamp.</string>
     <string name="help_message_actions_title">Processed and to-do filters</string>
@@ -293,12 +293,15 @@
     <string name="key_sig_heading_key">My public key for encryption:</string>
     <string name="key_sig_heading_link">My link to the public key for encryption:</string>
     <string name="key_export_title">Export private key</string>
-    <string name="key_export_hint">Save as a .asc file (passphrase-protected)</string>
+    <string name="key_export_hint">Save as a .asc file (you choose the passphrase)</string>
+    <string name="key_export_passphrase_hint">Choose a passphrase to protect the exported key file. You will need it when importing the key on another device.</string>
+    <string name="key_export_passphrase">Passphrase (empty = no protection)</string>
+    <string name="key_export_unprotected_warning">Warning: without a passphrase, anyone who gets the file can use your key.</string>
     <string name="key_export_success">Private key exported</string>
     <string name="key_export_failed">Export failed</string>
     <string name="key_import_title">Import private key</string>
     <string name="key_import_hint">From a .asc file (replaces the current key)</string>
-    <string name="key_import_passphrase_hint">Enter the passphrase that protects the key.</string>
+    <string name="key_import_passphrase_hint">Enter the passphrase that protects the key. Leave empty if the key is not protected.</string>
     <string name="key_import_passphrase">Passphrase</string>
     <string name="key_import_confirm">Import</string>
     <string name="key_import_success">Private key imported</string>
@@ -337,7 +340,7 @@
     <string name="close">Close</string>
     <string name="message">Message</string>
     <string name="help_ai_summary_title">AI Summary</string>
-    <string name="help_ai_summary_text">Tap the AI button in the chat top bar to summarize all emails in the conversation to 5 lines. The original email remains available in the detail view. The summary is written in your selected language.</string>
+    <string name="help_ai_summary_text">Use the AI Summarize action in the chat (long-press a message, or select several messages) to summarize emails to 5 lines. It also runs spam classification and custom tag assignment, identical to the overview. The original email remains available in the detail view. The summary is written in your selected language.</string>
     <string name="help_ai_provider_title">AI Provider (On-Device vs OpenAI)</string>
     <string name="help_ai_provider_text">Two AI providers are available:\n\nON-DEVICE (Gemma via Google LiteRT): The model runs directly on your phone. No email content ever leaves the device and no internet is needed after the one-time model download (0.5–3 GB). Limitations: the small models (2–4B parameters) are slower, less accurate and consume more battery than cloud models.\n\nOPENAI API (OpenAI-compatible): You configure your own endpoint, API key and model. This usually gives better quality and faster answers, but your email content is sent to that external server.\n\nAll AI features (spam/phishing classification, custom tags, summaries, reply suggestions, real name extraction, appointment extraction, assistant) work with both providers — only the engine behind them changes.</string>
     <string name="help_ai_settings_title">AI Features</string>
@@ -434,6 +437,13 @@
         <item>Group chats: emails with multiple recipients are collected in one chat</item>
         <item>New emails can be sent to multiple recipients (comma separated)</item>
         <item>Replies in a group chat are sent to all members</item>
+    </string-array>
+    <string-array name="version_2_1_changes">
+        <item>New: Hidden chats can be unhidden directly in the chat list — enable the Hidden filter, select the chats, then Edit → Show</item>
+        <item>New: In the Hidden filter, \"Select all\", \"Reverse selection\" and \"Select last\" now only affect the visible hidden chats (safer for destructive actions)</item>
+        <item>New: When exporting your private key you now choose the passphrase yourself (or export without protection) — import the exported key on another device with the same passphrase</item>
+        <item>Fixed: The AI summary in the chat (selection mode) now also runs spam classification and custom tag assignment, identical to the overview</item>
+        <item>Updated: Version 2.1 — target Android 16 (API 36), required by Google Play</item>
     </string-array>
     <string-array name="version_2_0_changes">
         <item>New: AI now runs identically on the chat list and the chat detail — spam classification, custom tags (with sender/subject context) and summaries use one shared pipeline</item>
@@ -1000,7 +1010,7 @@
     <string name="secure_settings_title">Encryption</string>
     <string name="secure_nfc_setting">NFC Key Exchange</string>
     <string name="secure_qr_setting">QR Code Key Exchange</string>
-    <string name="help_secure_text">MailChat uses standard OpenPGP (RFC 4880) encryption via BouncyCastle. Setup: 1) Generate your OpenPGP key in Settings (select your account). 2) When you send, MailChat automatically looks up the recipient\'s public key by email address on keys.openpgp.org (you can turn this off in Settings → Encryption). If it isn\'t published, exchange keys via QR code (show/scan), NFC (hold phones together), or email (send/paste the MAILCHAT_OG string). You can also publish your own public key to keys.openpgp.org (Settings → Encryption) so others can find it by your email address. 3) Once a key is available, a short fingerprint appears. Call the recipient and compare: tell them yours, ask for theirs. Tapping (i) copies the full fingerprint to clipboard. Security note: The short fingerprint (first 4 chars) is a human-friendly comparison aid, not a cryptographic mechanism — the real security comes from comparing the full fingerprint. Once a key is available, the message body and attachments are encrypted end-to-end. Contacts with an OpenPGP key show a green lock on their photo, contacts with the legacy MailChat key show a blue lock. The private key never leaves your device, and its passphrase is stored encrypted in the Android Keystore. Limitations: automatic key lookup only works if the recipient has published their key on keys.openpgp.org; restoring your identity from a backup only works on the same device (the Keystore key is device-specific).</string>
+    <string name="help_secure_text">MailChat uses standard OpenPGP (RFC 4880) encryption via BouncyCastle. Setup: 1) Generate your OpenPGP key in Settings (select your account). 2) When you send, MailChat automatically looks up the recipient\'s public key by email address on keys.openpgp.org (you can turn this off in Settings → Encryption). If it isn\'t published, exchange keys via QR code (show/scan), NFC (hold phones together), or email (send/paste the MAILCHAT_OG string). You can also publish your own public key to keys.openpgp.org (Settings → Encryption) so others can find it by your email address. 3) Once a key is available, a short fingerprint appears. Call the recipient and compare: tell them yours, ask for theirs. Tapping (i) copies the full fingerprint to clipboard. Security note: The short fingerprint (first 4 chars) is a human-friendly comparison aid, not a cryptographic mechanism — the real security comes from comparing the full fingerprint. Once a key is available, the message body and attachments are encrypted end-to-end. Contacts with an OpenPGP key show a green lock on their photo, contacts with the legacy MailChat key show a blue lock. The private key never leaves your device, and its passphrase is stored encrypted in the Android Keystore. To move your key to another device, export the private key (Settings → Encryption) and choose a passphrase for the exported file — you will need the same passphrase when importing it (leave it empty to export without protection). Limitations: automatic key lookup only works if the recipient has published their key on keys.openpgp.org; restoring your identity from a backup only works on the same device (the Keystore key is device-specific).</string>
     <string name="help_selection_title">Selection Mode</string>
     <string name="help_selection_text">Long-press a message or chat to enter selection mode. Use the edit menu (top right) for batch actions: select all, invert, select by direction, mark as processed, set spam category, AI summarize, and more. Swipe right-to-left to deselect, left-to-right to select. The edit menu stays open until you exit selection mode.</string>
     <string name="help_filter_menu_title">Filter Menu</string>

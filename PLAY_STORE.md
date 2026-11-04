@@ -12,6 +12,30 @@ MailChat
 
 ---
 
+## 1.1 What's new / Release Notes (max. 500 Zeichen)
+
+In der Play Console unter **Release → What's new** eintragen.
+
+### Englisch (249 Zeichen)
+```
+Version 2.1:
+• Unhide chats directly in the list (Hidden filter → Edit → Show)
+• Export your private key with your own passphrase (or unprotected) for easy device migration
+• AI summary in chat now also classifies spam and assigns tags
+• Updated for Android 16 (API 36)
+```
+
+### Deutsch (280 Zeichen)
+```
+Version 2.1:
+• Ausgeblendete Chats direkt in der Liste wieder einblenden (Filter „Ausgeblendet" → Bearbeiten → Einblenden)
+• Privaten Schlüssel mit eigener Passphrase exportieren (oder ohne Schutz) — einfache Geräte-Migration
+• KI-Zusammenfassung im Chat klassifiziert jetzt auch Spam und weist Tags zu
+• Aktualisiert für Android 16 (API 36)
+```
+
+---
+
 ## 2. Kurzbeschreibung (max. 80 Zeichen)
 
 ### Englisch (64 Zeichen)

@@ -93,7 +93,7 @@
     <string name="help_search_title">Suche</string>
     <string name="help_search_text">Nutze das Suchsymbol in der Chat-Übersicht, um Chats nach Name oder Inhalt zu finden. Innerhalb eines Chats kannst du alle Nachrichten der Unterhaltung durchsuchen.</string>
     <string name="help_hidden_title">Ausblenden, Favoriten und löschen</string>
-    <string name="help_hidden_text">Tippe lange auf einen Chat, um ihn auszuwählen. Du kannst Chats ausblenden, bis zu 5 Favoriten markieren (werden immer oben angezeigt) oder Chats samt aller Nachrichten löschen. Ausgeblendete Chats findest du unter Einstellungen → Ausgeblendete Chats.</string>
+    <string name="help_hidden_text">Tippe lange auf einen Chat, um ihn auszuwählen. Du kannst Chats ausblenden, bis zu 5 Favoriten markieren (werden immer oben angezeigt) oder Chats samt aller Nachrichten löschen. Um ausgeblendete Chats wieder einzublenden: Filter „Ausgeblendet" aktivieren, Chats auswählen und Bearbeiten → Einblenden nutzen. Ausgeblendete Chats findest du auch unter Einstellungen → Ausgeblendete Chats.</string>
     <string name="help_delete_title">Nachrichten-Aktionen</string>
     <string name="help_delete_text">Tippe lange auf eine Chatblase, um die Aktionen der Nachricht zu öffnen: als bearbeitet markieren (grüner Haken), als zu bearbeiten markieren (rote Flagge) oder genau diese Nachricht löschen. Markierte Nachrichten zeigen ein Symbol neben der Uhrzeit.</string>
     <string name="help_message_actions_title">Bearbeitet- und Zu-bearbeiten-Filter</string>
@@ -293,12 +293,15 @@
     <string name="key_sig_heading_key">Mein öffentlicher Schlüssel zur Verschlüsselung:</string>
     <string name="key_sig_heading_link">Mein Link zum öffentlichen Schlüssel zur Verschlüsselung:</string>
     <string name="key_export_title">Privaten Schlüssel exportieren</string>
-    <string name="key_export_hint">Als .asc-Datei speichern (mit Passphrase geschützt)</string>
+    <string name="key_export_hint">Als .asc-Datei speichern (Passphrase wählst du)</string>
+    <string name="key_export_passphrase_hint">Wähle eine Passphrase zum Schutz der exportierten Schlüsseldatei. Du brauchst sie, wenn du den Schlüssel auf einem anderen Gerät importierst.</string>
+    <string name="key_export_passphrase">Passphrase (leer = ohne Schutz)</string>
+    <string name="key_export_unprotected_warning">Warnung: Ohne Passphrase kann jeder, der die Datei bekommt, deinen Schlüssel nutzen.</string>
     <string name="key_export_success">Privater Schlüssel exportiert</string>
     <string name="key_export_failed">Export fehlgeschlagen</string>
     <string name="key_import_title">Privaten Schlüssel importieren</string>
     <string name="key_import_hint">Aus .asc-Datei (ersetzt den aktuellen Schlüssel)</string>
-    <string name="key_import_passphrase_hint">Gib die Passphrase ein, mit der der Schlüssel geschützt ist.</string>
+    <string name="key_import_passphrase_hint">Gib die Passphrase ein, mit der der Schlüssel geschützt ist. Leer lassen, wenn der Schlüssel nicht geschützt ist.</string>
     <string name="key_import_passphrase">Passphrase</string>
     <string name="key_import_confirm">Importieren</string>
     <string name="key_import_success">Privater Schlüssel importiert</string>
@@ -337,7 +340,7 @@
     <string name="close">Schließen</string>
     <string name="message">Nachricht</string>
     <string name="help_ai_summary_title">KI-Zusammenfassung</string>
-    <string name="help_ai_summary_text">Tippe auf den KI-Button in der Chat-TopBar, um alle E-Mails im Gespräch auf 5 Zeilen zusammenzufassen. Die Original-E-Mail bleibt in der Detailansicht verfügbar. Die Zusammenfassung wird in deiner gewählten Sprache verfasst.</string>
+    <string name="help_ai_summary_text">Nutze die KI-Zusammenfassung im Chat (Nachricht lang drücken oder mehrere auswählen), um E-Mails auf 5 Zeilen zusammenzufassen. Dabei werden auch die Spam-Klassifizierung und die Tag-Zuordnung durchgeführt, identisch zur Übersicht. Die Original-E-Mail bleibt in der Detailansicht verfügbar. Die Zusammenfassung wird in deiner gewählten Sprache verfasst.</string>
     <string name="help_ai_provider_title">KI-Anbieter (On-Device vs OpenAI)</string>
     <string name="help_ai_provider_text">Zwei KI-Anbieter sind verfügbar:\n\nON-DEVICE (Gemma via Google LiteRT): Das Modell läuft direkt auf deinem Telefon. Kein E-Mail-Inhalt verlässt das Gerät und nach dem einmaligen Modell-Download (0,5–3 GB) wird kein Internet benötigt. Einschränkungen: Die kleinen Modelle (2–4B Parameter) sind langsamer, weniger genau und verbrauchen mehr Akku als Cloud-Modelle.\n\nOPENAI-API (OpenAI-kompatibel): Du konfigurierst deinen eigenen Endpunkt, API-Key und dein Modell. Das liefert in der Regel bessere Qualität und schnellere Antworten, aber dein E-Mail-Inhalt wird an diesen externen Server gesendet.\n\nAlle KI-Funktionen (Spam-/Phishing-Klassifizierung, eigene Tags, Zusammenfassungen, Antwortvorschläge, Name-Erkennung, Termin-Erkennung, Assistent) funktionieren mit beiden Anbietern — nur die dahinterliegende Engine wechselt.</string>
     <string name="help_ai_settings_title">KI-Funktionen</string>
@@ -434,6 +437,13 @@
         <item>Gruppenchats: E-Mails mit mehreren Empfängern werden in einem Chat gesammelt</item>
         <item>Neue E-Mails können an mehrere Empfänger (kommagetrennt) gesendet werden</item>
         <item>Antworten in einem Gruppenchat gehen an alle Mitglieder</item>
+    </string-array>
+    <string-array name="version_2_1_changes">
+        <item>Neu: Ausgeblendete Chats können jetzt direkt in der Chat-Liste wieder eingeblendet werden — Filter „Ausgeblendet" aktivieren, Chats auswählen, dann Bearbeiten → Einblenden</item>
+        <item>Neu: Im Ausgeblendet-Filter wirken „Alle auswählen", „Invertieren" und „Letzter Chat" jetzt nur auf die sichtbaren ausgeblendeten Chats (sicherer bei Löschaktionen)</item>
+        <item>Neu: Beim Export deines privaten Schlüssels wählst du jetzt selbst die Passphrase (oder exportierst ohne Schutz) — importiere den exportierten Schlüssel auf einem anderen Gerät mit derselben Passphrase</item>
+        <item>Behoben: Die KI-Zusammenfassung im Chat (Auswahl-Modus) führt jetzt auch die Spam-Klassifizierung und Tag-Zuordnung durch, identisch zur Übersicht</item>
+        <item>Überarbeitet: Version 2.1 — Ziel-Android 16 (API 36), von Google Play erforderlich</item>
     </string-array>
     <string-array name="version_2_0_changes">
         <item>Neu: Die KI läuft jetzt identisch in der Chat-Liste und im Chat — Spam-Klassifizierung, eigene Tags (mit Absender-/Betreff-Kontext) und Zusammenfassungen nutzen eine gemeinsame Pipeline</item>
@@ -1000,7 +1010,7 @@
     <string name="secure_settings_title">Verschlüsselung</string>
     <string name="secure_nfc_setting">NFC-Schlüsselaustausch</string>
     <string name="secure_qr_setting">QR-Code-Schlüsselaustausch</string>
-    <string name="help_secure_text">MailChat verwendet Standard-OpenPGP (RFC 4880) Verschlüsselung via BouncyCastle. Einrichtung: 1) Generiere deinen OpenPGP-Schlüssel in den Einstellungen (Konto auswählen). 2) Beim Senden sucht MailChat automatisch den öffentlichen Schlüssel des Empfängers per E-Mail-Adresse auf keys.openpgp.org (dies kann in Einstellungen → Verschlüsselung ausgeschaltet werden). Falls nicht veröffentlicht, Schlüssel austauschen: per QR-Code (zeigen/scannen), NFC (Telefone zusammenhalten) oder E-Mail (MAILCHAT_OG-Zeichenkette senden/einfügen). Du kannst auch deinen eigenen öffentlichen Schlüssel zu keys.openpgp.org hochladen (Einstellungen → Verschlüsselung), damit andere ihn über deine E-Mail-Adresse finden. 3) Sobald ein Schlüssel verfügbar ist, erscheint ein Short-Fingerprint. Ruf den Empfänger an und vergleiche: Sag ihm deinen, frag nach seinem. Tippe auf (i), um den vollständigen Fingerprint in die Zwischenablage zu kopieren. Sicherheitshinweis: Der Short-Fingerprint (erste 4 Zeichen) ist ein menschliches Vergleichs-Tool, kein kryptographischer Mechanismus — die eigentliche Sicherheit kommt vom Vergleich des vollständigen Fingerprintes. Sobald ein Schlüssel verfügbar ist, werden Nachrichten-Body und Anhänge Ende-zu-Ende verschlüsselt. Kontakte mit OpenPGP-Schlüssel zeigen ein grünes Schloss auf ihrem Foto, Kontakte mit dem alten MailChat-Schlüssel ein blaues Schloss. Der private Schlüssel verlässt dein Gerät nie, und seine Passphrase wird verschlüsselt im Android-Keystore gespeichert. Einschränkungen: Die automatische Schlüsselsuche funktioniert nur, wenn der Empfänger seinen Schlüssel auf keys.openpgp.org veröffentlicht hat; der Restore deiner Identität aus dem Backup funktioniert nur auf demselben Gerät (der Keystore-Schlüssel ist gerätespezifisch).</string>
+    <string name="help_secure_text">MailChat verwendet Standard-OpenPGP (RFC 4880) Verschlüsselung via BouncyCastle. Einrichtung: 1) Generiere deinen OpenPGP-Schlüssel in den Einstellungen (Konto auswählen). 2) Beim Senden sucht MailChat automatisch den öffentlichen Schlüssel des Empfängers per E-Mail-Adresse auf keys.openpgp.org (dies kann in Einstellungen → Verschlüsselung ausgeschaltet werden). Falls nicht veröffentlicht, Schlüssel austauschen: per QR-Code (zeigen/scannen), NFC (Telefone zusammenhalten) oder E-Mail (MAILCHAT_OG-Zeichenkette senden/einfügen). Du kannst auch deinen eigenen öffentlichen Schlüssel zu keys.openpgp.org hochladen (Einstellungen → Verschlüsselung), damit andere ihn über deine E-Mail-Adresse finden. 3) Sobald ein Schlüssel verfügbar ist, erscheint ein Short-Fingerprint. Ruf den Empfänger an und vergleiche: Sag ihm deinen, frag nach seinem. Tippe auf (i), um den vollständigen Fingerprint in die Zwischenablage zu kopieren. Sicherheitshinweis: Der Short-Fingerprint (erste 4 Zeichen) ist ein menschliches Vergleichs-Tool, kein kryptographischer Mechanismus — die eigentliche Sicherheit kommt vom Vergleich des vollständigen Fingerprintes. Sobald ein Schlüssel verfügbar ist, werden Nachrichten-Body und Anhänge Ende-zu-Ende verschlüsselt. Kontakte mit OpenPGP-Schlüssel zeigen ein grünes Schloss auf ihrem Foto, Kontakte mit dem alten MailChat-Schlüssel ein blaues Schloss. Der private Schlüssel verlässt dein Gerät nie, und seine Passphrase wird verschlüsselt im Android-Keystore gespeichert. Um deinen Schlüssel auf ein anderes Gerät zu übertragen, exportiere den privaten Schlüssel (Einstellungen → Verschlüsselung) und wähle eine Passphrase für die exportierte Datei — importiere ihn auf dem anderen Gerät mit derselben Passphrase (leer lassen für Export ohne Schutz). Einschränkungen: Die automatische Schlüsselsuche funktioniert nur, wenn der Empfänger seinen Schlüssel auf keys.openpgp.org veröffentlicht hat; der Restore deiner Identität aus dem Backup funktioniert nur auf demselben Gerät (der Keystore-Schlüssel ist gerätespezifisch).</string>
     <string name="help_selection_title">Auswahlmodus</string>
     <string name="help_selection_text">Langdrücken auf eine Nachricht oder einen Chat aktiviert den Auswahlmodus. Das Bearbeitungsmenü (oben rechts) bietet Massenaktionen: Alle auswählen, umkehren, nach Richtung auswählen, als bearbeitet markieren, Spam-Kategorie setzen, KI-Zusammenfassung und mehr. Wischen von rechts nach links zum Abwählen, von links nach rechts zum Auswählen. Das Menü bleibt offen, bis der Auswahlmodus beendet wird.</string>
     <string name="help_filter_menu_title">Filter-Menü</string>

@@ -312,13 +312,18 @@ class ChatDetailViewModel @Inject constructor(
             try {
                 com.mailchat.util.AiEngine.configureAndInitialize(appContext)
                 if (!com.mailchat.ai.GeminiService.isEngineReady()) return@launch
-                val lang = com.mailchat.util.LanguageUtils.getLanguage(appContext)
                 for (msg in messages) {
                     if (coroutineContext[kotlinx.coroutines.Job]?.isActive == false) return@launch
                     if (msg.bodyFull.isBlank()) continue
                     try {
-                        val summary = com.mailchat.ai.GeminiService.summarize(msg.bodyFull, lang)
-                        messageRepository.updateMessage(msg.copy(summary = summary, summaryLanguage = lang))
+                        _uiState.update { it.copy(currentSummarizingMessageId = msg.id) }
+                        // Full AI pipeline (same as the overview): spam classification +
+                        // custom tags + summary. forceSummary=true because the user
+                        // explicitly requested the summary for these messages.
+                        val updatedMsg = com.mailchat.util.AiMessageProcessor.processMessage(
+                            appContext, msg, forceSummary = true
+                        )
+                        messageRepository.updateMessage(updatedMsg)
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -326,12 +331,12 @@ class ChatDetailViewModel @Inject constructor(
                     }
                 }
                 val remaining = messageRepository.getMessagesByChatSync(chatId)
-                _uiState.update { it.copy(messages = remaining) }
+                _uiState.update { it.copy(messages = remaining, currentSummarizingMessageId = null) }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 // Stopped by the user — no error message.
                 throw e
             } finally {
-                _uiState.update { it.copy(isAiProcessing = false) }
+                _uiState.update { it.copy(isAiProcessing = false, currentSummarizingMessageId = null) }
             }
         }
     }

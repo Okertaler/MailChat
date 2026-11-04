@@ -172,13 +172,18 @@ fun SettingsScreen(
     var importKeyError by remember { mutableStateOf("") }
     var isImportingKey by remember { mutableStateOf(false) }
 
+    // Export: the user chooses the passphrase of the exported file (or none).
+    var showExportPassphraseDialog by remember { mutableStateOf(false) }
+    var exportPassphrase by remember { mutableStateOf("") }
+    var exportKeyContent by remember { mutableStateOf("") }
+    var isExportingKey by remember { mutableStateOf(false) }
+
     val exportKeyLauncher = rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/pgp-keys")
     ) { uri ->
         if (uri != null) {
             try {
-                val key = com.mailchat.crypto.OpenPgpKeyService.getSecretKeyArmored(context)
-                context.contentResolver.openOutputStream(uri)?.use { it.write(key.toByteArray()) }
+                context.contentResolver.openOutputStream(uri)?.use { it.write(exportKeyContent.toByteArray()) }
                 android.widget.Toast.makeText(context, R.string.key_export_success, android.widget.Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 android.widget.Toast.makeText(context, R.string.key_export_failed, android.widget.Toast.LENGTH_SHORT).show()
@@ -1077,13 +1082,95 @@ fun SettingsScreen(
             }
 
             // Export the private key as a .asc file (only if a key exists).
+            // The user chooses the passphrase of the exported file in a dialog first,
+            // because the key stored in the app is protected by an internal passphrase
+            // the user never saw (auto-generated at key creation).
             if (hasPgpKey) {
                 ListItem(
                     headlineContent = { Text("📤 " + stringResource(R.string.key_export_title)) },
                     supportingContent = { Text(stringResource(R.string.key_export_hint)) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { exportKeyLauncher.launch("mailchat_private_key.asc") }
+                        .clickable {
+                            exportPassphrase = ""
+                            showExportPassphraseDialog = true
+                        }
+                )
+            }
+            if (showExportPassphraseDialog) {
+                AlertDialog(
+                    onDismissRequest = { if (!isExportingKey) showExportPassphraseDialog = false },
+                    title = { Text(stringResource(R.string.key_export_title)) },
+                    text = {
+                        Column {
+                            Text(stringResource(R.string.key_export_passphrase_hint))
+                            OutlinedTextField(
+                                value = exportPassphrase,
+                                onValueChange = { exportPassphrase = it },
+                                label = { Text(stringResource(R.string.key_export_passphrase)) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            if (exportPassphrase.isBlank()) {
+                                Text(
+                                    stringResource(R.string.key_export_unprotected_warning),
+                                    color = Color(0xFFF57C00),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                isExportingKey = true
+                                MainScope().launch {
+                                    // Re-armor the stored key with the user-chosen passphrase.
+                                    // Fallback: if the internal passphrase is unavailable
+                                    // (e.g. after a backup restore on another device), export
+                                    // the stored key as-is (previous behavior).
+                                    val ok = withContext(Dispatchers.IO) {
+                                        try {
+                                            val stored = com.mailchat.crypto.OpenPgpKeyService.getSecretKeyArmored(context)
+                                            val internalPassphrase = com.mailchat.crypto.OpenPgpKeyService.getPassphrase(context)
+                                            exportKeyContent = if (internalPassphrase.isNotEmpty()) {
+                                                com.mailchat.crypto.OpenPgpKeyService.reArmorSecretKey(
+                                                    stored, internalPassphrase, exportPassphrase
+                                                )
+                                            } else {
+                                                stored
+                                            }
+                                            true
+                                        } catch (e: Exception) {
+                                            com.mailchat.ai.AppLogger.log(context, "Key export re-armor failed: ${e.message}")
+                                            exportKeyContent = com.mailchat.crypto.OpenPgpKeyService.getSecretKeyArmored(context)
+                                            true
+                                        }
+                                    }
+                                    isExportingKey = false
+                                    showExportPassphraseDialog = false
+                                    if (ok) {
+                                        exportKeyLauncher.launch("mailchat_private_key.asc")
+                                    } else {
+                                        android.widget.Toast.makeText(context, R.string.key_export_failed, android.widget.Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            },
+                            enabled = !isExportingKey
+                        ) {
+                            if (isExportingKey) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                            } else {
+                                Text(stringResource(R.string.ok))
+                            }
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { if (!isExportingKey) showExportPassphraseDialog = false }) {
+                            Text(stringResource(R.string.cancel))
+                        }
+                    }
                 )
             }
             // Import a private key from a .asc file (replaces the current key).

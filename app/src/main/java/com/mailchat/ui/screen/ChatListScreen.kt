@@ -55,6 +55,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.automirrored.filled.StarHalf
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
@@ -266,6 +267,11 @@ fun ChatListScreen(
         }
     }
 
+    // Source list for selection actions: in the "Hidden" filter only the hidden
+    // chats are selectable, so "select all" / "reverse" / "select last" must not
+    // reach into the non-hidden chats (would be dangerous for destructive actions).
+    val selectionSourceChats = if (showHiddenOnly) uiState.hiddenChats else uiState.chats
+
     LaunchedEffect(Unit) {
         viewModel.syncAll()
         viewModel.loadAiSummaries()
@@ -347,9 +353,9 @@ fun ChatListScreen(
                 actions = {
                     if (uiState.selectionMode) {
                         if (uiState.selectedChatIds.isNotEmpty()) {
-                            val allSelected = uiState.chats.isNotEmpty() && uiState.selectedChatIds.size >= uiState.chats.size
+                            val allSelected = selectionSourceChats.isNotEmpty() && uiState.selectedChatIds.size >= selectionSourceChats.size
                             val aiEnabled = SettingsUtils.getAiEnabled(context)
-                            val selectedChats = uiState.chats.filter { it.id in uiState.selectedChatIds }
+                            val selectedChats = selectionSourceChats.filter { it.id in uiState.selectedChatIds }
                             val allNoReply = selectedChats.isNotEmpty() &&
                                 selectedChats.all { EmailGrouping.isNoReply(it) }
                             Box {
@@ -377,17 +383,17 @@ fun ChatListScreen(
                                     DropdownMenuItem(
                                         text = { Text(stringResource(if (allSelected) R.string.deselect_all else R.string.select_all)) },
                                         leadingIcon = { Icon(if (allSelected) Icons.Default.Deselect else Icons.Default.SelectAll, contentDescription = null) },
-                                        onClick = { viewModel.toggleSelectAllChats() }
+                                        onClick = { viewModel.toggleSelectAllChats(selectionSourceChats) }
                                     )
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.reverse_selection)) },
                                         leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null) },
-                                        onClick = { viewModel.reverseChatSelection() }
+                                        onClick = { viewModel.reverseChatSelection(selectionSourceChats) }
                                     )
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.select_last_chat)) },
                                         leadingIcon = { Icon(Icons.Default.History, contentDescription = null) },
-                                        onClick = { viewModel.selectLastChat() }
+                                        onClick = { viewModel.selectLastChat(selectionSourceChats) }
                                     )
                                     androidx.compose.material3.HorizontalDivider()
                                     if (aiEnabled) {
@@ -412,11 +418,19 @@ fun ChatListScreen(
                                         leadingIcon = { Icon(Icons.Default.Block, contentDescription = null) },
                                         onClick = { viewModel.toggleNoReplyOnSelected() }
                                     )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.hide)) },
-                                        leadingIcon = { Icon(Icons.Default.VisibilityOff, contentDescription = null) },
-                                        onClick = { viewModel.hideSelectedChats() }
-                                    )
+                                    if (showHiddenOnly) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.show)) },
+                                            leadingIcon = { Icon(Icons.Default.Visibility, contentDescription = null) },
+                                            onClick = { viewModel.showSelectedChats() }
+                                        )
+                                    } else {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.hide)) },
+                                            leadingIcon = { Icon(Icons.Default.VisibilityOff, contentDescription = null) },
+                                            onClick = { viewModel.hideSelectedChats() }
+                                        )
+                                    }
                                     androidx.compose.material3.HorizontalDivider()
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.mark_read)) },

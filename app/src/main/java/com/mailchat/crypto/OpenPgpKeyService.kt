@@ -349,6 +349,33 @@ object OpenPgpKeyService {
     }
 
     /**
+     * Re-protects a secret key ring with a new passphrase and returns the re-armed armored
+     * key ring. Used for export: the user chooses the passphrase of the exported file
+     * (or removes protection entirely with a blank [newPassphrase]).
+     *
+     * [oldPassphrase] must be the passphrase currently protecting [armored] (for
+     * app-generated keys: the one stored encrypted in the Android Keystore).
+     * The fingerprint and all signatures stay unchanged.
+     */
+    fun reArmorSecretKey(armored: String, oldPassphrase: String, newPassphrase: String): String {
+        ensureProvider()
+        val ring = parseSecretKeyRing(armored)
+        val decryptor = JcePBESecretKeyDecryptorBuilder().build(oldPassphrase.toCharArray())
+        val encryptor: org.bouncycastle.openpgp.operator.PBESecretKeyEncryptor? =
+            if (newPassphrase.isEmpty()) {
+                // null → S2K usage 0 → unprotected secret key packet
+                null
+            } else {
+                val digestProvider = JcaPGPDigestCalculatorProviderBuilder().build()
+                val sha1 = digestProvider.get(HashAlgorithmTags.SHA1)
+                JcePBESecretKeyEncryptorBuilder(SymmetricKeyAlgorithmTags.AES_256, sha1)
+                    .build(newPassphrase.toCharArray())
+            }
+        val newRing = PGPSecretKeyRing.copyWithNewPassword(ring, decryptor, encryptor)
+        return armorEncode(newRing.encoded)
+    }
+
+    /**
      * Whether MailChat may automatically look up a recipient's public key on keys.openpgp.org
      * when sending. Enabled by default.
      */

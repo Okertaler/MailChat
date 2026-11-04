@@ -643,16 +643,16 @@ class ChatListViewModel @Inject constructor(
         _uiState.update { it.copy(selectedChatIds = allIds) }
     }
 
-    fun toggleSelectAllChats() {
-        val allIds = _uiState.value.chats.map { it.id }.toSet()
+    fun toggleSelectAllChats(chats: List<Chat>? = null) {
+        val allIds = (chats ?: _uiState.value.chats).map { it.id }.toSet()
         _uiState.update { state ->
             val allSelected = allIds.isNotEmpty() && state.selectedChatIds.containsAll(allIds)
             state.copy(selectedChatIds = if (allSelected) emptySet() else allIds)
         }
     }
 
-    fun reverseChatSelection() {
-        val allIds = _uiState.value.chats.map { it.id }.toSet()
+    fun reverseChatSelection(chats: List<Chat>? = null) {
+        val allIds = (chats ?: _uiState.value.chats).map { it.id }.toSet()
         _uiState.update { state ->
             state.copy(selectedChatIds = allIds - state.selectedChatIds)
         }
@@ -661,9 +661,9 @@ class ChatListViewModel @Inject constructor(
     /**
      * Selects the most recent chat (by last message timestamp) and deselects all others.
      */
-    fun selectLastChat() {
+    fun selectLastChat(chats: List<Chat>? = null) {
         _uiState.update { state ->
-            val lastChat = state.chats.maxByOrNull { it.lastMessageTimestamp }
+            val lastChat = (chats ?: state.chats).maxByOrNull { it.lastMessageTimestamp }
                 ?: return@update state
             state.copy(selectedChatIds = setOf(lastChat.id))
         }
@@ -1101,6 +1101,16 @@ class ChatListViewModel @Inject constructor(
             val ids = _uiState.value.selectedChatIds
             for (id in ids) {
                 chatRepository.setChatHidden(id, true)
+            }
+            exitSelectionMode()
+        }
+    }
+
+    fun showSelectedChats() {
+        viewModelScope.launch {
+            val ids = _uiState.value.selectedChatIds
+            for (id in ids) {
+                chatRepository.setChatHidden(id, false)
             }
             exitSelectionMode()
         }
