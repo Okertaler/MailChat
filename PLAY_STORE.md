@@ -228,18 +228,51 @@ Die Play Console verlangt eine **öffentliche Privacy-Policy-URL**.
 
 ## 8. Offene Play-Store-Fristen (aus dem Kontext)
 
-| Frist | Was |
-|---|---|
-| **01.12.2026** | Japan-PSA (Provider-Specific Agreement) |
-| **27.01.2027** | Standort-Deklaration (`ACCESS_FINE_LOCATION`) |
-| **Feb 2027** | App-Qualitäts-Anforderungen |
-| **Nov 2026** | Trader-Status (falls gewerblich — hier: privat) |
+| Frist | Was | Status |
+|---|---|---|
+| **Nov 2026 (JETZT)** | Händlerstatus in der Play Console angeben | ⏳ offen |
+| **01.12.2026** | Japan-PSA — **nur bei Zahlungen** (hier: keine IAP → nicht relevant) | ✅ N/A |
+| **27.01.2027** | Standort-Deklaration (`ACCESS_FINE_LOCATION`) | ⏳ offen (Text in Abschnitt 10) |
+| **Feb 2027** | App-Qualitäts-Anforderungen (RAM/Code-Optimierung) | ⏳ beobachten |
 
 ---
 
 ## 9. Technische Bereitschaft
 
-- ✅ Release-AAB: `app/build/outputs/bundle/release/app-release.aab` (27,4 MB, signiert)
+- ✅ Release-AAB: `app/build/outputs/bundle/release/app-release.aab` (signiert)
 - ✅ Source: `https://github.com/Okertaler/MailChat`
 - ✅ Legal-Dokumente: in der App + `legal/`-Ordner
-- ✅ Version: 2.0 (versionCode 80)
+- ✅ Version: 2.1 (versionCode 82, targetSdk 36 / Android 16)
+
+---
+
+## 10. Richtlinien-Compliance (Mitteilung vom 29.10.2026)
+
+Analyse der Play-Richtlinienänderungen für MailChat. Die meisten neuen Richtlinien
+betreffen MailChat **nicht** (keine lokalen Netzwerk-Permissions, nur `READ_CONTACTS`
+ohne `WRITE_CONTACTS`, keine AppFunctions, keine Abos, kein `MANAGE_EXTERNAL_STORAGE`,
+keine Accessibility/Crypto/SMS/Anrufliste, keine In-App-Käufe, kein Spiel/XR).
+
+### 10.1 Händlerstatus (Frist: November 2026 — JETZT)
+In der Play Console unter **Setup → Account-Details** den Händlerstatus angeben.
+MailChat wird in **privater, nicht-gewerblicher Tätigkeit** veröffentlicht →
+**Privatperson / nicht-gewerblich** wählen (passt zum Impressum).
+
+### 10.2 Standort-Erklärung (Frist: 27.01.2027)
+MailChat nutzt `ACCESS_FINE_LOCATION` für die „Wo bist Du?"-Auto-Antwort.
+Eine Play-Console-Erklärung ist erforderlich, warum ungefähre Genauigkeit nicht
+ausreicht. Der neue Android-„Standort"-Button gilt **nur** für Apps mit
+Ziel-Android 17 (API 37+) — MailChat targetet API 36, daher **nicht** Pflicht.
+
+**Beispieltertext (kopierbereit):**
+```
+Die App teilt auf Wunsch des Nutzers dessen genauen Standort als Karten-Link an einen von ihm gewählten Kontakt (Funktion „Wo bist Du?"). Der genaue Standort (GPS) ist erforderlich, damit der Empfänger die Person auf einer Karte eindeutig finden kann — ein ungefährer Standort (Zellstufe/WLAN) wäre dafür zu ungenau. Der Standort wird nur an den gewählten Kontakt gesendet, nicht an Dritte.
+```
+
+### 10.3 App-Qualität (Frist: Februar 2027)
+Grenzwerte für Arbeitsspeicher- und Code-Optimierung einhalten. Aktuelles AAB:
+27,4 MB — im grünen Bereich. Kein sofortiges Handeln, aber beobachten.
+
+### 10.4 Japan (Frist: 01.12.2026) — nicht relevant
+Betrifft nur den Verkauf von Produkten/Dienstleistungen (Zahlungen) nach/von Japan.
+MailChat ist kostenlos ohne In-App-Käufe → **nicht anwendbar**.
