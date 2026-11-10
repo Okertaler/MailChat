@@ -243,6 +243,9 @@ class ChatDetailViewModel @Inject constructor(
             chatRepository.getChatById(chatId)?.let { chat ->
                 chatRepository.updateChat(chat.copy(unreadCount = 0))
             }
+            // Refresh the home-screen widget so the now-read emails disappear from the
+            // "unread" list, making room for other unread emails.
+            com.mailchat.widget.MailWidgetProvider.refreshAll(appContext)
         }
     }
 
@@ -303,6 +306,9 @@ class ChatDetailViewModel @Inject constructor(
             }
             val remaining = messageRepository.getMessagesByChatSync(chatId)
             _uiState.update { it.copy(messages = remaining) }
+            // Refresh the home-screen widget so the now-read emails disappear from the
+            // "unread" list, making room for other unread emails.
+            com.mailchat.widget.MailWidgetProvider.refreshAll(appContext)
         }
     }
 
@@ -369,6 +375,13 @@ class ChatDetailViewModel @Inject constructor(
                 if (chat != null) {
                     val senders = messages.filter { it.isIncoming }.map { it.from.lowercase() }.toSet()
                     if (senders.isNotEmpty()) {
+                        // Persist the decision as a blacklist entry so it survives chat deletion
+                        // and applies to future emails from the same sender.
+                        if (category == "phishing") {
+                            com.mailchat.util.SettingsUtils.addPhishingBlacklist(appContext, senders)
+                        } else {
+                            com.mailchat.util.SettingsUtils.removePhishingBlacklist(appContext, senders)
+                        }
                         val allMessages = messageRepository.getMessagesByChatSync(chat.id)
                         for (msg in allMessages) {
                             if (msg.isIncoming && msg.from.lowercase() in senders) {
@@ -1178,10 +1191,10 @@ class ChatDetailViewModel @Inject constructor(
                                 // of the sent (encrypted) body, not the local display copy.
                                 val keySig = com.mailchat.util.SettingsUtils.getEncryptedKeySignatureText(appContext)
                                 val bodyToEncrypt = if (keySig.isNotBlank()) "$body\n\n$keySig" else body
-                                finalBody = com.mailchat.crypto.OpenPgpKeyService.encrypt(bodyToEncrypt, pubKey)
+                                finalBody = com.mailchat.crypto.OpenPgpKeyService.signAndEncryptForRecipient(appContext, bodyToEncrypt, pubKey)
                                 isEncryptedMsg = true
                                 extraHeaders["X-MailChat-Encryption"] = "OpenPGP"
-                                com.mailchat.ai.AppLogger.log(appContext, "forwardTo: encrypted with OpenPGP (keySig=${keySig.isNotBlank()})")
+                                com.mailchat.ai.AppLogger.log(appContext, "forwardTo: signed+encrypted with OpenPGP (keySig=${keySig.isNotBlank()})")
                                 if (forwardAttachments.isNotEmpty()) {
                                     val encDir = java.io.File(appContext.cacheDir, "enc_attachments").apply { mkdirs() }
                                     forwardAttachments = forwardAttachments.map { file ->
@@ -1359,13 +1372,20 @@ class ChatDetailViewModel @Inject constructor(
                 com.mailchat.util.SettingsUtils.addComposeWords(appContext, words)
             }
             val latestIncoming = state.messages.lastOrNull { it.isIncoming }
-            val baseSubject = subject?.takeIf { it.isNotBlank() }
-                ?: (if (forceUnencrypted) pendingSendSubject?.takeIf { it.isNotBlank() } else null)
-                ?: currentSubject.takeIf { it.isNotBlank() }
-                ?: latestIncoming?.subject?.takeIf { it.isNotBlank() }
-                ?: chat.participantName
+            val isGroupChat = EmailGrouping.isGroupKey(chat.participantEmail)
+            // Group chats always use the group name as the subject (no "Re:" prefix). This keeps
+            // the subject stable so incoming emails can be filtered/identified by the group name.
+            val baseSubject = if (isGroupChat) {
+                chat.participantName
+            } else {
+                subject?.takeIf { it.isNotBlank() }
+                    ?: (if (forceUnencrypted) pendingSendSubject?.takeIf { it.isNotBlank() } else null)
+                    ?: currentSubject.takeIf { it.isNotBlank() }
+                    ?: latestIncoming?.subject?.takeIf { it.isNotBlank() }
+                    ?: chat.participantName
+            }
             pendingSendSubject = baseSubject
-            val replySubject = if (latestIncoming != null &&
+            val replySubject = if (!isGroupChat && latestIncoming != null &&
                 !baseSubject.startsWith("Re:", ignoreCase = true) &&
                 !baseSubject.startsWith("Aw:", ignoreCase = true)
             ) "Re: $baseSubject" else baseSubject
@@ -1392,13 +1412,20 @@ class ChatDetailViewModel @Inject constructor(
                 } else rawBody
             } else rawBody
             val signature = com.mailchat.util.SettingsUtils.getSignature(appContext)
-            val body = if (signature.isNotBlank()) "$bodyWithQuote\n\n$signature" else bodyWithQuote
+            // Group chats get an additional notice so recipients know to reply to all.
+            val groupNotice = if (isGroupChat) "\n\n" + appContext.getString(com.mailchat.R.string.group_chat_notice) else ""
+            val body = when {
+                signature.isNotBlank() -> "$bodyWithQuote\n\n$signature$groupNotice"
+                groupNotice.isNotBlank() -> "$bodyWithQuote$groupNotice"
+                else -> bodyWithQuote
+            }
             if (recipient.isBlank() || (rawBody.isBlank() && state.composeAttachments.isEmpty())) {
                 return@launch
             }
             _uiState.update { it.copy(isSending = true, sendError = null) }
             try {
-                val firstRecipient = recipient.split(",").firstOrNull()?.trim()?.lowercase() ?: ""
+                val recipients = recipient.split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }
+                val firstRecipient = recipients.firstOrNull() ?: ""
                 var finalBody = body
                 var isEncryptedMsg = false
                 var encryptionAttempted = false
@@ -1409,37 +1436,52 @@ class ChatDetailViewModel @Inject constructor(
 
                 // --- OpenPGP (primary): current peer key; when auto-lookup is enabled the
                 // key freshness is checked on keys.openpgp.org before every send ---
-                if (!forceUnencrypted && hasId) {
+                // Group chats are only encrypted when they were created as encrypted; 1:1 chats
+                // keep the automatic behavior (encrypt when the recipient has a key).
+                val shouldEncrypt = if (isGroupChat) chat.isEncrypted else true
+                if (!forceUnencrypted && hasId && shouldEncrypt) {
                     // Returns an error string when encryption was attempted (peer key found)
                     // but failed; null otherwise. withContext is not inline, so the error is
                     // returned instead of using a non-local return.
                     val encError: String? = withContext(Dispatchers.IO) {
                         try {
-                            val pubKey = com.mailchat.crypto.OpenPgpKeyService
-                                .currentPeerKey(appContext, firstRecipient)
-                            com.mailchat.ai.AppLogger.log(appContext, "sendEmail: peer key found=${!pubKey.isNullOrBlank()}")
-                            if (!pubKey.isNullOrBlank()) {
+                            // Collect the public keys of ALL recipients who have a key. For group
+                            // chats this enables multi-recipient encryption so every member with a
+                            // key can decrypt the message (not just the first recipient).
+                            val pubKeys = recipients.mapNotNull {
+                                com.mailchat.crypto.OpenPgpKeyService.currentPeerKey(appContext, it)
+                            }
+                            com.mailchat.ai.AppLogger.log(appContext, "sendEmail: peer keys found=${pubKeys.size}/${recipients.size}")
+                            if (pubKeys.isNotEmpty()) {
                                 encryptionAttempted = true
                                 // Optionally append the key signature (own public key or a
                                 // link to it) so the recipient can reply encrypted. Only part
                                 // of the sent (encrypted) body, not the local display copy.
                                 val keySig = com.mailchat.util.SettingsUtils.getEncryptedKeySignatureText(appContext)
                                 val bodyToEncrypt = if (keySig.isNotBlank()) "$body\n\n$keySig" else body
-                                finalBody = com.mailchat.crypto.OpenPgpKeyService.encrypt(bodyToEncrypt, pubKey)
+                                finalBody = if (pubKeys.size > 1) {
+                                    com.mailchat.crypto.OpenPgpKeyService.signAndEncryptForRecipients(appContext, bodyToEncrypt, pubKeys)
+                                } else {
+                                    com.mailchat.crypto.OpenPgpKeyService.signAndEncryptForRecipient(appContext, bodyToEncrypt, pubKeys.first())
+                                }
                                 isEncryptedMsg = true
                                 extraHeaders["X-MailChat-Encryption"] = "OpenPGP"
-                                com.mailchat.ai.AppLogger.log(appContext, "sendEmail: encrypted with OpenPGP (keySig=${keySig.isNotBlank()})")
+                                com.mailchat.ai.AppLogger.log(appContext, "sendEmail: signed+encrypted with OpenPGP for ${pubKeys.size} recipient(s) (keySig=${keySig.isNotBlank()})")
                                 if (state.composeAttachments.isNotEmpty()) {
                                     val encDir = java.io.File(appContext.cacheDir, "enc_attachments").apply { mkdirs() }
                                     finalAttachments = state.composeAttachments.map { file ->
                                         val encFile = java.io.File(encDir, "${file.name}.gpg")
-                                        com.mailchat.crypto.OpenPgpKeyService.encryptFile(file, encFile, pubKey)
+                                        if (pubKeys.size > 1) {
+                                            com.mailchat.crypto.OpenPgpKeyService.encryptFilesForRecipients(file, encFile, pubKeys)
+                                        } else {
+                                            com.mailchat.crypto.OpenPgpKeyService.encryptFile(file, encFile, pubKeys.first())
+                                        }
                                         encFile
                                     }
                                 }
                                 null
                             } else {
-                                com.mailchat.ai.AppLogger.log(appContext, "sendEmail: no public key for $firstRecipient -> plaintext")
+                                com.mailchat.ai.AppLogger.log(appContext, "sendEmail: no public key for any recipient -> plaintext")
                                 null
                             }
                         } catch (e: Exception) {

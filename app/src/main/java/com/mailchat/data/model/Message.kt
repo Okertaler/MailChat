@@ -51,5 +51,6 @@ data class Message(
     val cc: String = "",
     val bcc: String = "",
     val customTag: String = "",
-    val isEncrypted: Boolean = false
+    val isEncrypted: Boolean = false,
+    val signatureStatus: String = ""
 )

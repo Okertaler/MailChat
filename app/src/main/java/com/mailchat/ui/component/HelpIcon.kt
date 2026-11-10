@@ -2,8 +2,11 @@ package com.mailchat.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Help
 import androidx.compose.material3.AlertDialog
@@ -43,7 +46,13 @@ fun HelpIcon(
         AlertDialog(
             onDismissRequest = { showHelp = false },
             title = { Text(title, style = MaterialTheme.typography.titleMedium) },
-            text = { Text(text, style = MaterialTheme.typography.bodyMedium) },
+            text = {
+                // Long help texts (e.g. the encryption section) must be scrollable, otherwise
+                // they get cut off in the dialog.
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(text, style = MaterialTheme.typography.bodyMedium)
+                }
+            },
             confirmButton = {
                 TextButton(onClick = { showHelp = false }) {
                     Text("OK")

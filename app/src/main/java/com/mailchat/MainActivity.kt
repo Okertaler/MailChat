@@ -61,9 +61,17 @@ class MainActivity : ComponentActivity() {
                 requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
             }
         }
-        intent?.getLongExtra("chat_id", -1L)?.let { if (it > 0) pendingChatId.value = it }
+        val incomingChatId = intent?.getLongExtra("chat_id", -1L) ?: -1L
+        if (incomingChatId > 0) pendingChatId.value = incomingChatId
+        intent?.getLongExtra("message_id", -1L)?.let {
+            if (it > 0) com.mailchat.ui.navigation.PendingMessageStore.messageId = it
+        }
+        android.util.Log.i("MailchatNav", "onCreate chat_id=$incomingChatId action=${intent?.action} data=${intent?.data}")
         handleShareIntent(intent)
         com.mailchat.service.ImapPushService.startIfEnabled(applicationContext)
+        // Refresh the home-screen widget on app launch so its PendingIntents and data are always
+        // up to date (e.g. after an app update). Safe: does nothing if no widget is placed.
+        com.mailchat.widget.MailWidgetProvider.refreshAll(applicationContext)
         var showSplash by mutableStateOf(true)
         setContent {
             MailchatTheme {
@@ -75,8 +83,8 @@ class MainActivity : ComponentActivity() {
                         val splashScale = remember { mutableStateOf(0.3f) }
                         LaunchedEffect(Unit) {
                             val start = System.currentTimeMillis()
-                            while (System.currentTimeMillis() - start < 1200) {
-                                val progress = ((System.currentTimeMillis() - start).toFloat() / 1200f).coerceIn(0f, 1f)
+                            while (System.currentTimeMillis() - start < 1000) {
+                                val progress = ((System.currentTimeMillis() - start).toFloat() / 1000f).coerceIn(0f, 1f)
                                 splashScale.value = 0.3f + (2.7f) * progress
                                 kotlinx.coroutines.delay(16)
                             }
@@ -136,5 +144,8 @@ class MainActivity : ComponentActivity() {
         handleShareIntent(intent)
         val chatId = intent.getLongExtra("chat_id", -1L)
         if (chatId > 0) pendingChatId.value = chatId
+        val messageId = intent.getLongExtra("message_id", -1L)
+        if (messageId > 0) com.mailchat.ui.navigation.PendingMessageStore.messageId = messageId
+        android.util.Log.i("MailchatNav", "onNewIntent chat_id=$chatId action=${intent.action} data=${intent.data}")
     }
 }

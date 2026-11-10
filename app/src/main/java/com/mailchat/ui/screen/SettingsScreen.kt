@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.outlined.Help
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -225,6 +226,12 @@ fun SettingsScreen(
     var backupExpanded by remember { mutableStateOf(false) }
     var customTagsExpanded by remember { mutableStateOf(false) }
     var infoExpanded by remember { mutableStateOf(true) }
+    var widgetExpanded by remember { mutableStateOf(false) }
+    var widgetOpenMode by remember { mutableStateOf(SettingsUtils.getWidgetOpenMode(context)) }
+    var showWidgetModeDropdown by remember { mutableStateOf(false) }
+    var widgetContentMode by remember { mutableStateOf(SettingsUtils.getWidgetContentMode(context)) }
+    var showWidgetContentDropdown by remember { mutableStateOf(false) }
+    var widgetTransparency by remember { mutableIntStateOf(SettingsUtils.getWidgetTransparency(context)) }
 
     // Key signature (second signature on encrypted emails)
     var keySigValue by remember { mutableStateOf(SettingsUtils.getEncryptedKeySignature(context)) }
@@ -903,6 +910,117 @@ fun SettingsScreen(
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                 )
             }
+            }
+
+            SectionDivider()
+
+            CollapsibleSectionHeader(
+                title = "📱 " + stringResource(R.string.widget_title),
+                expanded = widgetExpanded,
+                onToggle = { widgetExpanded = !widgetExpanded },
+                helpTitle = stringResource(R.string.help_widget_title),
+                helpText = stringResource(R.string.help_widget_text)
+            )
+
+            if (widgetExpanded) {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.widget_open_mode)) },
+                    trailingContent = {
+                        androidx.compose.material3.DropdownMenu(
+                            expanded = showWidgetModeDropdown,
+                            onDismissRequest = { showWidgetModeDropdown = false }
+                        ) {
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(stringResource(R.string.widget_open_chat)) },
+                                onClick = {
+                                    showWidgetModeDropdown = false
+                                    widgetOpenMode = SettingsUtils.WIDGET_MODE_CHAT
+                                    SettingsUtils.setWidgetOpenMode(context, SettingsUtils.WIDGET_MODE_CHAT)
+                                    // Rebuild the widget so its PendingIntents pick up the new mode
+                                    // (detail mode adds a message_id extra to each item).
+                                    com.mailchat.widget.MailWidgetProvider.refreshAll(context)
+                                }
+                            )
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(stringResource(R.string.widget_open_detail)) },
+                                onClick = {
+                                    showWidgetModeDropdown = false
+                                    widgetOpenMode = SettingsUtils.WIDGET_MODE_DETAIL
+                                    SettingsUtils.setWidgetOpenMode(context, SettingsUtils.WIDGET_MODE_DETAIL)
+                                    // Rebuild the widget so its PendingIntents pick up the new mode
+                                    // (detail mode adds a message_id extra to each item).
+                                    com.mailchat.widget.MailWidgetProvider.refreshAll(context)
+                                }
+                            )
+                        }
+                        TextButton(onClick = { showWidgetModeDropdown = true }) {
+                            Text(
+                                if (widgetOpenMode == SettingsUtils.WIDGET_MODE_DETAIL)
+                                    stringResource(R.string.widget_open_detail)
+                                else
+                                    stringResource(R.string.widget_open_chat)
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Content mode: latest or unread emails.
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.widget_content_mode)) },
+                    trailingContent = {
+                        androidx.compose.material3.DropdownMenu(
+                            expanded = showWidgetContentDropdown,
+                            onDismissRequest = { showWidgetContentDropdown = false }
+                        ) {
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(stringResource(R.string.widget_content_latest)) },
+                                onClick = {
+                                    showWidgetContentDropdown = false
+                                    widgetContentMode = SettingsUtils.WIDGET_CONTENT_LATEST
+                                    SettingsUtils.setWidgetContentMode(context, SettingsUtils.WIDGET_CONTENT_LATEST)
+                                    com.mailchat.widget.MailWidgetProvider.refreshAll(context)
+                                }
+                            )
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(stringResource(R.string.widget_content_unread)) },
+                                onClick = {
+                                    showWidgetContentDropdown = false
+                                    widgetContentMode = SettingsUtils.WIDGET_CONTENT_UNREAD
+                                    SettingsUtils.setWidgetContentMode(context, SettingsUtils.WIDGET_CONTENT_UNREAD)
+                                    com.mailchat.widget.MailWidgetProvider.refreshAll(context)
+                                }
+                            )
+                        }
+                        TextButton(onClick = { showWidgetContentDropdown = true }) {
+                            Text(
+                                if (widgetContentMode == SettingsUtils.WIDGET_CONTENT_UNREAD)
+                                    stringResource(R.string.widget_content_unread)
+                                else
+                                    stringResource(R.string.widget_content_latest)
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Background transparency in percent (scrollable slider).
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.widget_transparency)) },
+                    trailingContent = { Text("${widgetTransparency} %") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                androidx.compose.material3.Slider(
+                    value = widgetTransparency.toFloat(),
+                    onValueChange = { widgetTransparency = it.toInt() },
+                    onValueChangeFinished = {
+                        SettingsUtils.setWidgetTransparency(context, widgetTransparency)
+                        com.mailchat.widget.MailWidgetProvider.refreshAll(context)
+                    },
+                    valueRange = 0f..100f,
+                    steps = 9,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
             }
 
             SectionDivider()
@@ -1595,19 +1713,34 @@ fun SettingsScreen(
             }
 
             var pendingExportPassword by remember { mutableStateOf<String?>(null) }
+            var pendingIncludeAttachments by remember { mutableStateOf(false) }
             val savePicker = rememberLauncherForActivityResult(
                 androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/octet-stream")
             ) { uri ->
                 val pw = pendingExportPassword
+                val includeAtt = pendingIncludeAttachments
                 if (uri != null && pw != null) {
                     MainScope().launch {
                         try {
-                            val file = com.mailchat.util.ConfigBackupUtils.exportConfig(context, pw)
+                            val file = com.mailchat.util.ConfigBackupUtils.exportConfig(context, pw, includeAtt)
                             val bytes = file.readBytes()
-                            context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                            android.util.Log.i("MailchatExport", "exportConfig produced ${bytes.size} bytes, uri=$uri")
+                            if (bytes.isEmpty()) {
+                                backupMessage = "Fehler: Export ist leer (0 Bytes)"
+                                return@launch
+                            }
+                            val out = context.contentResolver.openOutputStream(uri)
+                            if (out == null) {
+                                android.util.Log.e("MailchatExport", "openOutputStream returned null for uri=$uri")
+                                backupMessage = "Fehler: Ziel-Datei konnte nicht geöffnet werden"
+                                return@launch
+                            }
+                            out.use { it.write(bytes) }
                             file.delete()
-                            backupMessage = "OK: Export erstellt"
+                            android.util.Log.i("MailchatExport", "Export written: ${bytes.size} bytes to $uri")
+                            backupMessage = "OK: Export erstellt (${bytes.size} Bytes)"
                         } catch (e: Exception) {
+                            android.util.Log.e("MailchatExport", "Export failed", e)
                             backupMessage = "Fehler: ${e.message}"
                         }
                     }
@@ -1617,6 +1750,7 @@ fun SettingsScreen(
 
             if (showExportDialog) {
                 var exportPassword by remember { mutableStateOf("") }
+                var includeAttachments by remember { mutableStateOf(false) }
                 Dialog(onDismissRequest = { showExportDialog = false }) {
                     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
                         Column(modifier = Modifier.padding(24.dp)) {
@@ -1631,6 +1765,20 @@ fun SettingsScreen(
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = includeAttachments,
+                                    onCheckedChange = { includeAttachments = it }
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(stringResource(R.string.backup_include_attachments), style = MaterialTheme.typography.bodyMedium)
+                                    Text(stringResource(R.string.backup_include_attachments_desc), style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
                             Spacer(modifier = Modifier.height(16.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                                 TextButton(onClick = { showExportDialog = false }) {
@@ -1644,6 +1792,7 @@ fun SettingsScreen(
                                         }
                                         showExportDialog = false
                                         pendingExportPassword = exportPassword
+                                        pendingIncludeAttachments = includeAttachments
                                         savePicker.launch("mailchat_config.enc")
                                     }
                                 ) {
@@ -1658,18 +1807,28 @@ fun SettingsScreen(
             if (showImportDialog) {
                 var importPassword by remember { mutableStateOf("") }
                 var importFile by remember { mutableStateOf<File?>(null) }
+                var importReadError by remember { mutableStateOf(false) }
                 val filePicker = androidx.activity.compose.rememberLauncherForActivityResult(
                     androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
                 ) { uri ->
                     if (uri != null) {
                         try {
                             val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                            if (bytes != null) {
+                            if (bytes != null && bytes.isNotEmpty()) {
                                 val tmpFile = File(context.cacheDir, "import_config.enc")
                                 tmpFile.writeBytes(bytes)
                                 importFile = tmpFile
+                            } else {
+                                // The selected file could not be read (or is empty). Show an error
+                                // instead of silently proceeding with an empty file.
+                                importFile = null
+                                importReadError = true
                             }
-                        } catch (_: Exception) {}
+                        } catch (e: Exception) {
+                            importFile = null
+                            importReadError = true
+                            android.util.Log.e("MailchatImport", "Failed to read selected file: ${uri}", e)
+                        }
                     }
                 }
                 LaunchedEffect(Unit) { filePicker.launch(arrayOf("*/*")) }
@@ -1678,10 +1837,13 @@ fun SettingsScreen(
                         Column(modifier = Modifier.padding(24.dp)) {
                             Text(stringResource(R.string.backup_import), style = MaterialTheme.typography.titleLarge)
                             Spacer(modifier = Modifier.height(12.dp))
-                            if (importFile == null) {
-                                Text(stringResource(R.string.backup_no_file), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-                            } else {
-                                Text(stringResource(R.string.backup_file_selected), style = MaterialTheme.typography.bodyMedium)
+                            when {
+                                importFile != null ->
+                                    Text(stringResource(R.string.backup_file_selected), style = MaterialTheme.typography.bodyMedium)
+                                importReadError ->
+                                    Text(stringResource(R.string.backup_file_read_error), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                                else ->
+                                    Text(stringResource(R.string.backup_no_file), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             OutlinedTextField(

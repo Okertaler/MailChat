@@ -76,7 +76,10 @@ class ImapService @Inject constructor(
         try {
             val defaultFolder = store.getDefaultFolder()
             val folders = defaultFolder.list("*")
-            folders.map { it.name }.filter { it.isNotBlank() }
+            val names = folders.map { it.name }.filter { it.isNotBlank() }.toMutableSet()
+            // INBOX is a special folder that some servers do not return in LIST *; always include it.
+            names.add("INBOX")
+            names.toList()
         } finally {
             store.close()
         }
@@ -717,16 +720,27 @@ class ImapService @Inject constructor(
             // is empty, in the decrypted message. Prefer the decrypted one, fall back to outer.
             val subject = (sourceMail.subject ?: "").ifBlank { mail.subject ?: "" }
             var bodyFull = extractTextBody(sourceMail)
+            // Signature status of the incoming message ("" = not checked / not encrypted).
+            var signatureStatus = ""
             // Decrypt incoming OpenPGP-encrypted bodies (inline armored PGP, not PGP/MIME) with
             // the stored private key so the chat shows plaintext instead of the raw armored PGP
-            // block. Sent messages are handled by the write-back path, so only incoming messages
-            // need this here.
+            // block, and verify the sender's signature. Sent messages are handled by the
+            // write-back path, so only incoming messages need this here.
             if (isIncoming && com.mailchat.crypto.OpenPgpKeyService.isEncryptedContent(bodyFull)
                 && com.mailchat.crypto.OpenPgpKeyService.hasIdentity(context)
             ) {
                 try {
-                    bodyFull = com.mailchat.crypto.OpenPgpKeyService.decrypt(context, bodyFull)
-                    com.mailchat.ai.AppLogger.log(context, "Decrypted incoming email body: subject=${subject.take(40)}")
+                    // Look up the sender's public key: local peer first, then keys.openpgp.org
+                    // (short timeouts so a slow network never blocks the fetch).
+                    val senderPubKey = com.mailchat.crypto.OpenPgpKeyService.getPeer(context, fromAddress)?.publicKeyArmored
+                        ?: com.mailchat.crypto.OpenPgpKeyService.fetchKeyByEmail(fromAddress, 5000, 8000)
+                    val result = com.mailchat.crypto.OpenPgpKeyService.decryptAndVerify(context, bodyFull, senderPubKey)
+                    bodyFull = result.plaintext
+                    signatureStatus = result.signatureStatus.name
+                    com.mailchat.ai.AppLogger.log(
+                        context,
+                        "Decrypted incoming email body: subject=${subject.take(40)} sig=${signatureStatus} signer=${result.signerFingerprint}"
+                    )
                 } catch (e: Exception) {
                     com.mailchat.ai.AppLogger.log(context, "Incoming email body decrypt failed: ${e.message}")
                 }
@@ -790,7 +804,8 @@ class ImapService @Inject constructor(
                 messageId = messageId,
                 cc = cc,
                 bcc = bcc,
-                isEncrypted = isEncryptedMsg
+                isEncrypted = isEncryptedMsg,
+                signatureStatus = signatureStatus
             )
 
             val toRecipients = (mail.getRecipients(javax.mail.Message.RecipientType.TO) ?: emptyArray())

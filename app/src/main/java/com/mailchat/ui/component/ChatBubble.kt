@@ -18,9 +18,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -170,6 +172,48 @@ fun ChatBubble(
                                 modifier = Modifier.size(10.dp),
                                 tint = Color.White
                             )
+                        }
+                    }
+                    // Signature status badge (incoming messages that were signed + encrypted).
+                    // Only set for incoming mail, so this naturally limits the badge to those.
+                    val sigStatus = message.signatureStatus
+                    if (sigStatus.isNotBlank()) {
+                        val sigColor = when (sigStatus) {
+                            "VERIFIED" -> Color(0xFF4CAF50)
+                            "INVALID" -> Color(0xFFD32F2F)
+                            else -> Color(0xFFF9A825) // NOT_SIGNED / NO_KEY
+                        }
+                        val sigIcon = when (sigStatus) {
+                            "VERIFIED" -> Icons.Default.CheckCircle
+                            "INVALID" -> Icons.Default.Close
+                            else -> Icons.Default.Warning
+                        }
+                        val sigLabel = when (sigStatus) {
+                            "VERIFIED" -> stringResource(R.string.sig_verified)
+                            "INVALID" -> stringResource(R.string.sig_invalid)
+                            "NOT_SIGNED" -> stringResource(R.string.sig_not_signed)
+                            else -> stringResource(R.string.sig_no_key)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(sigColor)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = sigIcon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(10.dp),
+                                    tint = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = sigLabel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White
+                                )
+                            }
                         }
                     }
                     if (message.isSpam) {

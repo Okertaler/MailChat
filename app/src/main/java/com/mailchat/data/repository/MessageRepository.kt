@@ -23,6 +23,8 @@ class MessageRepository @Inject constructor(
 
     suspend fun getLatestMessageByChat(chatId: Long): Message? = messageDao.getLatestMessageByChat(chatId)
 
+    suspend fun getLatestMessages(limit: Int): List<Message> = messageDao.getLatestMessages(limit)
+
     suspend fun getMessageById(id: Long): Message? = messageDao.getMessageById(id)
 
     suspend fun markAllRead(chatId: Long) = messageDao.markAllRead(chatId)

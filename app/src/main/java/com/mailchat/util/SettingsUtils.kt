@@ -421,4 +421,88 @@ object SettingsUtils {
             .putBoolean("chat_previews_repaired", true)
             .apply()
     }
+
+    // ------------------------------------------------------------------
+    // Phishing blacklist (persists even if the chat is deleted)
+    // ------------------------------------------------------------------
+
+    private const val KEY_PHISHING_BLACKLIST = "phishing_blacklist"
+
+    /** All blacklisted sender addresses (lowercase). */
+    fun getPhishingBlacklist(context: Context): Set<String> =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getStringSet(KEY_PHISHING_BLACKLIST, emptySet())
+            ?.map { it.lowercase() }?.toSet() ?: emptySet()
+
+    fun isPhishingBlacklisted(context: Context, email: String): Boolean =
+        email.isNotBlank() && email.lowercase() in getPhishingBlacklist(context)
+
+    /** Add sender addresses to the phishing blacklist (idempotent). */
+    fun addPhishingBlacklist(context: Context, emails: Collection<String>) {
+        if (emails.isEmpty()) return
+        val current = getPhishingBlacklist(context).toMutableSet()
+        emails.forEach { current.add(it.lowercase()) }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putStringSet(KEY_PHISHING_BLACKLIST, current)
+            .apply()
+    }
+
+    /** Remove sender addresses from the phishing blacklist (e.g. when marked as "ham"). */
+    fun removePhishingBlacklist(context: Context, emails: Collection<String>) {
+        if (emails.isEmpty()) return
+        val current = getPhishingBlacklist(context).toMutableSet()
+        emails.forEach { current.remove(it.lowercase()) }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putStringSet(KEY_PHISHING_BLACKLIST, current)
+            .apply()
+    }
+
+    // ------------------------------------------------------------------
+    // Home-screen widget
+    // ------------------------------------------------------------------
+
+    const val WIDGET_MODE_CHAT = "chat"
+    const val WIDGET_MODE_DETAIL = "detail"
+
+    /** What the widget opens when an email is tapped: [WIDGET_MODE_CHAT] (default) or [WIDGET_MODE_DETAIL]. */
+    fun getWidgetOpenMode(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("widget_open_mode", WIDGET_MODE_CHAT) ?: WIDGET_MODE_CHAT
+
+    fun setWidgetOpenMode(context: Context, mode: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString("widget_open_mode", mode)
+            .apply()
+    }
+
+    const val WIDGET_CONTENT_LATEST = "latest"
+    const val WIDGET_CONTENT_UNREAD = "unread"
+
+    /** What the widget lists: [WIDGET_CONTENT_LATEST] (default) or [WIDGET_CONTENT_UNREAD]. */
+    fun getWidgetContentMode(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("widget_content_mode", WIDGET_CONTENT_LATEST) ?: WIDGET_CONTENT_LATEST
+
+    fun setWidgetContentMode(context: Context, mode: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString("widget_content_mode", mode)
+            .apply()
+    }
+
+    /** Widget background transparency in percent (0 = opaque, 100 = fully transparent). */
+    fun getWidgetTransparency(context: Context): Int =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getInt("widget_transparency", 0)
+            .coerceIn(0, 100)
+
+    fun setWidgetTransparency(context: Context, percent: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putInt("widget_transparency", percent.coerceIn(0, 100))
+            .apply()
+    }
 }

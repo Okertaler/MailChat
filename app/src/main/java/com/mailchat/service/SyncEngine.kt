@@ -105,10 +105,14 @@ class SyncEngine @Inject constructor(
         }
         val existing = chatRepository.findByEmailAndAccount(chatEmail, account.id)
         val chat = if (existing != null) {
+            // Only update the "last message" fields when this message is newer than the current
+            // last one, so the chat overview always shows the NEWEST message's subject — regardless
+            // of the order in which the IMAP server returns the messages.
+            val isNewer = fetchedMsg.message.timestamp >= existing.lastMessageTimestamp
             val updated = existing.copy(
-                lastMessageTimestamp = fetchedMsg.message.timestamp,
-                lastMessageBody = fetchedMsg.message.body,
-                lastMessageSubject = fetchedMsg.message.subject,
+                lastMessageTimestamp = if (isNewer) fetchedMsg.message.timestamp else existing.lastMessageTimestamp,
+                lastMessageBody = if (isNewer) fetchedMsg.message.body else existing.lastMessageBody,
+                lastMessageSubject = if (isNewer) fetchedMsg.message.subject else existing.lastMessageSubject,
                 unreadCount = if (fetchedMsg.isIncoming) existing.unreadCount + 1 else existing.unreadCount,
                 backgroundImageUri = existing.backgroundImageUri ?: fetchedMsg.firstImageUri
             )
@@ -137,7 +141,16 @@ class SyncEngine @Inject constructor(
             )
             if (dupCount > 0) return
         }
-        val message = fetchedMsg.message.copy(chatId = chat.id, accountId = account.id)
+        // Phishing blacklist: a blacklisted sender is marked as phishing immediately (persists
+        // in SharedPreferences, survives chat deletion).
+        val blacklisted = fetchedMsg.isIncoming &&
+            SettingsUtils.isPhishingBlacklisted(context, fetchedMsg.message.from)
+        val message = fetchedMsg.message.copy(
+            chatId = chat.id,
+            accountId = account.id,
+            isSpam = if (blacklisted) true else fetchedMsg.message.isSpam,
+            spamCategory = if (blacklisted) "phishing" else fetchedMsg.message.spamCategory
+        )
         val dbMessageId = messageRepository.insertMessage(message)
         for (attachment in fetchedMsg.attachments) {
             messageRepository.insertAttachment(attachment.copy(messageId = dbMessageId))
@@ -182,6 +195,11 @@ class SyncEngine @Inject constructor(
                         kotlinx.coroutines.delay(10000)
                     }
                 }
+            }
+            // Refresh the home-screen widget so it shows the new email.
+            try {
+                com.mailchat.widget.MailWidgetProvider.refreshAll(context)
+            } catch (_: Exception) {
             }
         }
     }

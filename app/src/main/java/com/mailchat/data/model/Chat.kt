@@ -35,5 +35,7 @@ data class Chat(
     val favorite: Boolean = false,
     val important: Boolean = false,
     val noReply: Int = 0,
-    val customTag: String = ""
+    val customTag: String = "",
+    /** For group chats: when true, outgoing emails are encrypted for all members that have a key. */
+    val isEncrypted: Boolean = false
 )

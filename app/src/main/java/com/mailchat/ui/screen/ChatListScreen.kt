@@ -97,8 +97,11 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import java.io.File
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -134,6 +137,7 @@ fun ChatListScreen(
     var showCustomTagDialog by remember { mutableStateOf(false) }
     var chatToDelete by remember { mutableStateOf<com.mailchat.data.model.Chat?>(null) }
     var showNewEmailDialog by remember { mutableStateOf(false) }
+    var showNewChatDialog by remember { mutableStateOf(false) }
     var newEmailRecipient by remember { mutableStateOf("") }
     var newEmailSubject by remember { mutableStateOf("") }
     var newEmailBody by remember { mutableStateOf("") }
@@ -298,18 +302,27 @@ fun ChatListScreen(
         }
     }
 
+    // Navigate to a chat that was just created/opened via the "+" button.
+    LaunchedEffect(uiState.createdChatId) {
+        uiState.createdChatId?.let { chatId ->
+            onChatClick(chatId)
+            viewModel.clearCreatedChatId()
+        }
+    }
+
     Scaffold(
         modifier = modifier,
         floatingActionButton = {
             if (!uiState.selectionMode) {
                 FloatingActionButton(
                     onClick = {
-                        // Unified compose screen (same as "Share with"): From selection,
-                        // CC/BCC, contact picker and attachment picker are all available.
-                        onComposeNewEmail()
+                        // Load contacts (this screen does not load them on its own) and open
+                        // the create/open chat dialog. No email is sent.
+                        viewModel.loadContacts()
+                        showNewChatDialog = true
                     }
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.new_email))
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.new_chat))
                 }
             }
         },
@@ -1120,6 +1133,12 @@ fun ChatListScreen(
     }
 
     if (showSpamDialog) {
+        val spamOptions = listOf(
+            Triple("", stringResource(R.string.spam_none), MaterialTheme.colorScheme.onSurfaceVariant),
+            Triple("newsletter", stringResource(R.string.spam_newsletter), Color(0xFF388E3C)),
+            Triple("unwanted_ad", stringResource(R.string.spam_unwanted), Color(0xFFF9A825)),
+            Triple("phishing", stringResource(R.string.spam_phishing), Color(0xFFD32F2F))
+        )
         AlertDialog(
             onDismissRequest = { showSpamDialog = false },
             title = { Text(stringResource(R.string.spam_category)) },
@@ -1127,22 +1146,25 @@ fun ChatListScreen(
                 Column {
                     Text(stringResource(R.string.spam_category_info), style = MaterialTheme.typography.bodySmall)
                     Spacer(modifier = Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val options = listOf(
-                            Triple("", stringResource(R.string.spam_none), Color.Gray),
-                            Triple("newsletter", stringResource(R.string.spam_newsletter), Color(0xFF388E3C)),
-                            Triple("unwanted_ad", stringResource(R.string.spam_unwanted), Color(0xFFF9A825)),
-                            Triple("phishing", stringResource(R.string.spam_phishing), Color(0xFFD32F2F))
-                        )
-                        options.forEach { (cat, label, color) ->
-                            FilterChip(
-                                selected = false,
-                                onClick = {
+                    spamOptions.forEach { (cat, label, color) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
                                     showSpamDialog = false
                                     viewModel.setSpamCategoryOnSelected(cat)
-                                },
-                                label = { Text(label, color = color, style = MaterialTheme.typography.labelSmall) }
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Report,
+                                contentDescription = null,
+                                tint = color,
+                                modifier = Modifier.size(18.dp)
                             )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(text = label, style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
@@ -1183,6 +1205,21 @@ fun ChatListScreen(
         )
     }
 
+    if (showNewChatDialog) {
+        var selectedAccountId by remember { mutableStateOf(uiState.accounts.firstOrNull()?.id ?: 0L) }
+        NewChatDialog(
+            accounts = uiState.accounts,
+            selectedAccountId = selectedAccountId,
+            onAccountSelected = { selectedAccountId = it },
+            contacts = uiState.contacts,
+            onDismiss = { showNewChatDialog = false },
+            onCreate = { recipients, groupName, encrypted ->
+                showNewChatDialog = false
+                viewModel.createOrOpenChat(recipients, groupName, selectedAccountId, encrypted)
+            }
+        )
+    }
+
     uiState.encryptionErrorDialog?.let {
         // Not dismissible via back button or outside tap: the user must explicitly
         // confirm with "Ja" (send unencrypted) or "Nein" (abort).
@@ -1201,6 +1238,325 @@ fun ChatListScreen(
             dismissButton = {
                 TextButton(onClick = { viewModel.dismissEncryptionErrorDialog() }) {
                     Text(stringResource(R.string.no))
+                }
+            }
+        )
+    }
+}
+
+/**
+ * Dialog opened by the "+" button on the overview page. It creates (or opens, if it already
+ * exists) a 1:1 chat or a group chat — no email is sent. Selected contacts are shown vertically;
+ * when two or more contacts are selected a group name is requested.
+ */
+@Composable
+private fun NewChatDialog(
+    accounts: List<com.mailchat.data.model.EmailAccount>,
+    selectedAccountId: Long,
+    onAccountSelected: (Long) -> Unit,
+    contacts: List<com.mailchat.service.Contact>,
+    onDismiss: () -> Unit,
+    onCreate: (recipients: List<String>, groupName: String, encrypted: Boolean) -> Unit
+) {
+    // NOTE: must be updated immutably (selectedEmails = selectedEmails + x) so Compose
+    // detects the change; mutating a Set in place does NOT trigger recomposition.
+    var selectedEmails by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var groupName by remember { mutableStateOf("") }
+    var isEncrypted by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var emailInput by remember { mutableStateOf("") }
+    var showAccountPicker by remember { mutableStateOf(false) }
+    val selectedAccount = accounts.firstOrNull { it.id == selectedAccountId }
+
+    val filteredContacts = remember(contacts, searchQuery) {
+        if (searchQuery.isBlank()) contacts
+        else contacts.filter {
+            it.name.contains(searchQuery, ignoreCase = true) ||
+                it.email.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.new_chat)) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                if (accounts.size > 1) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { showAccountPicker = true }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = selectedAccount?.emailAddress ?: "",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "▼",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // Selected contacts, shown vertically (one below the other).
+                if (selectedEmails.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.selected_contacts),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    selectedEmails.forEach { email ->
+                        val contact = contacts.firstOrNull { it.email.equals(email, ignoreCase = true) }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.secondaryContainer)
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = contact?.name ?: email,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = email,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(
+                                onClick = { selectedEmails = selectedEmails - email },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // Group name is only requested for group chats (2+ contacts).
+                if (selectedEmails.size >= 2) {
+                    OutlinedTextField(
+                        value = groupName,
+                        onValueChange = { groupName = it },
+                        label = { Text(stringResource(R.string.group_name)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    // Encryption option for group chats.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = stringResource(R.string.group_encrypt),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(checked = isEncrypted, onCheckedChange = { isEncrypted = it })
+                    }
+                    if (isEncrypted) {
+                        Text(
+                            text = stringResource(R.string.group_encrypt_warning),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                Text(
+                    text = stringResource(R.string.select_recipient),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                // Allow adding email addresses that are not in the contacts (press Enter / tap +).
+                OutlinedTextField(
+                    value = emailInput,
+                    onValueChange = { emailInput = it },
+                    label = { Text(stringResource(R.string.add_email_address)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            val addr = emailInput.trim()
+                            if (addr.contains("@") && addr.contains(".")) {
+                                selectedEmails = selectedEmails + addr.lowercase()
+                                emailInput = ""
+                            }
+                        }
+                    ),
+                    trailingIcon = {
+                        if (emailInput.isNotBlank()) {
+                            IconButton(onClick = {
+                                val addr = emailInput.trim()
+                                if (addr.contains("@") && addr.contains(".")) {
+                                    selectedEmails = selectedEmails + addr.lowercase()
+                                    emailInput = ""
+                                }
+                            }) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text(stringResource(R.string.search)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                if (filteredContacts.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.no_contacts),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    filteredContacts.forEach { contact ->
+                        val isSelected = selectedEmails.any { it.equals(contact.email, ignoreCase = true) }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedEmails = if (isSelected) selectedEmails - contact.email
+                                    else selectedEmails + contact.email
+                                }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (contact.photoUri != null) {
+                                AsyncImage(
+                                    model = contact.photoUri,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(CircleShape)
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.Person,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = contact.name,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    text = contact.email,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (selectedEmails.isNotEmpty()) {
+                        val gName = if (selectedEmails.size >= 2) groupName else ""
+                        val enc = if (selectedEmails.size >= 2) isEncrypted else false
+                        onCreate(selectedEmails.toList(), gName, enc)
+                    }
+                },
+                enabled = selectedEmails.isNotEmpty()
+            ) {
+                Text(stringResource(R.string.create))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+
+    if (showAccountPicker) {
+        AlertDialog(
+            onDismissRequest = { showAccountPicker = false },
+            title = { Text(stringResource(R.string.select_account)) },
+            text = {
+                Column {
+                    accounts.forEach { account ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onAccountSelected(account.id)
+                                    showAccountPicker = false
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Email,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(text = account.displayName, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    text = account.emailAddress,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showAccountPicker = false }) {
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )

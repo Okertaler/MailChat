@@ -20,11 +20,22 @@
     <string name="backup_import_desc">Konten und Einstellungen aus verschlüsselter Datei wiederherstellen</string>
     <string name="backup_password">Passwort</string>
     <string name="backup_password_hint">Passwort zur Verschlüsselung der Config-Datei eingeben (min. 12 Zeichen)</string>
+    <string name="backup_include_attachments">E-Mail-Anhänge mit einschließen</string>
+    <string name="backup_include_attachments_desc">Macht das Backup deutlich größer. Anhänge liegen auf dem IMAP-Server und werden nach dem Restore neu heruntergeladen — nur für ein Vollbackup nötig (z. B. vor dem Löschen des Kontos).</string>
     <string name="backup_no_file">Keine Datei ausgewählt</string>
     <string name="backup_file_selected">Datei ausgewählt</string>
+    <string name="backup_file_read_error">Die ausgewählte Datei konnte nicht gelesen werden (oder ist leer). Bitte wähle die exportierte .enc-Datei erneut aus.</string>
     <string name="group_chat">Gruppenchat</string>
     <string name="group_name">Gruppenname</string>
+    <string name="group_chat_notice">Dies ist ein Gruppenchat/Emailliste. Bitte immer an allen antworten.</string>
+    <string name="group_encrypt">Gruppenchat verschlüsseln</string>
+    <string name="group_encrypt_warning">Mitglieder ohne öffentlichen Schlüssel können die verschlüsselten E-Mails nicht lesen.</string>
     <string name="rename_group">Gruppe umbenennen</string>
+    <string name="new_chat">Neuer Chat</string>
+    <string name="create">Erstellen</string>
+    <string name="no_contacts">Keine Kontakte gefunden</string>
+    <string name="selected_contacts">Ausgewählte Kontakte</string>
+    <string name="add_email_address">E-Mail-Adresse hinzufügen</string>
     <string name="sync">Synchronisieren</string>
     <string name="add_account">Konto hinzufügen</string>
     <string name="settings">Einstellungen</string>
@@ -437,6 +448,15 @@
         <item>Gruppenchats: E-Mails mit mehreren Empfängern werden in einem Chat gesammelt</item>
         <item>Neue E-Mails können an mehrere Empfänger (kommagetrennt) gesendet werden</item>
         <item>Antworten in einem Gruppenchat gehen an alle Mitglieder</item>
+    </string-array>
+    <string-array name="version_2_2_changes">
+        <item>Neu: Digitale Signatur (OpenPGP) — deine ausgehenden E-Mails werden signiert; Empfänger sehen ein Badge in der Chatblase: verifiziert ✓, ungültig ✗ oder nicht signiert ⚠</item>
+        <item>Neu: Startbildschirm-Widget mit deinen letzten E-Mails (die Anzahl passt sich der Widget-Höhe an). Tippe auf eine E-Mail, um den Chat (Standard) oder das E-Mail-Detail zu öffnen (in den Einstellungen konfigurierbar)</item>
+        <item>Neu: Der „+"-Button in der Übersicht erstellt oder öffnet jetzt einen Chat/Gruppenchat (Kontakte auswählen, Gruppe benennen) — er verschickt keine E-Mail mehr</item>
+        <item>Neu: Phishing-Blacklist — die Markierung eines Absenders als Phishing wird dauerhaft gespeichert (auch nach Chat-Löschung); neue E-Mails von diesem Absender werden sofort als Phishing markiert</item>
+        <item>Verbessert: Der Spam-Kategorien-Dialog in der Übersicht entspricht jetzt dem Chat (vertikale Liste, alle Optionen inkl. Phishing wählbar)</item>
+        <item>Verbessert: Im Chat-Bearbeitungs-Menü sind „KI-Antwort" und „KI-Zusammenfassung" jetzt zwei Zeilen höher (über „Antwort 5 Zeilen")</item>
+        <item>Behoben: Gelegentlicher Crash beim ersten Laden des lokalen KI-Modells während der App-Nutzung (Engine-Zugriff wird jetzt synchronisiert)</item>
     </string-array>
     <string-array name="version_2_1_changes">
         <item>Neu: Ausgeblendete Chats können jetzt direkt in der Chat-Liste wieder eingeblendet werden — Filter „Ausgeblendet" aktivieren, Chats auswählen, dann Bearbeiten → Einblenden</item>
@@ -1128,4 +1148,28 @@
     <string name="help_secure_scan">Scanne den QR-Code des Kontakts, um seinen Public-Key zu importieren.</string>
     <string name="help_secure_nfc">Halte dein Telefon an das des Kontakts, um Schlüssel per NFC auszutauschen.</string>
     <string name="help_secure_email">Sende deinen Public-Key per E-Mail an den Kontakt, oder füge seinen Schlüssel hier ein.</string>
+    <string name="sig_verified">Signiert &amp; verifiziert</string>
+    <string name="sig_invalid">Signatur ungültig</string>
+    <string name="sig_not_signed">Nicht signiert</string>
+    <string name="sig_no_key">Kein Absender-Key</string>
+    <string name="widget_no_emails">Noch keine E-Mails</string>
+    <string name="widget_description">Zeigt deine letzten E-Mails. Tippe auf eine, um sie in MailChat zu öffnen.</string>
+    <string name="widget_title">Startbildschirm-Widget</string>
+    <string name="widget_open_mode">Bei Auswahl einer E-Mail öffnen</string>
+    <string name="widget_open_chat">den Chat</string>
+    <string name="widget_open_detail">das E-Mail-Detail</string>
+    <string name="widget_content_mode">Anzeige</string>
+    <string name="widget_content_latest">Letzte E-Mails</string>
+    <string name="widget_content_unread">Ungelesene E-Mails</string>
+    <string name="widget_transparency">Durchsichtigkeit</string>
+    <string name="widget_no_unread_emails">Keine ungelesenen E-Mails</string>
+    <string name="you">Du</string>
+    <string name="help_new_chat_title">Neuer Chat / Gruppenchat</string>
+    <string name="help_new_chat_text">Tippe in der Übersicht auf den „+"-Button, um einen neuen Chat oder Gruppenchat zu starten. Wähle einen oder mehrere Kontakte aus (sie werden untereinander aufgelistet). Bei zwei oder mehr Kontakten kannst du der Gruppe einen Namen geben. Es wird keine E-Mail verschickt — der Chat wird einfach erstellt (oder geöffnet, falls er schon existiert) und du kannst dort deine erste Nachricht schreiben.</string>
+    <string name="help_digital_signature_title">Digitale Signatur (OpenPGP)</string>
+    <string name="help_digital_signature_text">Wenn du in Einstellungen → Verschlüsselung einen PGP-Schlüssel generierst, werden deine ausgehenden E-Mails digital signiert. Der Empfänger sieht ein kleines Badge in der Chatblase: ein grünes Häkchen (✓), wenn die Signatur gültig ist, ein rotes Kreuz (✗), wenn sie ungültig ist, oder eine Warnung (⚠), wenn die E-Mail nicht signiert ist oder der Absender-Key unbekannt ist. Signierung und Verschlüsselung nutzen den öffentlichen Schlüssel des Empfängers.</string>
+    <string name="help_phishing_blacklist_title">Phishing-Blacklist</string>
+    <string name="help_phishing_blacklist_text">Wenn du einen Absender als „Phishing" markierst (im Chat oder in der Übersicht), wird die Adresse in einer dauerhaften Blacklist gespeichert. Das überlebt das Löschen des Chats. Jede neue E-Mail von diesem Absender wird sofort als Phishing markiert — auch wenn die KI deaktiviert ist. Wenn du den Absender als „kein Spam" markierst, wird er wieder aus der Blacklist entfernt.</string>
+    <string name="help_widget_title">Startbildschirm-Widget</string>
+    <string name="help_widget_text">Füge das MailChat-Widget zu deinem Startbildschirm hinzu (lang drücken → Widgets → MailChat). Es zeigt deine letzten E-Mails (oder nur die ungelesenen — umstellbar in Einstellungen → Startbildschirm-Widget). Das Widget zeigt so viele E-Mails an, wie in seine Höhe passen — vergrößere es, um mehr zu sehen. Die Durchsichtigkeit des Hintergrunds (in Prozent) kannst du ebenfalls in den Einstellungen einstellen. Tippe auf eine E-Mail, um ihren Chat (Standard) oder das E-Mail-Detail zu öffnen. Ein Tippen auf den Widget-Rand holt die App nur in den Vordergrund. Das Widget aktualisiert sich automatisch, wenn neue E-Mails eintreffen.</string>
 </resources>

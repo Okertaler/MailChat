@@ -8,17 +8,17 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.SecureRandom
 import java.security.spec.KeySpec
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
-import javax.crypto.Cipher
+import org.bouncycastle.crypto.engines.AESEngine
+import org.bouncycastle.crypto.modes.GCMBlockCipher
+import org.bouncycastle.crypto.params.KeyParameter
+import org.bouncycastle.crypto.params.ParametersWithIV
 import javax.crypto.SecretKeyFactory
-import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
@@ -28,46 +28,113 @@ data class ImportResult(
 
 object ConfigBackupUtils {
 
-    private const val ALGORITHM = "AES/GCM/NoPadding"
     private const val KEY_LENGTH = 256
     private const val SALT_LENGTH = 16
     private const val IV_LENGTH = 12
-    private const val GCM_TAG_LENGTH = 128
     private const val PBKDF2_ITERATIONS = 100_000
 
-    suspend fun exportConfig(context: Context, password: String): File = withContext(Dispatchers.IO) {
+    suspend fun exportConfig(context: Context, password: String, includeAttachments: Boolean = false): File = withContext(Dispatchers.IO) {
         val json = buildJson(context)
-        val zipBytes = createZip(context, json)
-        val encrypted = encrypt(zipBytes, password)
-        val file = File(context.filesDir, "mailchat_config_${System.currentTimeMillis()}.enc")
-        file.writeBytes(encrypted)
-        file
+        val ts = System.currentTimeMillis()
+        // Stream the zip and the encryption to disk instead of holding everything in memory.
+        // The attachments can be hundreds of MB, which previously caused an OutOfMemoryError.
+        val zipFile = File(context.cacheDir, "mailchat_config_$ts.zip")
+        createZipFile(context, json, zipFile, includeAttachments)
+        val outFile = File(context.filesDir, "mailchat_config_$ts.enc")
+        encryptFile(zipFile, outFile, password)
+        zipFile.delete()
+        outFile
     }
 
     suspend fun importConfig(context: Context, file: File, password: String): Result<ImportResult> = withContext(Dispatchers.IO) {
         try {
-            val data = file.readBytes()
-            val decrypted = decrypt(data, password)
-            if (isZip(decrypted)) {
-                restoreFromZip(context, decrypted)
-                Result.success(ImportResult(needsRestart = true))
-            } else {
-                val jsonStr = String(decrypted, Charsets.UTF_8)
-                val json = JSONObject(jsonStr)
-                restoreFromJson(context, json)
-                Result.success(ImportResult(needsRestart = false))
+            // Validate the file size up front so the user gets a clear message instead of a
+            // cryptic decryption error.
+            val fileSize = file.length()
+            if (fileSize < SALT_LENGTH + IV_LENGTH) {
+                val err = IllegalStateException("Backup file is too small ($fileSize bytes) — not a valid MailChat backup. Please select the exported .enc file again.")
+                android.util.Log.e("MailchatImport", "importConfig: file too small (size=$fileSize), path=${file.absolutePath}")
+                com.mailchat.ai.AppLogger.log(context, "Config import failed: file too small ($fileSize bytes), path=${file.absolutePath}")
+                return@withContext Result.failure(err)
+            }
+            android.util.Log.i("MailchatImport", "importConfig: file size=$fileSize, path=${file.absolutePath}")
+            // Read the header (salt + iv), then decrypt the rest STREAMING to a temp file so a
+            // large backup (hundreds of MB) does not cause an OutOfMemoryError.
+            val header = ByteArray(SALT_LENGTH + IV_LENGTH)
+            file.inputStream().use { readFully(it, header) }
+            val salt = header.copyOfRange(0, SALT_LENGTH)
+            val iv = header.copyOfRange(SALT_LENGTH, SALT_LENGTH + IV_LENGTH)
+            val key = deriveKey(password, salt)
+            // BouncyCastle's GCM cipher streams properly (Android's Conscrypt/OpenSSL GCM buffers
+            // the entire payload in memory and OOMs on large backups, even when driven with
+            // update() in chunks). The format is standard AES-GCM (ciphertext + 16-byte tag), so
+            // backups created by older versions still import.
+            val gcm = GCMBlockCipher(AESEngine())
+            gcm.init(false, ParametersWithIV(KeyParameter(key.encoded), iv))
+            val decryptedFile = File(context.cacheDir, "import_decrypted_${System.currentTimeMillis()}")
+            try {
+                val buffer = ByteArray(8192)
+                val outBuf = ByteArray(buffer.size + 16)
+                file.inputStream().use { input ->
+                    input.skip((SALT_LENGTH + IV_LENGTH).toLong())
+                    decryptedFile.outputStream().buffered().use { output ->
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read == -1) break
+                            if (read > 0) {
+                                val n = gcm.processBytes(buffer, 0, read, outBuf, 0)
+                                output.write(outBuf, 0, n)
+                            }
+                        }
+                        // Finalize: verifies the GCM authentication tag (throws on wrong password).
+                        val finalLen = gcm.doFinal(outBuf, 0)
+                        if (finalLen > 0) output.write(outBuf, 0, finalLen)
+                        output.flush()
+                    }
+                }
+                if (isZipFile(decryptedFile)) {
+                    restoreFromZipFile(context, decryptedFile)
+                    Result.success(ImportResult(needsRestart = true))
+                } else {
+                    val jsonStr = decryptedFile.readText(Charsets.UTF_8)
+                    val json = JSONObject(jsonStr)
+                    restoreFromJson(context, json)
+                    Result.success(ImportResult(needsRestart = false))
+                }
+            } finally {
+                decryptedFile.delete()
             }
         } catch (e: Exception) {
+            // Log the full stack trace so import failures can be diagnosed (the UI only shows e.message).
+            android.util.Log.e("MailchatImport", "importConfig failed", e)
+            com.mailchat.ai.AppLogger.log(
+                context,
+                "Config import failed: ${e::class.java.name}: ${e.message}\n${e.stackTraceToString()}"
+            )
             Result.failure(e)
         }
     }
 
-    private fun isZip(data: ByteArray): Boolean {
-        return data.size > 4 &&
-            data[0] == 0x50.toByte() &&
-            data[1] == 0x4B.toByte() &&
-            data[2] == 0x03.toByte() &&
-            data[3] == 0x04.toByte()
+    private fun isZipFile(file: File): Boolean {
+        if (file.length() < 4) return false
+        file.inputStream().use { input ->
+            val header = ByteArray(4)
+            readFully(input, header)
+            return header[0] == 0x50.toByte() &&
+                header[1] == 0x4B.toByte() &&
+                header[2] == 0x03.toByte() &&
+                header[3] == 0x04.toByte()
+        }
+    }
+
+    /** Reads exactly [dest.size] bytes from [input] into [dest], throwing on premature EOF. */
+    private fun readFully(input: java.io.InputStream, dest: ByteArray) {
+        var offset = 0
+        while (offset < dest.size) {
+            val n = input.read(dest, offset, dest.size - offset)
+            if (n == -1) throw java.io.EOFException("Unexpected end of stream")
+            offset += n
+        }
     }
 
     private suspend fun buildJson(context: Context): JSONObject {
@@ -199,28 +266,35 @@ object ConfigBackupUtils {
         return root
     }
 
-    private fun createZip(context: Context, json: JSONObject): ByteArray {
-        val baos = ByteArrayOutputStream()
-        ZipOutputStream(baos).use { zos ->
-            zos.putNextEntry(ZipEntry("config.json"))
-            zos.write(json.toString().toByteArray(Charsets.UTF_8))
-            zos.closeEntry()
-
-            val dbFile = context.getDatabasePath("mailchat_database")
-            if (dbFile.exists()) {
-                try {
-                    val db = MailchatDatabase.getInstance(context)
-                    db.openHelper.writableDatabase.execSQL("PRAGMA wal_checkpoint(TRUNCATE)")
-                } catch (_: Exception) {}
-                zos.putNextEntry(ZipEntry("mailchat_database"))
-                dbFile.inputStream().use { it.copyTo(zos) }
+    private fun createZipFile(context: Context, json: JSONObject, zipFile: File, includeAttachments: Boolean) {
+        // Stream the zip directly to disk (the attachments can be hundreds of MB, so building it
+        // in a ByteArrayOutputStream would cause an OutOfMemoryError).
+        zipFile.outputStream().buffered().use { fos ->
+            ZipOutputStream(fos).use { zos ->
+                zos.putNextEntry(ZipEntry("config.json"))
+                zos.write(json.toString().toByteArray(Charsets.UTF_8))
                 zos.closeEntry()
-            }
 
-            addDirectoryToZip(zos, File(context.filesDir, "attachments"), "attachments")
-            addDirectoryToZip(zos, File(context.filesDir, "compose_attachments"), "compose_attachments")
+                val dbFile = context.getDatabasePath("mailchat_database")
+                if (dbFile.exists()) {
+                    try {
+                        val db = MailchatDatabase.getInstance(context)
+                        db.openHelper.writableDatabase.execSQL("PRAGMA wal_checkpoint(TRUNCATE)")
+                    } catch (_: Exception) {}
+                    zos.putNextEntry(ZipEntry("mailchat_database"))
+                    dbFile.inputStream().use { it.copyTo(zos) }
+                    zos.closeEntry()
+                }
+
+                // Attachments are also stored on the IMAP server and are re-downloaded on the next
+                // sync after a restore, so they are excluded by default to keep the backup small.
+                // They can be included explicitly for a full backup (e.g. before deleting the account).
+                if (includeAttachments) {
+                    addDirectoryToZip(zos, File(context.filesDir, "attachments"), "attachments")
+                    addDirectoryToZip(zos, File(context.filesDir, "compose_attachments"), "compose_attachments")
+                }
+            }
         }
-        return baos.toByteArray()
     }
 
     private fun addDirectoryToZip(zos: ZipOutputStream, dir: File, prefix: String) {
@@ -233,10 +307,10 @@ object ConfigBackupUtils {
         }
     }
 
-    private fun restoreFromZip(context: Context, zipData: ByteArray) {
+    private fun restoreFromZipFile(context: Context, zipFile: File) {
         val tempDir = File(context.cacheDir, "import_tmp").apply { mkdirs() }
         try {
-            ZipInputStream(ByteArrayInputStream(zipData)).use { zis ->
+            ZipInputStream(zipFile.inputStream().buffered()).use { zis ->
                 var entry: ZipEntry?
                 while (zis.nextEntry.also { entry = it } != null) {
                     val entryFile = File(tempDir, entry!!.name)
@@ -464,24 +538,40 @@ object ConfigBackupUtils {
         restoreSettings(context, json)
     }
 
-    private fun encrypt(plaintext: ByteArray, password: String): ByteArray {
+    /**
+     * Encrypts [inputFile] to [outputFile] using AES-GCM, streaming in chunks (so large files do
+     * not cause an OutOfMemoryError). The output format is: salt (16) + iv (12) + ciphertext + tag.
+     *
+     * NOTE: Android's default (Conscrypt/OpenSSL) GCM cipher buffers the entire payload in memory
+     * even when driven with update() in chunks, so we use BouncyCastle's GCMBlockCipher, which
+     * streams. The format is standard AES-GCM, so backups created by older versions still import.
+     */
+    private fun encryptFile(inputFile: File, outputFile: File, password: String) {
         val salt = ByteArray(SALT_LENGTH).also { SecureRandom().nextBytes(it) }
         val iv = ByteArray(IV_LENGTH).also { SecureRandom().nextBytes(it) }
         val key = deriveKey(password, salt)
-        val cipher = Cipher.getInstance(ALGORITHM)
-        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH, iv))
-        val encrypted = cipher.doFinal(plaintext)
-        return salt + iv + encrypted
-    }
-
-    private fun decrypt(data: ByteArray, password: String): ByteArray {
-        val salt = data.copyOfRange(0, SALT_LENGTH)
-        val iv = data.copyOfRange(SALT_LENGTH, SALT_LENGTH + IV_LENGTH)
-        val encrypted = data.copyOfRange(SALT_LENGTH + IV_LENGTH, data.size)
-        val key = deriveKey(password, salt)
-        val cipher = Cipher.getInstance(ALGORITHM)
-        cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH, iv))
-        return cipher.doFinal(encrypted)
+        val gcm = GCMBlockCipher(AESEngine())
+        gcm.init(true, ParametersWithIV(KeyParameter(key.encoded), iv))
+        val buffer = ByteArray(8192)
+        val outBuf = ByteArray(buffer.size + 16)
+        outputFile.outputStream().buffered().use { out ->
+            out.write(salt)
+            out.write(iv)
+            inputFile.inputStream().use { input ->
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read == -1) break
+                    if (read > 0) {
+                        val n = gcm.processBytes(buffer, 0, read, outBuf, 0)
+                        out.write(outBuf, 0, n)
+                    }
+                }
+            }
+            // Finalize: flushes the remaining ciphertext and appends the GCM authentication tag.
+            val finalLen = gcm.doFinal(outBuf, 0)
+            if (finalLen > 0) out.write(outBuf, 0, finalLen)
+            out.flush()
+        }
     }
 
     private fun deriveKey(password: String, salt: ByteArray): SecretKeySpec {

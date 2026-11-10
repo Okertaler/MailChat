@@ -97,6 +97,20 @@ object ComposeDataStore {
     var pendingShareMimeType: String? = null
 }
 
+/**
+ * Holds the id of a message that should be opened in full view once its chat is shown.
+ * Set by the home-screen widget (when configured to open the email detail) and consumed by
+ * [com.mailchat.ui.screen.ChatDetailScreen].
+ */
+object PendingMessageStore {
+    // Backed by a Compose MutableState so screens can observe changes with snapshotFlow
+    // (works both on cold start and when the chat is already open).
+    private val _messageId = mutableStateOf<Long?>(null)
+    var messageId: Long?
+        get() = _messageId.value
+        set(value) { _messageId.value = value }
+}
+
 data class ShareData(
     val uri: android.net.Uri?,
     val text: String?,
@@ -112,6 +126,7 @@ fun MailchatNavHost(
 ) {
     LaunchedEffect(pendingChatId.value) {
         pendingChatId.value?.let { chatId ->
+            android.util.Log.i("MailchatNav", "Navigating to chat detail: $chatId")
             navController.navigate(Routes.chatDetail(chatId))
             pendingChatId.value = null
         }

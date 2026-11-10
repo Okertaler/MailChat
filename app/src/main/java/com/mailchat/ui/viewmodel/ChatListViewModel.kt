@@ -46,6 +46,9 @@ data class ChatListUiState(
     val isSendingNewEmail: Boolean = false,
     val newEmailError: String? = null,
     val encryptionErrorDialog: String? = null,
+    /** One-shot: the id of a chat that was just created/opened via the "+" button. The screen
+     *  navigates to it and then clears it via [ChatListViewModel.clearCreatedChatId]. */
+    val createdChatId: Long? = null,
     val messageCounts: Map<Long, Int> = emptyMap(),
     val todoCounts: Map<Long, Int> = emptyMap(),
     val processedCounts: Map<Long, Int> = emptyMap(),
@@ -271,6 +274,9 @@ class ChatListViewModel @Inject constructor(
         var msgBody = fetchedMsg.message.body
         var msgBodyFull = fetchedMsg.message.bodyFull
         var isEncryptedMsg = false
+        // Preserve the signature status computed by the primary fetch path (ImapService); it is
+        // only recomputed here if this fallback still has to decrypt the body.
+        var signatureStatus = fetchedMsg.message.signatureStatus
         val sourceBody = msgBodyFull.ifBlank { msgBody }
         if (fetchedMsg.isIncoming &&
             com.mailchat.crypto.OpenPgpKeyService.isEncryptedContent(sourceBody) &&
@@ -278,11 +284,15 @@ class ChatListViewModel @Inject constructor(
         ) {
             isEncryptedMsg = true
             try {
-                val decrypted = withContext(Dispatchers.IO) {
-                    com.mailchat.crypto.OpenPgpKeyService.decrypt(appContext, sourceBody)
+                val result = withContext(Dispatchers.IO) {
+                    // Sender's public key: local peer first, then keys.openpgp.org (short timeouts).
+                    val senderPubKey = com.mailchat.crypto.OpenPgpKeyService.getPeer(appContext, fetchedMsg.message.from)?.publicKeyArmored
+                        ?: com.mailchat.crypto.OpenPgpKeyService.fetchKeyByEmail(fetchedMsg.message.from, 5000, 8000)
+                    com.mailchat.crypto.OpenPgpKeyService.decryptAndVerify(appContext, sourceBody, senderPubKey)
                 }
-                msgBody = decrypted
-                msgBodyFull = decrypted
+                msgBody = result.plaintext
+                msgBodyFull = result.plaintext
+                signatureStatus = result.signatureStatus.name
             } catch (_: Exception) {
             }
         } else if (fetchedMsg.isIncoming && sourceBody.startsWith("MAILCHAT_ENC:")) {
@@ -295,12 +305,19 @@ class ChatListViewModel @Inject constructor(
             } catch (_: Exception) {
             }
         }
+        // Phishing blacklist: a blacklisted sender is marked as phishing immediately, even if
+        // AI is disabled. This decision persists (SharedPreferences) and survives chat deletion.
+        val blacklisted = fetchedMsg.isIncoming &&
+            com.mailchat.util.SettingsUtils.isPhishingBlacklisted(appContext, fetchedMsg.message.from)
         val message = fetchedMsg.message.copy(
             chatId = chat.id,
             accountId = account.id,
             body = msgBody,
             bodyFull = msgBodyFull,
-            isEncrypted = isEncryptedMsg
+            isEncrypted = isEncryptedMsg,
+            signatureStatus = signatureStatus,
+            isSpam = if (blacklisted) true else fetchedMsg.message.isSpam,
+            spamCategory = if (blacklisted) "phishing" else fetchedMsg.message.spamCategory
         )
         val dbMessageId = messageRepository.insertMessage(message)
         for (attachment in fetchedMsg.attachments) {
@@ -316,6 +333,11 @@ class ChatListViewModel @Inject constructor(
                 subject = fetchedMsg.message.subject,
                 preview = fetchedMsg.message.body.take(200)
             )
+            // Refresh the home-screen widget so it shows the new email.
+            try {
+                com.mailchat.widget.MailWidgetProvider.refreshAll(appContext)
+            } catch (_: Exception) {
+            }
         }
         if (SettingsUtils.getAiEnabled(appContext) && SettingsUtils.getAiAutoProcess(appContext) && fetchedMsg.isIncoming) {
             processMessageWithAi(message.copy(id = dbMessageId))
@@ -436,10 +458,10 @@ class ChatListViewModel @Inject constructor(
                                 // of the sent (encrypted) body, not the local display copy.
                                 val keySig = com.mailchat.util.SettingsUtils.getEncryptedKeySignatureText(appContext)
                                 val bodyToEncrypt = if (keySig.isNotBlank()) "$fullBody\n\n$keySig" else fullBody
-                                finalBody = com.mailchat.crypto.OpenPgpKeyService.encrypt(bodyToEncrypt, pubKey)
+                                finalBody = com.mailchat.crypto.OpenPgpKeyService.signAndEncryptForRecipient(appContext, bodyToEncrypt, pubKey)
                                 isEncryptedMsg = true
                                 extraHeaders["X-MailChat-Encryption"] = "OpenPGP"
-                                com.mailchat.ai.AppLogger.log(appContext, "sendNewEmail: encrypted with OpenPGP (keySig=${keySig.isNotBlank()})")
+                                com.mailchat.ai.AppLogger.log(appContext, "sendNewEmail: signed+encrypted with OpenPGP (keySig=${keySig.isNotBlank()})")
                                 if (sendAttachments.isNotEmpty()) {
                                     val encDir = java.io.File(appContext.cacheDir, "enc_attachments").apply { mkdirs() }
                                     sendAttachments = sendAttachments.map { file ->
@@ -596,7 +618,8 @@ class ChatListViewModel @Inject constructor(
         account: EmailAccount,
         @Suppress("UNUSED_PARAMETER") subject: String,
         body: String,
-        groupName: String = ""
+        groupName: String = "",
+        encrypted: Boolean = false
     ): Chat {
         val isGroup = recipients.size > 1
         val members = (listOf(EmailGrouping.normalize(account.emailAddress)) + recipients).distinct()
@@ -621,11 +644,46 @@ class ChatListViewModel @Inject constructor(
             lastMessageTimestamp = System.currentTimeMillis(),
             lastMessageBody = body,
             unreadCount = 0,
-            backgroundImageUri = null
+            backgroundImageUri = null,
+            isEncrypted = isGroup && encrypted
         )
         val id = chatRepository.insertChat(newChat)
         return newChat.copy(id = id)
     }
+
+    /**
+     * Creates (or opens, if it already exists) a chat / group chat for the given recipients
+     * WITHOUT sending any email. Used by the "+" button on the overview page.
+     *
+     * - 1 recipient  -> a 1:1 chat with that contact
+     * - 2+ recipients -> a group chat (optionally named via [groupName])
+     *
+     * If a chat with the same member set already exists for the account, it is simply returned
+     * (no duplicate is created). The resulting chat id is published via [ChatListUiState.createdChatId]
+     * so the screen can navigate to it.
+     *
+     * [encrypted] (group chats only) marks the chat as encrypted so outgoing emails are encrypted
+     * for all members that have a key.
+     */
+    fun createOrOpenChat(recipients: List<String>, groupName: String, accountId: Long, encrypted: Boolean = false) {
+        viewModelScope.launch {
+            val account = if (accountId > 0) {
+                accountRepository.getAccountById(accountId)
+            } else {
+                accountRepository.getAllAccounts().first().firstOrNull()
+            }
+            if (account == null) {
+                _uiState.update { it.copy(newEmailError = "No account configured") }
+                return@launch
+            }
+            val cleanRecipients = recipients.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+            if (cleanRecipients.isEmpty()) return@launch
+            val chat = getOrCreateChatForNewEmail(cleanRecipients, account, "", "", groupName, encrypted)
+            _uiState.update { it.copy(createdChatId = chat.id) }
+        }
+    }
+
+    fun clearCreatedChatId() = _uiState.update { it.copy(createdChatId = null) }
 
     fun renameChat(chatId: Long, newName: String) {
         viewModelScope.launch {
@@ -1072,10 +1130,13 @@ class ChatListViewModel @Inject constructor(
         }
         val existing = chatRepository.findByEmailAndAccount(chatEmail, account.id)
         if (existing != null) {
+            // Only update the "last message" fields when this message is newer, so the overview
+            // always shows the newest message's subject (regardless of IMAP return order).
+            val isNewer = fetchedMsg.message.timestamp >= existing.lastMessageTimestamp
             val updated = existing.copy(
-                lastMessageTimestamp = fetchedMsg.message.timestamp,
-                lastMessageBody = fetchedMsg.message.body,
-                lastMessageSubject = fetchedMsg.message.subject,
+                lastMessageTimestamp = if (isNewer) fetchedMsg.message.timestamp else existing.lastMessageTimestamp,
+                lastMessageBody = if (isNewer) fetchedMsg.message.body else existing.lastMessageBody,
+                lastMessageSubject = if (isNewer) fetchedMsg.message.subject else existing.lastMessageSubject,
                 unreadCount = if (fetchedMsg.isIncoming) existing.unreadCount + 1 else existing.unreadCount,
                 backgroundImageUri = existing.backgroundImageUri ?: fetchedMsg.firstImageUri
             )
@@ -1119,12 +1180,20 @@ class ChatListViewModel @Inject constructor(
     fun setSpamCategoryOnSelected(category: String) {
         viewModelScope.launch {
             val ids = _uiState.value.selectedChatIds
+            val senders = mutableSetOf<String>()
             for (id in ids) {
                 val messages = messageRepository.getMessagesByChatSync(id)
                 for (msg in messages) {
                     val isSpam = category != "" && category != "ham"
                     messageRepository.updateMessage(msg.copy(isSpam = isSpam, spamCategory = category))
+                    if (msg.isIncoming) senders.add(msg.from.lowercase())
                 }
+            }
+            // Persist the phishing decision as a blacklist entry (survives chat deletion).
+            if (category == "phishing") {
+                com.mailchat.util.SettingsUtils.addPhishingBlacklist(appContext, senders)
+            } else if (category == "" || category == "ham") {
+                com.mailchat.util.SettingsUtils.removePhishingBlacklist(appContext, senders)
             }
             exitSelectionMode()
         }

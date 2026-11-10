@@ -16,6 +16,8 @@ import org.bouncycastle.openpgp.PGPEncryptedDataGenerator
 import org.bouncycastle.openpgp.PGPEncryptedDataList
 import org.bouncycastle.openpgp.PGPLiteralData
 import org.bouncycastle.openpgp.PGPLiteralDataGenerator
+import org.bouncycastle.openpgp.PGPOnePassSignature
+import org.bouncycastle.openpgp.PGPOnePassSignatureList
 import org.bouncycastle.openpgp.PGPKeyFlags
 import org.bouncycastle.openpgp.PGPKeyRingGenerator
 import org.bouncycastle.openpgp.PGPObjectFactory
@@ -26,11 +28,14 @@ import org.bouncycastle.openpgp.PGPPublicKeyRingCollection
 import org.bouncycastle.openpgp.PGPSecretKeyRing
 import org.bouncycastle.openpgp.PGPSecretKeyRingCollection
 import org.bouncycastle.openpgp.PGPSignature
+import org.bouncycastle.openpgp.PGPSignatureGenerator
+import org.bouncycastle.openpgp.PGPSignatureList
 import org.bouncycastle.openpgp.PGPSignatureSubpacketVector
 import org.bouncycastle.openpgp.PGPUtil
 import org.bouncycastle.openpgp.operator.PGPDigestCalculator
 import org.bouncycastle.openpgp.operator.jcajce.JcaKeyFingerprintCalculator
 import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentSignerBuilder
+import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentVerifierBuilderProvider
 import org.bouncycastle.openpgp.operator.jcajce.JcaPGPDigestCalculatorProviderBuilder
 import org.bouncycastle.openpgp.operator.jcajce.JcaPGPKeyPair
 import org.bouncycastle.openpgp.operator.jcajce.JcePBESecretKeyDecryptorBuilder
@@ -764,6 +769,321 @@ object OpenPgpKeyService {
             messageObj as PGPLiteralData
         }
         return Pair(literalData.inputStream.readBytes(), literalData.fileName)
+    }
+
+    // ------------------------------------------------------------------
+    // Signing (sign + encrypt, and decrypt + verify)
+    // ------------------------------------------------------------------
+
+    /**
+     * The result of verifying a message's OpenPGP signature.
+     */
+    enum class SignatureStatus {
+        /** No signature check was performed (e.g. the message was not encrypted). */
+        NOT_CHECKED,
+        /** The signature is valid and matches the sender's key. */
+        VERIFIED,
+        /** A signature is present but does not verify (tampered or wrong key). */
+        INVALID,
+        /** The message is encrypted but carries no signature. */
+        NOT_SIGNED,
+        /** The message is signed but the sender's public key is not available. */
+        NO_KEY
+    }
+
+    /**
+     * The result of [decryptAndVerify]: the decrypted plaintext plus the signature status and
+     * (when verified) the signer's key fingerprint.
+     */
+    data class DecryptResult(
+        val plaintext: String,
+        val signatureStatus: SignatureStatus,
+        val signerFingerprint: String
+    )
+
+    /**
+     * Sign [plaintext] with the given secret key and encrypt it for the recipient identified by
+     * [recipientPublicKeyArmored]. Returns an armored PGP MESSAGE.
+     *
+     * The message structure is:
+     *   [PGPEncryptedDataList] -> [PGPCompressedData] -> [PGPOnePassSignature, PGPLiteralData, PGPSignature]
+     *
+     * The signature is a BINARY_DOCUMENT signature over the literal data, made with the secret
+     * key's signing key (SHA-256). Pure — no persistence.
+     */
+    fun signAndEncrypt(
+        plaintext: String,
+        recipientPublicKeyArmored: String,
+        secretKeyArmored: String,
+        passphrase: CharArray
+    ): String {
+        ensureProvider()
+        val data = plaintext.toByteArray(Charsets.UTF_8)
+        val secretKeyRing = parseSecretKeyRing(secretKeyArmored)
+        val recipientRing = parsePublicKeyRing(recipientPublicKeyArmored)
+        val encKey = findEncryptionKey(recipientRing)
+
+        // Use the secret key's signing key (fall back to the primary key).
+        val signingKey = secretKeyRing.secretKeys.asSequence().firstOrNull { it.isSigningKey }
+            ?: secretKeyRing.secretKey
+        val privateKey = signingKey.extractPrivateKey(JcePBESecretKeyDecryptorBuilder().build(passphrase))
+
+        val sigGen = PGPSignatureGenerator(
+            JcaPGPContentSignerBuilder(PublicKeyAlgorithmTags.RSA_SIGN, HashAlgorithmTags.SHA256)
+        )
+        sigGen.init(PGPSignature.BINARY_DOCUMENT, privateKey)
+
+        val inner = ByteArrayOutputStream()
+        val compOut: OutputStream = PGPCompressedDataGenerator(CompressionAlgorithmTags.ZLIB).open(inner)
+        sigGen.generateOnePassVersion(false).encode(compOut) // one-pass signature
+        val litOut: OutputStream = PGPLiteralDataGenerator()
+            .open(compOut, 'b', "mailchat.txt", data.size.toLong(), Date())
+        litOut.write(data)
+        sigGen.update(data)
+        litOut.close()
+        sigGen.generate().encode(compOut) // final signature
+        compOut.close()
+        val innerData = inner.toByteArray()
+
+        val message = ByteArrayOutputStream()
+        val encGen = PGPEncryptedDataGenerator(JcePGPDataEncryptorBuilder(SymmetricKeyAlgorithmTags.AES_256))
+        val keyGen = JcePublicKeyKeyEncryptionMethodGenerator(encKey)
+        // X25519/X448 key agreement is only provided by BouncyCastle (see encryptData).
+        if (encKey.algorithm == PublicKeyAlgorithmTags.X25519 || encKey.algorithm == PublicKeyAlgorithmTags.X448) {
+            keyGen.setProvider(MailChatX25519Provider())
+        }
+        encGen.addMethod(keyGen)
+        val encOut: OutputStream = encGen.open(message, innerData.size.toLong())
+        encOut.write(innerData)
+        encOut.close()
+
+        return armorEncode(message.toByteArray())
+    }
+
+    /**
+     * Sign [plaintext] with the stored identity and encrypt it for the recipient identified by
+     * [recipientPublicKeyArmored]. Convenience wrapper around [signAndEncrypt] that reads the
+     * secret key and passphrase from the stored identity.
+     */
+    fun signAndEncryptForRecipient(context: Context, plaintext: String, recipientPublicKeyArmored: String): String {
+        val secretKeyArmored = prefs(context).getString(KEY_SECRET, "")
+            ?: throw IllegalStateException("No OpenPGP identity")
+        return signAndEncrypt(plaintext, recipientPublicKeyArmored, secretKeyArmored, getPassphrase(context).toCharArray())
+    }
+
+    /**
+     * Sign [plaintext] with the stored identity and encrypt it for ALL the given recipients
+     * (multi-recipient OpenPGP). Every recipient whose public key is in [recipientPublicKeys]
+     * can decrypt the message. Used for group chats so each member with a key receives an
+     * encrypted email.
+     */
+    fun signAndEncryptForRecipients(context: Context, plaintext: String, recipientPublicKeys: List<String>): String {
+        val secretKeyArmored = prefs(context).getString(KEY_SECRET, "")
+            ?: throw IllegalStateException("No OpenPGP identity")
+        val keys = recipientPublicKeys.filter { it.isNotBlank() }
+        if (keys.isEmpty()) throw IllegalArgumentException("No recipient public keys")
+        return signAndEncryptMulti(plaintext, keys, secretKeyArmored, getPassphrase(context).toCharArray())
+    }
+
+    private fun signAndEncryptMulti(
+        plaintext: String,
+        recipientPublicKeys: List<String>,
+        secretKeyArmored: String,
+        passphrase: CharArray
+    ): String {
+        ensureProvider()
+        val data = plaintext.toByteArray(Charsets.UTF_8)
+        val secretKeyRing = parseSecretKeyRing(secretKeyArmored)
+        val encKeys = recipientPublicKeys.map { findEncryptionKey(parsePublicKeyRing(it)) }
+
+        val signingKey = secretKeyRing.secretKeys.asSequence().firstOrNull { it.isSigningKey }
+            ?: secretKeyRing.secretKey
+        val privateKey = signingKey.extractPrivateKey(JcePBESecretKeyDecryptorBuilder().build(passphrase))
+
+        val sigGen = PGPSignatureGenerator(
+            JcaPGPContentSignerBuilder(PublicKeyAlgorithmTags.RSA_SIGN, HashAlgorithmTags.SHA256)
+        )
+        sigGen.init(PGPSignature.BINARY_DOCUMENT, privateKey)
+
+        val inner = ByteArrayOutputStream()
+        val compOut: OutputStream = PGPCompressedDataGenerator(CompressionAlgorithmTags.ZLIB).open(inner)
+        sigGen.generateOnePassVersion(false).encode(compOut)
+        val litOut: OutputStream = PGPLiteralDataGenerator()
+            .open(compOut, 'b', "mailchat.txt", data.size.toLong(), Date())
+        litOut.write(data)
+        sigGen.update(data)
+        litOut.close()
+        sigGen.generate().encode(compOut)
+        compOut.close()
+        val innerData = inner.toByteArray()
+
+        val message = ByteArrayOutputStream()
+        val encGen = PGPEncryptedDataGenerator(JcePGPDataEncryptorBuilder(SymmetricKeyAlgorithmTags.AES_256))
+        for (encKey in encKeys) {
+            val keyGen = JcePublicKeyKeyEncryptionMethodGenerator(encKey)
+            if (encKey.algorithm == PublicKeyAlgorithmTags.X25519 || encKey.algorithm == PublicKeyAlgorithmTags.X448) {
+                keyGen.setProvider(MailChatX25519Provider())
+            }
+            encGen.addMethod(keyGen)
+        }
+        val encOut: OutputStream = encGen.open(message, innerData.size.toLong())
+        encOut.write(innerData)
+        encOut.close()
+
+        return armorEncode(message.toByteArray())
+    }
+
+    /**
+     * Encrypt [inputFile] for ALL the given recipients (multi-recipient OpenPGP) and write a
+     * binary OpenPGP message to [outputFile].
+     */
+    fun encryptFilesForRecipients(inputFile: java.io.File, outputFile: java.io.File, recipientPublicKeys: List<String>): java.io.File {
+        val data = inputFile.readBytes()
+        val keys = recipientPublicKeys.filter { it.isNotBlank() }
+        if (keys.isEmpty()) throw IllegalArgumentException("No recipient public keys")
+        val encrypted = encryptDataMulti(data, inputFile.name, keys)
+        outputFile.writeBytes(encrypted)
+        return outputFile
+    }
+
+    private fun encryptDataMulti(data: ByteArray, fileName: String, recipientPublicKeys: List<String>): ByteArray {
+        ensureProvider()
+        val encKeys = recipientPublicKeys.map { findEncryptionKey(parsePublicKeyRing(it)) }
+
+        val inner = ByteArrayOutputStream()
+        val compOut: OutputStream = PGPCompressedDataGenerator(CompressionAlgorithmTags.ZLIB).open(inner)
+        val litOut: OutputStream = PGPLiteralDataGenerator()
+            .open(compOut, 'b', fileName, data.size.toLong(), Date())
+        litOut.write(data)
+        litOut.close()
+        compOut.close()
+        val innerData = inner.toByteArray()
+
+        val message = ByteArrayOutputStream()
+        val encGen = PGPEncryptedDataGenerator(JcePGPDataEncryptorBuilder(SymmetricKeyAlgorithmTags.AES_256))
+        for (encKey in encKeys) {
+            val keyGen = JcePublicKeyKeyEncryptionMethodGenerator(encKey)
+            if (encKey.algorithm == PublicKeyAlgorithmTags.X25519 || encKey.algorithm == PublicKeyAlgorithmTags.X448) {
+                keyGen.setProvider(MailChatX25519Provider())
+            }
+            encGen.addMethod(keyGen)
+        }
+        val encOut: OutputStream = encGen.open(message, innerData.size.toLong())
+        encOut.write(innerData)
+        encOut.close()
+
+        return message.toByteArray()
+    }
+
+    /**
+     * Decrypt an armored PGP MESSAGE with the stored identity and verify its signature against
+     * [senderPublicKeyArmored] (the sender's public key). Returns a [DecryptResult] with the
+     * plaintext, the signature status, and (when verified) the signer's fingerprint.
+     *
+     * If [senderPublicKeyArmored] is null/blank the signature (if any) cannot be checked and the
+     * status is [SignatureStatus.NO_KEY].
+     */
+    fun decryptAndVerify(
+        context: Context,
+        armoredMessage: String,
+        senderPublicKeyArmored: String?
+    ): DecryptResult {
+        val secretKeyArmored = prefs(context).getString(KEY_SECRET, "")
+            ?: throw IllegalStateException("No OpenPGP identity")
+        return decryptAndVerify(armoredMessage, secretKeyArmored, getPassphrase(context).toCharArray(), senderPublicKeyArmored)
+    }
+
+    /**
+     * Decrypt an armored PGP MESSAGE with the given secret key and verify its signature against
+     * [senderPublicKeyArmored]. Pure — no persistence.
+     */
+    fun decryptAndVerify(
+        armoredMessage: String,
+        secretKeyArmored: String,
+        passphrase: CharArray,
+        senderPublicKeyArmored: String?
+    ): DecryptResult {
+        ensureProvider()
+        val secretKeyRing = parseSecretKeyRing(secretKeyArmored)
+
+        val decoderStream = PGPUtil.getDecoderStream(ByteArrayInputStream(armoredMessage.toByteArray()))
+        val objectFactory = PGPObjectFactory(decoderStream, JcaKeyFingerprintCalculator())
+        val first = objectFactory.nextObject()
+        val encDataList = first as? PGPEncryptedDataList
+            ?: objectFactory.nextObject() as? PGPEncryptedDataList
+            ?: throw IllegalArgumentException("Not an OpenPGP encrypted message")
+
+        var dataStream: InputStream? = null
+        for (i in 0 until encDataList.size()) {
+            val ed = encDataList.get(i)
+            if (ed is PGPPublicKeyEncryptedData) {
+                val secretKey = secretKeyRing.getSecretKey(ed.keyID)
+                if (secretKey == null) continue
+                val privateKey = secretKey.extractPrivateKey(JcePBESecretKeyDecryptorBuilder().build(passphrase))
+                val factory = JcePublicKeyDataDecryptorFactoryBuilder().build(privateKey)
+                dataStream = ed.getDataStream(factory)
+                break
+            }
+        }
+        check(dataStream != null) { "No matching private key for this message" }
+
+        val decryptedBytes = dataStream.readBytes()
+        return parseSignedContent(decryptedBytes, senderPublicKeyArmored)
+    }
+
+    /**
+     * Parse the decrypted OpenPGP content and verify its signature (if present) against
+     * [senderPublicKeyArmored]. Returns a [DecryptResult].
+     */
+    private fun parseSignedContent(decryptedBytes: ByteArray, senderPublicKeyArmored: String?): DecryptResult {
+        val objectFactory = PGPObjectFactory(ByteArrayInputStream(decryptedBytes), JcaKeyFingerprintCalculator())
+        val obj = objectFactory.nextObject()
+        if (obj is PGPCompressedData) {
+            val innerFactory = PGPObjectFactory(obj.dataStream, JcaKeyFingerprintCalculator())
+            val firstObj = innerFactory.nextObject()
+            val onePass = when (firstObj) {
+                is PGPOnePassSignatureList -> if (firstObj.size() > 0) firstObj.get(0) else null
+                is PGPOnePassSignature -> firstObj
+                else -> null
+            }
+            if (onePass == null) {
+                // Encrypted but not signed.
+                val literal = firstObj as PGPLiteralData
+                return DecryptResult(String(literal.inputStream.readBytes(), Charsets.UTF_8), SignatureStatus.NOT_SIGNED, "")
+            }
+            val literal = innerFactory.nextObject() as PGPLiteralData
+            val content = literal.inputStream.readBytes()
+            val sigObj = innerFactory.nextObject()
+            val finalSig = when (sigObj) {
+                is PGPSignatureList -> if (sigObj.size() > 0) sigObj.get(0) else null
+                is PGPSignature -> sigObj
+                else -> null
+            }
+            if (finalSig == null) {
+                return DecryptResult(String(content, Charsets.UTF_8), SignatureStatus.INVALID, "")
+            }
+            if (senderPublicKeyArmored.isNullOrBlank()) {
+                return DecryptResult(String(content, Charsets.UTF_8), SignatureStatus.NO_KEY, "")
+            }
+            return try {
+                val ring = parsePublicKeyRing(senderPublicKeyArmored)
+                val signerKey = ring.publicKeys.asSequence().firstOrNull { it.keyID == finalSig.keyID }
+                    ?: ring.publicKey
+                finalSig.init(JcaPGPContentVerifierBuilderProvider(), signerKey)
+                finalSig.update(content)
+                val ok = finalSig.verify()
+                DecryptResult(
+                    String(content, Charsets.UTF_8),
+                    if (ok) SignatureStatus.VERIFIED else SignatureStatus.INVALID,
+                    fingerprintHex(signerKey.getFingerprint())
+                )
+            } catch (e: Exception) {
+                DecryptResult(String(content, Charsets.UTF_8), SignatureStatus.INVALID, "")
+            }
+        } else if (obj is PGPLiteralData) {
+            return DecryptResult(String(obj.inputStream.readBytes(), Charsets.UTF_8), SignatureStatus.NOT_SIGNED, "")
+        }
+        throw IllegalArgumentException("Unexpected PGP structure")
     }
 
     // ------------------------------------------------------------------

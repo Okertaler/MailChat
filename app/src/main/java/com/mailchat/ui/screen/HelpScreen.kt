@@ -93,6 +93,10 @@ fun HelpScreen(
                 text = stringResource(R.string.help_group_text)
             )
             HelpSection(
+                title = stringResource(R.string.help_new_chat_title),
+                text = stringResource(R.string.help_new_chat_text)
+            )
+            HelpSection(
                 title = stringResource(R.string.help_hidden_title),
                 text = stringResource(R.string.help_hidden_text)
             )
@@ -118,6 +122,10 @@ fun HelpScreen(
             HelpSection(
                 title = stringResource(R.string.help_secure_title),
                 text = stringResource(R.string.help_secure_text)
+            )
+            HelpSection(
+                title = stringResource(R.string.help_digital_signature_title),
+                text = stringResource(R.string.help_digital_signature_text)
             )
 
             // ── AI ─────────────────────────────────────────────────────────
@@ -145,6 +153,10 @@ fun HelpScreen(
             HelpSection(
                 title = stringResource(R.string.help_ai_phishing_title),
                 text = stringResource(R.string.help_ai_phishing_text)
+            )
+            HelpSection(
+                title = stringResource(R.string.help_phishing_blacklist_title),
+                text = stringResource(R.string.help_phishing_blacklist_text)
             )
             HelpSection(
                 title = stringResource(R.string.help_ai_tag_title),
@@ -207,6 +219,10 @@ fun HelpScreen(
             HelpSection(
                 title = stringResource(R.string.help_two_pane_title),
                 text = stringResource(R.string.help_two_pane_text)
+            )
+            HelpSection(
+                title = stringResource(R.string.help_widget_title),
+                text = stringResource(R.string.help_widget_text)
             )
         }
     }

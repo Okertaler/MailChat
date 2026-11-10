@@ -22,6 +22,11 @@ object AiMessageProcessor {
      *                     missing and the message is long enough.
      */
     suspend fun processMessage(context: Context, message: Message, forceSummary: Boolean = false): Message {
+        // Phishing blacklist: a blacklisted sender is always phishing — skip AI classification
+        // so the manual decision is never overridden.
+        if (message.isIncoming && SettingsUtils.isPhishingBlacklisted(context, message.from)) {
+            return message.copy(isSpam = true, spamCategory = "phishing")
+        }
         val originalFull = message.bodyFull.ifBlank { message.body }
         if (originalFull.isBlank()) return message
         val lang = LanguageUtils.getLanguage(context)

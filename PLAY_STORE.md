@@ -16,22 +16,24 @@ MailChat
 
 In der Play Console unter **Release → What's new** eintragen.
 
-### Englisch (249 Zeichen)
+### Englisch (419 Zeichen)
 ```
-Version 2.1:
-• Unhide chats directly in the list (Hidden filter → Edit → Show)
-• Export your private key with your own passphrase (or unprotected) for easy device migration
-• AI summary in chat now also classifies spam and assigns tags
-• Updated for Android 16 (API 36)
+Version 2.2:
+• Digital signature (OpenPGP): your emails are signed — recipients see a verified ✓ / invalid ✗ / unsigned ⚠ badge
+• New home-screen widget with your latest emails (tap to open the chat or the email detail)
+• "+" now creates/opens a chat or group chat (no email is sent)
+• Phishing blacklist: flagged senders stay flagged, even after deleting the chat
+• Fixes: spam dialog in the overview, AI startup crash
 ```
 
-### Deutsch (280 Zeichen)
+### Deutsch (481 Zeichen)
 ```
-Version 2.1:
-• Ausgeblendete Chats direkt in der Liste wieder einblenden (Filter „Ausgeblendet" → Bearbeiten → Einblenden)
-• Privaten Schlüssel mit eigener Passphrase exportieren (oder ohne Schutz) — einfache Geräte-Migration
-• KI-Zusammenfassung im Chat klassifiziert jetzt auch Spam und weist Tags zu
-• Aktualisiert für Android 16 (API 36)
+Version 2.2:
+• Digitale Signatur (OpenPGP): Deine E-Mails werden signiert — Empfänger sehen ein Badge: verifiziert ✓ / ungültig ✗ / nicht signiert ⚠
+• Neues Startbildschirm-Widget mit deinen letzten E-Mails (Tippen öffnet den Chat oder das E-Mail-Detail)
+• „+" erstellt/öffnet jetzt einen Chat oder Gruppenchat (es wird keine E-Mail verschickt)
+• Phishing-Blacklist: Markierte Absender bleiben markiert, auch nach Chat-Löschung
+• Fixes: Spam-Dialog in der Übersicht, KI-Start-Crash
 ```
 
 ---
@@ -73,16 +75,19 @@ MailChat turns your email into private, chat-style conversations — with encryp
 
 🛡️ SECURITY
 • OpenPGP (RFC 4880) with key management and optional key-server lookup.
+• Digital signatures: sign your emails and verify the sender's signature (✓ / ✗ / ⚠).
 • Private key protected by a passphrase in the Android Keystore.
 • Encrypted backups of your accounts and settings.
 
 📱 FEATURES
 • Spam & phishing classification with probability scores.
+• Phishing blacklist: flagged senders stay flagged, even after deleting the chat.
 • Custom tags (AI-assigned or manual).
 • Message summaries (5 lines).
 • Reply suggestions (formal / informal).
 • Real-name & appointment extraction.
 • AI assistant (chat with your data).
+• Home-screen widget showing your latest emails.
 • Image blocking for spam (anti tracking pixels).
 • Compress attachments (optional password-protected ZIP).
 
@@ -110,16 +115,19 @@ MailChat verwandelt deine E-Mails in private, chatartige Gespräche — mit Vers
 
 🛡️ SICHERHEIT
 • OpenPGP (RFC 4880) mit Schlüsselverwaltung und optionalem Key-Server-Lookup.
+• Digitale Signatur: Signiere deine E-Mails und prüfe die Signatur des Absenders (✓ / ✗ / ⚠).
 • Privater Schlüssel durch Passphrase im Android Keystore geschützt.
 • Verschlüsselte Backups deiner Konten und Einstellungen.
 
 📱 FUNKTIONEN
 • Spam- & Phishing-Klassifizierung mit Wahrscheinlichkeitswerten.
+• Phishing-Blacklist: Markierte Absender bleiben markiert, auch nach Chat-Löschung.
 • Eigene Tags (KI-zugeordnet oder manuell).
 • Nachrichten-Zusammenfassungen (5 Zeilen).
 • Antwortvorschläge (formell / locker).
 • Name- & Termin-Erkennung.
 • KI-Assistent (Chat mit deinen Daten).
+• Startbildschirm-Widget mit deinen letzten E-Mails.
 • Bild-Blockierung für Spam (Anti-Tracking-Pixel).
 • Anhänge komprimieren (optional passwortgeschütztes ZIP).
 
@@ -242,7 +250,7 @@ Die Play Console verlangt eine **öffentliche Privacy-Policy-URL**.
 - ✅ Release-AAB: `app/build/outputs/bundle/release/app-release.aab` (signiert)
 - ✅ Source: `https://github.com/Okertaler/MailChat`
 - ✅ Legal-Dokumente: in der App + `legal/`-Ordner
-- ✅ Version: 2.1 (versionCode 82, targetSdk 36 / Android 16)
+- ✅ Version: 2.2 (versionCode 83, targetSdk 36 / Android 16)
 
 ---
 

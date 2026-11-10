@@ -20,11 +20,22 @@
     <string name="backup_import_desc">Restore accounts and settings from encrypted file</string>
     <string name="backup_password">Password</string>
     <string name="backup_password_hint">Enter a password to encrypt the config file (min. 12 characters)</string>
+    <string name="backup_include_attachments">Include email attachments</string>
+    <string name="backup_include_attachments_desc">Makes the backup much larger. Attachments are stored on the IMAP server and are re-downloaded after a restore, so this is only needed for a full backup (e.g. before deleting the account).</string>
     <string name="backup_no_file">No file selected</string>
     <string name="backup_file_selected">File selected</string>
+    <string name="backup_file_read_error">The selected file could not be read (or is empty). Please select the exported .enc file again.</string>
     <string name="group_chat">Group chat</string>
     <string name="group_name">Group name</string>
+    <string name="group_chat_notice">This is a group chat / email list. Please always reply to all.</string>
+    <string name="group_encrypt">Encrypt group chat</string>
+    <string name="group_encrypt_warning">Members without a public key cannot read the encrypted emails.</string>
     <string name="rename_group">Rename group</string>
+    <string name="new_chat">New chat</string>
+    <string name="create">Create</string>
+    <string name="no_contacts">No contacts found</string>
+    <string name="selected_contacts">Selected contacts</string>
+    <string name="add_email_address">Add email address</string>
     <string name="sync">Sync</string>
     <string name="add_account">Add account</string>
     <string name="settings">Settings</string>
@@ -437,6 +448,15 @@
         <item>Group chats: emails with multiple recipients are collected in one chat</item>
         <item>New emails can be sent to multiple recipients (comma separated)</item>
         <item>Replies in a group chat are sent to all members</item>
+    </string-array>
+    <string-array name="version_2_2_changes">
+        <item>New: Digital signature (OpenPGP) — your outgoing emails are signed; recipients see a badge in the chat bubble: verified ✓, invalid ✗ or not signed ⚠</item>
+        <item>New: Home-screen widget showing your latest emails (the count adapts to the widget height). Tap an email to open the chat (default) or the email detail (configurable in Settings)</item>
+        <item>New: The "+" button on the overview now creates or opens a chat / group chat (select contacts, name the group) — it no longer sends an email</item>
+        <item>New: Phishing blacklist — marking a sender as phishing is remembered permanently (even after deleting the chat); new emails from that sender are flagged as phishing immediately</item>
+        <item>Improved: The spam category dialog in the overview now matches the chat (vertical list, all options incl. phishing selectable)</item>
+        <item>Improved: In the chat edit menu, "AI reply" and "AI summary" are now two rows higher (above "Reply 5 lines")</item>
+        <item>Fixed: Occasional crash when the local AI model was loaded for the first time while using the app (engine access is now synchronized)</item>
     </string-array>
     <string-array name="version_2_1_changes">
         <item>New: Hidden chats can be unhidden directly in the chat list — enable the Hidden filter, select the chats, then Edit → Show</item>
@@ -1128,4 +1148,28 @@
     <string name="help_secure_scan">Scan the contact\'s QR code to import their public key.</string>
     <string name="help_secure_nfc">Tap your phone against the contact\'s phone to exchange keys via NFC.</string>
     <string name="help_secure_email">Send your public key to the contact via email, or paste their key here.</string>
+    <string name="sig_verified">Signed &amp; verified</string>
+    <string name="sig_invalid">Invalid signature</string>
+    <string name="sig_not_signed">Not signed</string>
+    <string name="sig_no_key">No sender key</string>
+    <string name="widget_no_emails">No emails yet</string>
+    <string name="widget_description">Shows your latest emails. Tap one to open it in MailChat.</string>
+    <string name="widget_title">Home-screen widget</string>
+    <string name="widget_open_mode">When tapping an email, open</string>
+    <string name="widget_open_chat">The chat</string>
+    <string name="widget_open_detail">The email detail</string>
+    <string name="widget_content_mode">Show</string>
+    <string name="widget_content_latest">Latest emails</string>
+    <string name="widget_content_unread">Unread emails</string>
+    <string name="widget_transparency">Transparency</string>
+    <string name="widget_no_unread_emails">No unread emails</string>
+    <string name="you">You</string>
+    <string name="help_new_chat_title">New chat / group chat</string>
+    <string name="help_new_chat_text">Tap the "+" button on the overview to start a new chat or group chat. Select one or more contacts (they are listed one below the other). With two or more contacts you can give the group a name. No email is sent — the chat is simply created (or opened, if it already exists) and you can write your first message there.</string>
+    <string name="help_digital_signature_title">Digital signature (OpenPGP)</string>
+    <string name="help_digital_signature_text">If you generate a PGP key in Settings → Encryption, your outgoing emails are digitally signed. The recipient sees a small badge in the chat bubble: a green checkmark (✓) if the signature is valid, a red cross (✗) if it is invalid, or a warning (⚠) if the email is not signed or the sender key is unknown. Signing and encryption use the recipient\'s public key.</string>
+    <string name="help_phishing_blacklist_title">Phishing blacklist</string>
+    <string name="help_phishing_blacklist_text">When you mark a sender as "phishing" (in the chat or in the overview), the address is stored in a permanent blacklist. This survives deleting the chat. Any new email from that sender is flagged as phishing immediately — even if the AI is disabled. Marking the sender as "not spam" removes it from the blacklist again.</string>
+    <string name="help_widget_title">Home-screen widget</string>
+    <string name="help_widget_text">Add the MailChat widget to your home screen (long-press → Widgets → MailChat). It shows your latest emails (or only the unread ones — switchable in Settings → Home-screen widget). The widget shows as many emails as fit into its height — resize it to show more or fewer. You can also adjust the background transparency (in percent) in the settings. Tap an email to open its chat (default) or the email detail. Tapping the widget header only brings the app to the foreground. The widget updates automatically when new emails arrive.</string>
 </resources>

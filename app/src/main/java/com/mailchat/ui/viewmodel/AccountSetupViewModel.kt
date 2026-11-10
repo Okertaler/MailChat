@@ -102,7 +102,17 @@ class AccountSetupViewModel @Inject constructor(
             )
             try {
                 val folders = imapService.listFolders(account)
-                _uiState.update { it.copy(availableFolders = folders, isLoadingFolders = false) }
+                _uiState.update { state ->
+                    // For new accounts (no folders selected yet) pre-select the sensible defaults:
+                    // INBOX (Posteingang) plus the first outgoing folder (e.g. Sent/Postausgang).
+                    val defaults = if (state.selectedFolders.isEmpty()) {
+                        buildSet {
+                            folders.firstOrNull { it.equals("INBOX", ignoreCase = true) }?.let { add(it) }
+                            folders.firstOrNull { imapService.isOutgoingFolder(it) }?.let { add(it) }
+                        }
+                    } else state.selectedFolders
+                    state.copy(availableFolders = folders, isLoadingFolders = false, selectedFolders = defaults)
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoadingFolders = false, testResultRes = R.string.error_with_detail, testResultDetail = e.message) }
             }

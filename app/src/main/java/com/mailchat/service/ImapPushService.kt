@@ -36,6 +36,7 @@ class ImapPushService : Service() {
     private var serviceScope: CoroutineScope? = null
     @Volatile private var running = false
     @Volatile private var isSyncing = false
+    @Volatile private var foregroundStarted = false
     private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -43,10 +44,24 @@ class ImapPushService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification(getString(R.string.push_active)))
+        try {
+            startForeground(NOTIFICATION_ID, buildNotification(getString(R.string.push_active)))
+            foregroundStarted = true
+        } catch (e: Exception) {
+            // On Android 12+, starting a foreground service from the background can fail with
+            // ForegroundServiceStartNotAllowedException ("time limit already exhausted"). Stop the
+            // service gracefully instead of crashing the whole app.
+            android.util.Log.e("MailchatPush", "startForeground failed: ${e.message} — stopping service")
+            stopSelf()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!foregroundStarted) {
+            // The foreground service could not be started (background start restriction).
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (intent?.action == ACTION_STOP) {
             stopSelf()
             return START_NOT_STICKY

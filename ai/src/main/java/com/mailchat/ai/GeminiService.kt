@@ -54,6 +54,11 @@ object GeminiService {
     const val MAX_PROMPT_CHARS_ASSISTANT = 400_000
 
     private var engine: Engine? = null
+    // The LiteRT engine is NOT thread-safe. All access (create / use / close) must be
+    // serialized, otherwise a concurrent initialize() (closeEngine + new engine) racing with
+    // generate() can crash the native engine — most often right after the first load while
+    // the UI is still active.
+    private val engineLock = Any()
     private var currentModelId: String = ""
     private var currentContextTokens: Int = 0
     private var provider: String = PROVIDER_ON_DEVICE
@@ -216,52 +221,56 @@ object GeminiService {
                 _downloadState.value = DownloadState.Ready("openai")
                 return@withContext true
             }
-            if (engine != null && currentModelId == modelId && currentContextTokens >= contextTokens) return@withContext true
-            if (getModelById(modelId) == null) {
-                _downloadState.value = DownloadState.Error("Modell nicht verfuegbar")
-                return@withContext false
-            }
-            closeEngine()
-            val file = getModelFile(context, modelId)
-            if (!file.exists() || file.length() == 0L) {
-                _downloadState.value = DownloadState.Error("Model not downloaded")
-                return@withContext false
-            }
-            // Natives Kontextfenster des Modells respektieren: darueber bricht die native Engine ab
-            val nativeCap = getModelById(modelId)?.nativeContextTokens ?: contextTokens
-            val requested = contextTokens.coerceAtLeast(CONTEXT_TOKENS).coerceAtMost(nativeCap)
-            // KV-Cache-Schutz: maximal ein zweiter Versuch mit kleinerem Fenster; bei harten
-            // Fehlern (Error/OOM) NICHT neu initialisieren, sonst droht ein nativer Crash
-            val candidates = if (requested > CONTEXT_TOKENS) listOf(requested, CONTEXT_TOKENS.coerceAtMost(nativeCap)) else listOf(requested)
-            var lastError: Throwable? = null
-            for ((index, tokens) in candidates.withIndex()) {
-                try {
-                    val engineConfig = EngineConfig(
-                        modelPath = file.absolutePath,
-                        backend = Backend.GPU(),
-                        maxNumTokens = tokens,
-                        cacheDir = context.cacheDir.path
-                    )
-                    engine = Engine(engineConfig)
-                    engine!!.initialize()
-                    currentModelId = modelId
-                    currentContextTokens = tokens
-                    _downloadState.value = DownloadState.Ready(modelId)
-                    return@withContext true
-                } catch (t: Throwable) {
-                    if (t is kotlinx.coroutines.CancellationException) throw t
-                    closeEngine()
-                    lastError = t
-                    val hardFailure = t is Error
-                    if (!hardFailure && index < candidates.size - 1) {
-                        AppLogger.log(context, "Engine init failed at $tokens tokens, retrying smaller")
-                    } else {
-                        break
+            // Serialize engine creation with generate()/closeEngine() so a concurrent
+            // generation never races with a close+recreate of the native engine.
+            synchronized(engineLock) {
+                if (engine != null && currentModelId == modelId && currentContextTokens >= contextTokens) return@withContext true
+                if (getModelById(modelId) == null) {
+                    _downloadState.value = DownloadState.Error("Modell nicht verfuegbar")
+                    return@withContext false
+                }
+                closeEngine()
+                val file = getModelFile(context, modelId)
+                if (!file.exists() || file.length() == 0L) {
+                    _downloadState.value = DownloadState.Error("Model not downloaded")
+                    return@withContext false
+                }
+                // Natives Kontextfenster des Modells respektieren: darueber bricht die native Engine ab
+                val nativeCap = getModelById(modelId)?.nativeContextTokens ?: contextTokens
+                val requested = contextTokens.coerceAtLeast(CONTEXT_TOKENS).coerceAtMost(nativeCap)
+                // KV-Cache-Schutz: maximal ein zweiter Versuch mit kleinerem Fenster; bei harten
+                // Fehlern (Error/OOM) NICHT neu initialisieren, sonst droht ein nativer Crash
+                val candidates = if (requested > CONTEXT_TOKENS) listOf(requested, CONTEXT_TOKENS.coerceAtMost(nativeCap)) else listOf(requested)
+                var lastError: Throwable? = null
+                for ((index, tokens) in candidates.withIndex()) {
+                    try {
+                        val engineConfig = EngineConfig(
+                            modelPath = file.absolutePath,
+                            backend = Backend.GPU(),
+                            maxNumTokens = tokens,
+                            cacheDir = context.cacheDir.path
+                        )
+                        engine = Engine(engineConfig)
+                        engine!!.initialize()
+                        currentModelId = modelId
+                        currentContextTokens = tokens
+                        _downloadState.value = DownloadState.Ready(modelId)
+                        return@withContext true
+                    } catch (t: Throwable) {
+                        if (t is kotlinx.coroutines.CancellationException) throw t
+                        closeEngine()
+                        lastError = t
+                        val hardFailure = t is Error
+                        if (!hardFailure && index < candidates.size - 1) {
+                            AppLogger.log(context, "Engine init failed at $tokens tokens, retrying smaller")
+                        } else {
+                            break
+                        }
                     }
                 }
+                _downloadState.value = DownloadState.Error(lastError?.message ?: "Init failed")
+                false
             }
-            _downloadState.value = DownloadState.Error(lastError?.message ?: "Init failed")
-            false
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             AppLogger.log(context, "Engine init failed: ${e.message}")
@@ -271,36 +280,43 @@ object GeminiService {
     }
 
     private fun closeEngine() {
-        try { engine?.close() } catch (_: Exception) {}
-        engine = null
-        currentModelId = ""
-        currentContextTokens = 0
+        synchronized(engineLock) {
+            try { engine?.close() } catch (_: Exception) {}
+            engine = null
+            currentModelId = ""
+            currentContextTokens = 0
+        }
     }
 
     private suspend fun generate(prompt: String, systemPrompt: String = "", maxOutputToken: Int = 512, maxChars: Int = MAX_PROMPT_CHARS): String {
         if (provider == PROVIDER_OPENAI) {
             return OpenAiService.chat(openAiEndpoint, openAiApiKey, openAiModel, prompt.take(maxChars), systemPrompt)
         }
-        val eng = engine ?: throw IllegalStateException("No AI model loaded")
-        try {
-            // Prompt hart auf das tatsaechlich geladene Kontextfenster begrenzen (inkl. Ausgabereserve),
-            // sonst bricht die native Engine bei Ueberlauf ab
-            val effTokens = if (currentContextTokens > 0) currentContextTokens else CONTEXT_TOKENS
-            val inputCapTokens = (effTokens - maxOutputToken - 512).coerceAtLeast(1_024)
-            val capChars = minOf(maxChars, inputCapTokens * 3)
-            val cappedPrompt = if (prompt.length > capChars) prompt.take(capChars) else prompt
-            val config = ConversationConfig(
-                systemInstruction = com.google.ai.edge.litertlm.Contents.of(systemPrompt),
-                samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.7),
-                maxOutputToken = maxOutputToken
-            )
-            return eng.createConversation(config).use { conversation ->
-                val response = conversation.sendMessage(cappedPrompt)
-                response.contents.toString()
+        // Hold the engine lock for the whole generation: the LiteRT engine/conversation is not
+        // thread-safe, and a concurrent initialize() (which closes the engine) must not run while
+        // we are generating. This serializes all on-device AI operations.
+        return synchronized(engineLock) {
+            val eng = engine ?: throw IllegalStateException("No AI model loaded")
+            try {
+                // Prompt hart auf das tatsaechlich geladene Kontextfenster begrenzen (inkl. Ausgabereserve),
+                // sonst bricht die native Engine bei Ueberlauf ab
+                val effTokens = if (currentContextTokens > 0) currentContextTokens else CONTEXT_TOKENS
+                val inputCapTokens = (effTokens - maxOutputToken - 512).coerceAtLeast(1_024)
+                val capChars = minOf(maxChars, inputCapTokens * 3)
+                val cappedPrompt = if (prompt.length > capChars) prompt.take(capChars) else prompt
+                val config = ConversationConfig(
+                    systemInstruction = com.google.ai.edge.litertlm.Contents.of(systemPrompt),
+                    samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.7),
+                    maxOutputToken = maxOutputToken
+                )
+                eng.createConversation(config).use { conversation ->
+                    val response = conversation.sendMessage(cappedPrompt)
+                    response.contents.toString()
+                }
+            } catch (e: Exception) {
+                appContext?.let { AppLogger.log(it, "AI generate error: ${e.message}") }
+                throw e
             }
-        } catch (e: Exception) {
-            appContext?.let { AppLogger.log(it, "AI generate error: ${e.message}") }
-            throw e
         }
     }
 

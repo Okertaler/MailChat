@@ -15,6 +15,14 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE chatId = :chatId ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLatestMessageByChat(chatId: Long): Message?
 
+    /** The [limit] most recent messages across all chats (newest first) — used by the home-screen widget. */
+    @Query("SELECT * FROM messages ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getLatestMessages(limit: Int): List<Message>
+
+    /** The [limit] most recent UNREAD messages across all chats (newest first) — used by the home-screen widget. */
+    @Query("SELECT * FROM messages WHERE isRead = 0 ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getUnreadMessages(limit: Int): List<Message>
+
     @Query("SELECT * FROM messages WHERE id = :id")
     suspend fun getMessageById(id: Long): Message?
 

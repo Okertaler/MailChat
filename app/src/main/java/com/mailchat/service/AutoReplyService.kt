@@ -128,10 +128,10 @@ class AutoReplyService @Inject constructor(
                             // it) so the recipient can reply encrypted.
                             val keySig = SettingsUtils.getEncryptedKeySignatureText(appContext)
                             val bodyToEncrypt = if (keySig.isNotBlank()) "$plainBody\n\n$keySig" else plainBody
-                            finalBody = com.mailchat.crypto.OpenPgpKeyService.encrypt(bodyToEncrypt, pubKey)
+                            finalBody = com.mailchat.crypto.OpenPgpKeyService.signAndEncryptForRecipient(appContext, bodyToEncrypt, pubKey)
                             isEncryptedMsg = true
                             extraHeaders["X-MailChat-Encryption"] = "OpenPGP"
-                            com.mailchat.ai.AppLogger.log(appContext, "Auto-reply: encrypted with OpenPGP")
+                            com.mailchat.ai.AppLogger.log(appContext, "Auto-reply: signed+encrypted with OpenPGP")
                         } else {
                             com.mailchat.ai.AppLogger.log(appContext, "Auto-reply: no public key for $sender -> plaintext")
                         }

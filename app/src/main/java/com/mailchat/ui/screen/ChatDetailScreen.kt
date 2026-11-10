@@ -131,6 +131,8 @@ import com.mailchat.util.normalizeWhitespace
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.filter
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -265,6 +267,25 @@ fun ChatDetailScreen(
             lazyListState.animateScrollToItem(currentCount - 1)
         }
         previousMessageCount = currentCount
+    }
+
+    // Auto-open a specific message in full view (e.g. from the home-screen widget when
+    // configured to open the email detail). We observe BOTH the pending id and the message
+    // list: the list may still be loading when the id arrives (cold start), and the id may
+    // arrive while this chat is already open (widget tap). The pending id is only cleared
+    // once the message has actually been found, so a premature clear can't lose the request.
+    LaunchedEffect(Unit) {
+        snapshotFlow {
+            com.mailchat.ui.navigation.PendingMessageStore.messageId to uiState.messages
+        }
+            .filter { (pendingId, _) -> pendingId != null }
+            .collect { (pendingId, messages) ->
+                val message = messages.firstOrNull { it.id == pendingId }
+                if (message != null) {
+                    com.mailchat.ui.navigation.PendingMessageStore.messageId = null
+                    selectedMessage = message
+                }
+            }
     }
 
 
@@ -588,22 +609,6 @@ fun ChatDetailScreen(
                                         ?.let { com.mailchat.util.EmailGrouping.isNoReplyEmail(it) } ?: false
                                     val isPhishing = selectedMsgs.any { it.spamCategory == "phishing" }
                                     val canReply = isSingle && !isNoReply && !isPhishing
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.reply_quote_5)) },
-                                        leadingIcon = { Icon(Icons.Default.Reply, null, tint = if (canReply) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)) },
-                                        enabled = canReply,
-                                        onClick = {
-                                            singleMsg?.let { viewModel.replyWithFiveLinesQuote(it) }
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.forward_5_lines)) },
-                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Forward, null, tint = if (isSingle) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)) },
-                                        enabled = isSingle,
-                                        onClick = {
-                                            singleMsg?.let { forwardMessage = it }
-                                        }
-                                    )
                                     if (aiEnabled) {
                                         DropdownMenuItem(
                                             text = { Text(stringResource(R.string.ai_reply)) },
@@ -628,6 +633,22 @@ fun ChatDetailScreen(
                                             }
                                         )
                                     }
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.reply_quote_5)) },
+                                        leadingIcon = { Icon(Icons.Default.Reply, null, tint = if (canReply) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)) },
+                                        enabled = canReply,
+                                        onClick = {
+                                            singleMsg?.let { viewModel.replyWithFiveLinesQuote(it) }
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.forward_5_lines)) },
+                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Forward, null, tint = if (isSingle) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)) },
+                                        enabled = isSingle,
+                                        onClick = {
+                                            singleMsg?.let { forwardMessage = it }
+                                        }
+                                    )
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.copy_5_lines)) },
                                         leadingIcon = { Icon(Icons.Default.ContentCopy, null, tint = if (isSingle) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)) },
@@ -795,21 +816,41 @@ fun ChatDetailScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
-                        OutlinedTextField(
-                            value = selectedSubject,
-                            onValueChange = {
-                                selectedSubject = it
-                                viewModel.onSubjectChange(it)
-                            },
-                            placeholder = { Text(stringResource(R.string.subject)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            trailingIcon = {
-                                IconButton(onClick = { showSubjectDropdown = true }) {
-                                    Text("▼", style = MaterialTheme.typography.labelSmall)
+                        val isGroupChat = EmailGrouping.isGroupKey(uiState.chat?.participantEmail ?: "")
+                        if (isGroupChat) {
+                            // Group chats always use the group name as the subject: fixed, not editable.
+                            OutlinedTextField(
+                                value = uiState.chat?.participantName ?: "",
+                                onValueChange = {},
+                                enabled = false,
+                                placeholder = { Text(stringResource(R.string.subject)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                trailingIcon = {
+                                    Icon(
+                                        Icons.Default.Lock,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
-                            }
-                        )
+                            )
+                        } else {
+                            OutlinedTextField(
+                                value = selectedSubject,
+                                onValueChange = {
+                                    selectedSubject = it
+                                    viewModel.onSubjectChange(it)
+                                },
+                                placeholder = { Text(stringResource(R.string.subject)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                trailingIcon = {
+                                    IconButton(onClick = { showSubjectDropdown = true }) {
+                                        Text("▼", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                            )
+                        }
                     }
                     // Subject picker: a dialog with a list that opens scrolled to the bottom so
                     // the most recent subject is visible. (A DropdownMenu + verticalScroll crashes
@@ -1784,6 +1825,63 @@ fun ChatDetailScreen(
                             Text(text = label, style = MaterialTheme.typography.bodyMedium)
                         }
                     }
+                    // Custom tags section (single-message mode only): the same dialog also lets
+                    // the user set the custom tag for this message, so one button covers both
+                    // the spam category and the own tags.
+                    val singleMsg = spamDialogSingleMessage
+                    if (singleMsg != null) {
+                        val tags = com.mailchat.util.SettingsUtils
+                            .getCustomTags(androidx.compose.ui.platform.LocalContext.current)
+                            .filter { it.name.isNotBlank() }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = stringResource(R.string.ai_custom_tags),
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        tags.forEach { tag ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.setCustomTag(singleMsg, tag.name)
+                                        showSpamCategoryDialog = false
+                                        spamDialogSingleMessage = null
+                                    }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Label,
+                                    contentDescription = null,
+                                    tint = if (singleMsg.customTag == tag.name) Color(0xFF1565C0) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(text = tag.name, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setCustomTag(singleMsg, "")
+                                    showSpamCategoryDialog = false
+                                    spamDialogSingleMessage = null
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(text = stringResource(R.string.cancel), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
                 }
             },
             confirmButton = {},
@@ -1846,6 +1944,7 @@ fun ChatDetailScreen(
                 spamDialogSingleMessage = liveMessage
                 showSpamCategoryDialog = true
             },
+            customTag = liveMessage.customTag,
             isStarredNow = liveMessage.isStarred,
             onToggleStarred = { viewModel.toggleStarred(liveMessage) },
             onDeleteMessage = { msg ->
@@ -3083,6 +3182,7 @@ private fun FullEmailView(
     isSpamNow: Boolean,
     spamCategory: String = "",
     onShowSpamCategory: () -> Unit,
+    customTag: String = "",
     isStarredNow: Boolean,
     onToggleStarred: () -> Unit,
     onDeleteMessage: (Message) -> Unit,
@@ -3335,6 +3435,66 @@ private fun FullEmailView(
                     text = message.subject.ifBlank { stringResource(R.string.full_email) },
                     style = MaterialTheme.typography.titleLarge
                 )
+                // Top row: show the spam category and the custom tag (if set) as chips.
+                // Tapping a chip opens the combined spam/tag dialog (same as the header button).
+                val showSpamChip = spamCategory.isNotBlank() && spamCategory != "ham"
+                val showTagChip = customTag.isNotBlank()
+                if (showSpamChip || showTagChip) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (showSpamChip) {
+                            val (spamLabel, spamColor) = when (spamCategory) {
+                                "phishing" -> stringResource(R.string.spam_phishing) to Color(0xFFD32F2F)
+                                "unwanted_ad" -> stringResource(R.string.spam_unwanted) to Color(0xFFF9A825)
+                                "newsletter" -> stringResource(R.string.spam_newsletter) to Color(0xFF388E3C)
+                                else -> spamCategory to MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = spamColor.copy(alpha = 0.15f),
+                                modifier = Modifier.clickable { onShowSpamCategory() }
+                            ) {
+                                Text(
+                                    text = spamLabel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = spamColor,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                            if (showTagChip) Spacer(modifier = Modifier.width(6.dp))
+                        }
+                        if (showTagChip) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF1565C0).copy(alpha = 0.15f),
+                                modifier = Modifier.clickable { onShowSpamCategory() }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Label,
+                                        contentDescription = null,
+                                        tint = Color(0xFF1565C0),
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = customTag,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color(0xFF1565C0)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(12.dp))
                 HeaderRow(stringResource(R.string.from), message.from)
                 if (message.cc.isNotBlank()) {
