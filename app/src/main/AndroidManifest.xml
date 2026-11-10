@@ -63,12 +63,15 @@
 
         <activity
             android:name=".ui.screen.NfcExchangeActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
+            android:exported="false" />
 
+        <!-- Override the ZXing library's default "sensorLandscape" orientation lock so the
+             scanner is not restricted to a fixed orientation (required for large-display
+             devices on Android 16+, where orientation locks are ignored). The library handles
+             rotation itself via configChanges, so the camera preview adapts in place. -->
         <activity
             android:name="com.journeyapps.barcodescanner.CaptureActivity"
-            android:screenOrientation="portrait"
+            android:screenOrientation="unspecified"
             android:stateNotNeeded="true"
             tools:replace="android:screenOrientation,android:stateNotNeeded" />
 
