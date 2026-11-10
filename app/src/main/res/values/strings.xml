@@ -451,12 +451,17 @@
     </string-array>
     <string-array name="version_2_2_changes">
         <item>New: Digital signature (OpenPGP) — your outgoing emails are signed; recipients see a badge in the chat bubble: verified ✓, invalid ✗ or not signed ⚠</item>
-        <item>New: Home-screen widget showing your latest emails (the count adapts to the widget height). Tap an email to open the chat (default) or the email detail (configurable in Settings)</item>
+        <item>New: Group chat — the subject is always the group name (fixed), a group notice is added to the body, and optional end-to-end encryption for all recipients (choose when creating the group)</item>
+        <item>New: Home-screen widget showing your latest or unread emails — the count adapts to the widget height, the background transparency is adjustable, and tapping an email opens the chat (default) or the email detail (configurable in Settings)</item>
         <item>New: The "+" button on the overview now creates or opens a chat / group chat (select contacts, name the group) — it no longer sends an email</item>
         <item>New: Phishing blacklist — marking a sender as phishing is remembered permanently (even after deleting the chat); new emails from that sender are flagged as phishing immediately</item>
+        <item>New: The full email view shows the spam category and your custom tag as chips in the top row; the spam button opens a combined dialog for both the spam category and your custom tags</item>
+        <item>Improved: Config backup — the export is now streamed (no more crashes with large attachments); attachments are excluded by default (they are on the IMAP server and re-downloaded after a restore); optionally include them for a full backup</item>
         <item>Improved: The spam category dialog in the overview now matches the chat (vertical list, all options incl. phishing selectable)</item>
-        <item>Improved: In the chat edit menu, "AI reply" and "AI summary" are now two rows higher (above "Reply 5 lines")</item>
+        <item>Improved: IMAP folders — "Inbox" (INBOX) is now selectable; the default folders are Inbox + Sent</item>
+        <item>Fixed: The widget\'s "unread" list now updates when an email is read, making room for other unread emails</item>
         <item>Fixed: Occasional crash when the local AI model was loaded for the first time while using the app (engine access is now synchronized)</item>
+        <item>Fixed: Crash in the IMAP push service under certain conditions</item>
     </string-array>
     <string-array name="version_2_1_changes">
         <item>New: Hidden chats can be unhidden directly in the chat list — enable the Hidden filter, select the chats, then Edit → Show</item>

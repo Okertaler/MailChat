@@ -451,12 +451,17 @@
     </string-array>
     <string-array name="version_2_2_changes">
         <item>Neu: Digitale Signatur (OpenPGP) — deine ausgehenden E-Mails werden signiert; Empfänger sehen ein Badge in der Chatblase: verifiziert ✓, ungültig ✗ oder nicht signiert ⚠</item>
-        <item>Neu: Startbildschirm-Widget mit deinen letzten E-Mails (die Anzahl passt sich der Widget-Höhe an). Tippe auf eine E-Mail, um den Chat (Standard) oder das E-Mail-Detail zu öffnen (in den Einstellungen konfigurierbar)</item>
+        <item>Neu: Gruppenchat — der Betreff ist immer der Gruppenname (fest), ein Gruppen-Hinweis wird zum Text hinzugefügt, und optional Ende-zu-Ende-Verschlüsselung für alle Empfänger (beim Anlegen der Gruppe wählbar)</item>
+        <item>Neu: Startbildschirm-Widget mit deinen letzten oder ungelesenen E-Mails — die Anzahl passt sich der Widget-Höhe an, die Hintergrund-Durchsichtigkeit ist einstellbar, und ein Tippen auf eine E-Mail öffnet den Chat (Standard) oder das E-Mail-Detail (in den Einstellungen konfigurierbar)</item>
         <item>Neu: Der „+"-Button in der Übersicht erstellt oder öffnet jetzt einen Chat/Gruppenchat (Kontakte auswählen, Gruppe benennen) — er verschickt keine E-Mail mehr</item>
         <item>Neu: Phishing-Blacklist — die Markierung eines Absenders als Phishing wird dauerhaft gespeichert (auch nach Chat-Löschung); neue E-Mails von diesem Absender werden sofort als Phishing markiert</item>
+        <item>Neu: Die Detail-E-Mail zeigt die Spam-Kategorie und deinen eigenen Tag als Chips in der oberen Zeile; die Spam-Taste öffnet einen kombinierten Dialog für beide</item>
+        <item>Verbessert: Config-Backup — der Export wird jetzt gestreamt (keine Crashes mehr bei großen Anhängen); Anhänge sind standardmäßig ausgeschlossen (sie liegen auf dem IMAP-Server und werden nach dem Restore neu geladen); optional für ein Vollbackup einschließen</item>
         <item>Verbessert: Der Spam-Kategorien-Dialog in der Übersicht entspricht jetzt dem Chat (vertikale Liste, alle Optionen inkl. Phishing wählbar)</item>
-        <item>Verbessert: Im Chat-Bearbeitungs-Menü sind „KI-Antwort" und „KI-Zusammenfassung" jetzt zwei Zeilen höher (über „Antwort 5 Zeilen")</item>
+        <item>Verbessert: IMAP-Ordner — „Posteingang" (INBOX) ist jetzt wählbar; die Standard-Ordner sind Posteingang + Postausgang</item>
+        <item>Behoben: Die „Ungelesene"-Liste des Widgets aktualisiert sich jetzt, wenn eine E-Mail gelesen wird (macht Platz für andere ungelesene E-Mails)</item>
         <item>Behoben: Gelegentlicher Crash beim ersten Laden des lokalen KI-Modells während der App-Nutzung (Engine-Zugriff wird jetzt synchronisiert)</item>
+        <item>Behoben: Crash im IMAP-Push-Service unter bestimmten Bedingungen</item>
     </string-array>
     <string-array name="version_2_1_changes">
         <item>Neu: Ausgeblendete Chats können jetzt direkt in der Chat-Liste wieder eingeblendet werden — Filter „Ausgeblendet" aktivieren, Chats auswählen, dann Bearbeiten → Einblenden</item>
