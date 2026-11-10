@@ -41,7 +41,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Enable R8 minification + obfuscation + resource shrinking so the Google Play
+            // "code optimization" metric (obfuscation) is above the 25 % threshold.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Only sign when credentials are present (keeps local builds without the file working).
             if (signingPropsFile.exists()) {

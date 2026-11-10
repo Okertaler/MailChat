@@ -32,6 +32,14 @@
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>
         <uses-native-library android:name="libOpenCL.so" android:required="false"/>
 
+        <!-- The app uses WorkManager with on-demand (Hilt) initialization, so the eager
+             WorkManagerInitializer (merged in from work-runtime via androidx.startup) must be
+             removed; otherwise Lint flags a conflict for release builds. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            tools:node="remove" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

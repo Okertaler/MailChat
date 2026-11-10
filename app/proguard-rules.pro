@@ -1,0 +1,12 @@
+# Minimal test rules
+-keep class org.bouncycastle.** { *; }
+-keep class org.openpgp.** { *; }
+-keep class com.google.ai.edge.litertlm.** { *; }
+-keep class javax.mail.** { *; }
+-keep class com.sun.mail.** { *; }
+-dontwarn org.bouncycastle.**
+-dontwarn org.openpgp.**
+-dontwarn com.google.ai.edge.litertlm.**
+-dontwarn javax.mail.**
+-dontwarn com.sun.mail.**
+-dontwarn java.beans.Beans
