@@ -111,6 +111,17 @@ object PendingMessageStore {
         set(value) { _messageId.value = value }
 }
 
+/**
+ * Set when the user taps the three-dot menu in the home-screen widget: the app should open the
+ * settings screen with the widget section expanded. Consumed by [com.mailchat.ui.screen.SettingsScreen].
+ */
+object PendingSettingsStore {
+    private val _openWidgetSection = mutableStateOf(false)
+    var openWidgetSection: Boolean
+        get() = _openWidgetSection.value
+        set(value) { _openWidgetSection.value = value }
+}
+
 data class ShareData(
     val uri: android.net.Uri?,
     val text: String?,
@@ -122,13 +133,21 @@ fun MailchatNavHost(
     navController: NavHostController = rememberNavController(),
     pendingChatId: MutableState<Long?> = mutableStateOf(null),
     pendingCompose: MutableState<PendingCompose?> = mutableStateOf(null),
-    pendingShare: MutableState<ShareData?> = mutableStateOf(null)
+    pendingShare: MutableState<ShareData?> = mutableStateOf(null),
+    pendingSettings: MutableState<Boolean> = mutableStateOf(false)
 ) {
     LaunchedEffect(pendingChatId.value) {
         pendingChatId.value?.let { chatId ->
             android.util.Log.i("MailchatNav", "Navigating to chat detail: $chatId")
             navController.navigate(Routes.chatDetail(chatId))
             pendingChatId.value = null
+        }
+    }
+    LaunchedEffect(pendingSettings.value) {
+        if (pendingSettings.value) {
+            android.util.Log.i("MailchatNav", "Navigating to settings (widget section)")
+            navController.navigate(Routes.SETTINGS)
+            pendingSettings.value = false
         }
     }
     LaunchedEffect(pendingCompose.value) {

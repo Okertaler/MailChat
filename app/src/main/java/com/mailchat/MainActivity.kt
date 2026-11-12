@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var smtpService: SmtpService
     private val pendingChatId = mutableStateOf<Long?>(null)
     private val pendingShare = mutableStateOf<com.mailchat.ui.navigation.ShareData?>(null)
+    private val pendingSettings = mutableStateOf(false)
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(LanguageUtils.applyLanguage(newBase))
@@ -65,6 +66,11 @@ class MainActivity : ComponentActivity() {
         if (incomingChatId > 0) pendingChatId.value = incomingChatId
         intent?.getLongExtra("message_id", -1L)?.let {
             if (it > 0) com.mailchat.ui.navigation.PendingMessageStore.messageId = it
+        }
+        // Three-dot menu in the home-screen widget: open the settings on the widget section.
+        if (intent?.getBooleanExtra("open_widget_settings", false) == true) {
+            com.mailchat.ui.navigation.PendingSettingsStore.openWidgetSection = true
+            pendingSettings.value = true
         }
         android.util.Log.i("MailchatNav", "onCreate chat_id=$incomingChatId action=${intent?.action} data=${intent?.data}")
         handleShareIntent(intent)
@@ -103,7 +109,8 @@ class MainActivity : ComponentActivity() {
                     } else {
                         MailchatNavHost(
                             pendingChatId = pendingChatId,
-                            pendingShare = pendingShare
+                            pendingShare = pendingShare,
+                            pendingSettings = pendingSettings
                         )
                     }
                 }
@@ -146,6 +153,10 @@ class MainActivity : ComponentActivity() {
         if (chatId > 0) pendingChatId.value = chatId
         val messageId = intent.getLongExtra("message_id", -1L)
         if (messageId > 0) com.mailchat.ui.navigation.PendingMessageStore.messageId = messageId
+        if (intent.getBooleanExtra("open_widget_settings", false)) {
+            com.mailchat.ui.navigation.PendingSettingsStore.openWidgetSection = true
+            pendingSettings.value = true
+        }
         android.util.Log.i("MailchatNav", "onNewIntent chat_id=$chatId action=${intent.action} data=${intent.data}")
     }
 }

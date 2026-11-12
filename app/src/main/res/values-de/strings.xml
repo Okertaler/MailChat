@@ -340,6 +340,8 @@
     <string name="smtp_sender_auto_short">Chat-Konto</string>
     <string name="app_intro_title">Über Mailchat</string>
     <string name="app_intro_text">Mailchat ist ein dialogbasierter E-Mail-Client, der deine E-Mails als Messenger-artige Chats anzeigt. Features: mehrere IMAP-Konten, Gruppenchats, Favoriten, wichtige Marker, Kontofarben, Auto-Sync, Signatur, Suche, Dark Mode, Sprachnachrichten, Ende-zu-Ende-Verschlüsselung (OpenPGP) und KI (On-Device oder Cloud: Spam-Erkennung, Zusammenfassungen, Antwortvorschläge) und mehr.</string>
+    <string name="help_quickstart_title">Kurzanleitung</string>
+    <string name="help_quickstart_text">Schnellstart in 6 Schritten:\n1. Konto: Einstellungen → Konten → IMAP-Konto hinzufügen (Host, Port, Benutzer, Passwort). Die App erkennt den Provider automatisch; vor dem Speichern den Test-Button nutzen.\n2. Sync: E-Mails werden automatisch geladen (Intervall in Einstellungen → Allgemein); in der Übersicht nach unten ziehen für manuellen Sync.\n3. Signatur: Einstellungen → Signatur — wird jeder ausgehenden E-Mail hinzugefügt.\n4. KI: Einstellungen → KI — das lokale Modell (Gemma) einmal herunterladen; danach laufen Zusammenfassungen, Spam-/Phishing-Erkennung, Tags und Antwortvorschläge lokal.\n5. Verschlüsselung: Einstellungen → Sicherheit — OpenPGP-Schlüssel erstellen; E-Mails an Kontakte mit öffentlichem Schlüssel werden automatisch verschlüsselt.\n6. Tags: Einstellungen → Eigene Tags — eigene Tags definieren (Name + Beschreibung); die KI ordnet sie automatisch zu.</string>
     <string name="help_category_about">Über Mailchat</string>
     <string name="help_category_email">E-Mail &amp; Konten</string>
     <string name="help_category_encryption">Verschlüsselung</string>
@@ -458,6 +460,20 @@
         <item>Gruppenchats: E-Mails mit mehreren Empfängern werden in einem Chat gesammelt</item>
         <item>Neue E-Mails können an mehrere Empfänger (kommagetrennt) gesendet werden</item>
         <item>Antworten in einem Gruppenchat gehen an alle Mitglieder</item>
+    </string-array>
+    <string-array name="version_2_3_changes">
+        <item>Neu: Text-Formatierung in Antworten (Antwort, Allen antworten, Weiterleiten) — fett, kursiv, unterstreichen, Ausrichtung, Schriftgröße, Schriftart, Aufzählungs- und Nummerierungslisten</item>
+        <item>Neu: E-Mails werden jetzt als HTML mit sauberer Formatierung gesendet (Zeilenumbrüche, Absätze, Signatur)</item>
+        <item>Neu: Widget-Schriftgröße in den Einstellungen einstellbar (Klein / Normal / Groß)</item>
+        <item>Neu: Das Widget zeigt standardmäßig ungelesene E-Mails</item>
+        <item>Verbessert: Signatur und Gruppen-Hinweis sind jetzt klar strukturiert (Gruppen-Hinweis vor der Signatur)</item>
+        <item>Verbessert: Die „Wo bist Du?"-Auto-Antwort mit Standort und Wetter ist jetzt besser formatiert</item>
+        <item>Verbessert: Tags überarbeitet für bessere KI-Klassifizierung (zweisprachige Namen, z. B. „Rechnung / Invoice"; klarere Beschreibungen)</item>
+        <item>Behoben: Beim Hinzufügen eines Ordners in der Konten-Ordnerauswahl verschwinden E-Mails aus den Standard-Ordern nicht mehr</item>
+        <item>Behoben: Die Tastatur verdeckt die Eingabe beim Anlegen eines neuen Chats oder einer Gruppe nicht mehr</item>
+        <item>Behoben: Der Erst-Sync zeigt keine Statusmeldung pro E-Mail mehr — nur die importierte Anzahl am Ende</item>
+        <item>Behoben: Das Einstellungen-Icon in der Top-Bar ist jetzt drei Punkte (weniger Verwechslung mit dem Filter)</item>
+        <item>Behoben: Crash beim Öffnen des Bereichs „Allgemein" in den Einstellungen</item>
     </string-array>
     <string-array name="version_2_2_changes">
         <item>Neu: Digitale Signatur (OpenPGP) — deine ausgehenden E-Mails werden signiert; Empfänger sehen ein Badge in der Chatblase: verifiziert ✓, ungültig ✗ oder nicht signiert ⚠</item>
@@ -1180,6 +1196,7 @@
     <string name="widget_font_small">Klein</string>
     <string name="widget_font_normal">Normal</string>
     <string name="widget_font_large">Groß</string>
+    <string name="widget_settings">Widget-Einstellungen</string>
     <string name="widget_transparency">Durchsichtigkeit</string>
     <string name="widget_no_unread_emails">Keine ungelesenen E-Mails</string>
     <string name="you">Du</string>

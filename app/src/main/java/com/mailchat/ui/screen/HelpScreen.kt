@@ -53,6 +53,10 @@ fun HelpScreen(
                 title = stringResource(R.string.app_intro_title),
                 text = stringResource(R.string.app_intro_text)
             )
+            HelpSection(
+                title = stringResource(R.string.help_quickstart_title),
+                text = stringResource(R.string.help_quickstart_text)
+            )
 
             // ── Email & Accounts ───────────────────────────────────────────
             HelpCategory(stringResource(R.string.help_category_email))

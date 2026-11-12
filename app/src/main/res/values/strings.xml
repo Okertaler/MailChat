@@ -340,6 +340,8 @@
     <string name="smtp_sender_auto_short">Chat account</string>
     <string name="app_intro_title">About Mailchat</string>
     <string name="app_intro_text">Mailchat is a dialog-based email client that shows your emails as messenger-style chats. Features: multiple IMAP accounts, group chats, favorites, important markers, account colors, auto sync, signature, search, dark mode, voice messages, end-to-end encryption (OpenPGP), and AI (on-device or cloud: spam detection, summaries, reply suggestions), and more.</string>
+    <string name="help_quickstart_title">Quick start</string>
+    <string name="help_quickstart_text">Getting started in 6 steps:\n1. Account: Settings → Accounts → add your IMAP account (host, port, username, password). The app auto-detects the provider; use the test button before saving.\n2. Sync: emails are downloaded automatically (interval in Settings → General); pull down in the overview to sync manually.\n3. Signature: Settings → Signature — added to every outgoing email.\n4. AI: Settings → AI — download the on-device model (Gemma) once; summaries, spam/phishing detection, tags and reply suggestions then run locally.\n5. Encryption: Settings → Security — create your OpenPGP key; emails to contacts with a public key are encrypted automatically.\n6. Tags: Settings → Custom tags — define your own tags (name + description); the AI assigns them automatically.</string>
     <string name="help_category_about">About Mailchat</string>
     <string name="help_category_email">Email &amp; Accounts</string>
     <string name="help_category_encryption">Encryption</string>
@@ -458,6 +460,20 @@
         <item>Group chats: emails with multiple recipients are collected in one chat</item>
         <item>New emails can be sent to multiple recipients (comma separated)</item>
         <item>Replies in a group chat are sent to all members</item>
+    </string-array>
+    <string-array name="version_2_3_changes">
+        <item>New: Rich text formatting in replies (reply, reply all, forward) — bold, italic, underline, alignment, font size, font family, bullet and numbered lists</item>
+        <item>New: Emails are now sent as HTML with clean formatting (line breaks, paragraphs, signature)</item>
+        <item>New: Widget font size adjustable in settings (small / normal / large)</item>
+        <item>New: The widget now shows unread emails by default</item>
+        <item>Improved: Signature and group notice are now clearly structured (group notice before the signature)</item>
+        <item>Improved: The "Where are you?" auto-reply with location and weather is now better formatted</item>
+        <item>Improved: Tags redesigned for better AI classification (bilingual names, e.g. "Rechnung / Invoice"; clearer descriptions)</item>
+        <item>Fixed: Adding a folder in the account folder selection no longer removes emails from the default folders</item>
+        <item>Fixed: The keyboard no longer covers the input field when creating a new chat or group</item>
+        <item>Fixed: The initial sync no longer shows a status message per email — only the imported count at the end</item>
+        <item>Fixed: The settings icon in the top bar is now three dots (less confusion with the filter)</item>
+        <item>Fixed: Crash when opening the "General" section in settings</item>
     </string-array>
     <string-array name="version_2_2_changes">
         <item>New: Digital signature (OpenPGP) — your outgoing emails are signed; recipients see a badge in the chat bubble: verified ✓, invalid ✗ or not signed ⚠</item>
@@ -1180,6 +1196,7 @@
     <string name="widget_font_small">Small</string>
     <string name="widget_font_normal">Normal</string>
     <string name="widget_font_large">Large</string>
+    <string name="widget_settings">Widget settings</string>
     <string name="widget_transparency">Transparency</string>
     <string name="widget_no_unread_emails">No unread emails</string>
     <string name="you">You</string>

@@ -252,6 +252,14 @@ fun SettingsScreen(
         viewModel.loadContacts()
     }
 
+    // Opened via the three-dot menu in the home-screen widget: expand the widget section.
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (com.mailchat.ui.navigation.PendingSettingsStore.openWidgetSection) {
+            com.mailchat.ui.navigation.PendingSettingsStore.openWidgetSection = false
+            widgetExpanded = true
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -824,7 +832,10 @@ fun SettingsScreen(
                 SettingsUtils.AI_PROVIDER_ON_DEVICE to stringResource(R.string.ai_provider_on_device),
                 SettingsUtils.AI_PROVIDER_OPENAI to stringResource(R.string.ai_provider_openai)
             )
-            val currentProviderLabel = providerOptions.first { it.first == currentProvider }.second
+            // firstOrNull + fallback: a stored value that is not in the list (e.g. from an
+            // older app version) must not crash the screen.
+            val currentProviderLabel = providerOptions.firstOrNull { it.first == currentProvider }?.second
+                ?: stringResource(R.string.ai_provider_on_device)
             ListItem(
                 headlineContent = { Text(stringResource(R.string.ai_provider)) },
                 supportingContent = { Text(currentProviderLabel) },
@@ -1657,7 +1668,10 @@ fun SettingsScreen(
                 LanguageUtils.GERMAN to stringResource(R.string.language_german),
                 LanguageUtils.ENGLISH to stringResource(R.string.language_english)
             )
-            val currentLangLabel = langOptions.first { it.first == selectedLanguage }.second
+            // firstOrNull + fallback: a stored value that is not in the list (e.g. from an
+            // older app version) must not crash the screen.
+            val currentLangLabel = langOptions.firstOrNull { it.first == selectedLanguage }?.second
+                ?: stringResource(R.string.language_system)
             ListItem(
                 headlineContent = { Text("🌐 " + stringResource(R.string.language)) },
                 supportingContent = { Text(currentLangLabel) },
@@ -1693,7 +1707,10 @@ fun SettingsScreen(
                 SettingsUtils.DARK_MODE_LIGHT to stringResource(R.string.dark_mode_light),
                 SettingsUtils.DARK_MODE_DARK to stringResource(R.string.dark_mode_dark)
             )
-            val currentDisplayLabel = displayOptions.first { it.first == selectedDarkMode }.second
+            // firstOrNull + fallback: a stored value that is not in the list (e.g. from an
+            // older app version) must not crash the screen.
+            val currentDisplayLabel = displayOptions.firstOrNull { it.first == selectedDarkMode }?.second
+                ?: stringResource(R.string.dark_mode_system)
             ListItem(
                 headlineContent = { Text("🌙 " + stringResource(R.string.display)) },
                 supportingContent = { Text(currentDisplayLabel) },

@@ -167,6 +167,18 @@ class MailWidgetProvider : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.widget_header, headerPendingIntent)
 
+            // Three-dot menu in the header: opens the app directly on the widget settings
+            // (the flag is consumed by MainActivity → MailchatNavHost → SettingsScreen).
+            val settingsIntent = Intent(context, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra("open_widget_settings", true)
+            }
+            val settingsPendingIntent = PendingIntent.getActivity(
+                context, 2, settingsIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.widget_settings, settingsPendingIntent)
+
             // Tapping the empty view only brings the app to the foreground.
             val emptyIntent = Intent(context, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
