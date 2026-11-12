@@ -16,25 +16,17 @@ MailChat
 
 In der Play Console unter **Release → What's new** eintragen.
 
-### Englisch (419 Zeichen)
+### Englisch (468 Zeichen)
 ```
-Version 2.2:
-• Digital signature (OpenPGP): your emails are signed — recipients see a verified ✓ / invalid ✗ / unsigned ⚠ badge
-• New home-screen widget with your latest emails (tap to open the chat or the email detail)
-• "+" now creates/opens a chat or group chat (no email is sent)
-• Phishing blacklist: flagged senders stay flagged, even after deleting the chat
-• Fixes: spam dialog in the overview, AI startup crash
+New: text formatting in replies (bold, italic, underline, alignment, font size, font, lists). Emails are now sent as HTML with clean formatting. Improved: signature & group notice, "Where are you?" auto-reply with weather, tags for better AI search. Widget: adjustable font size, default now unread emails. Fixed: folder selection dropped default folders; keyboard covered input in new chats; initial sync now shows only the imported count; settings icon (three dots).
 ```
 
-### Deutsch (481 Zeichen)
+### Deutsch (497 Zeichen)
 ```
-Version 2.2:
-• Digitale Signatur (OpenPGP): Deine E-Mails werden signiert — Empfänger sehen ein Badge: verifiziert ✓ / ungültig ✗ / nicht signiert ⚠
-• Neues Startbildschirm-Widget mit deinen letzten E-Mails (Tippen öffnet den Chat oder das E-Mail-Detail)
-• „+" erstellt/öffnet jetzt einen Chat oder Gruppenchat (es wird keine E-Mail verschickt)
-• Phishing-Blacklist: Markierte Absender bleiben markiert, auch nach Chat-Löschung
-• Fixes: Spam-Dialog in der Übersicht, KI-Start-Crash
+Neu: Text-Formatierung in Antworten (fett, kursiv, unterstreichen, Ausrichtung, Schriftgröße, Schriftart, Listen). E-Mails werden als HTML gesendet. Verbessert: Signatur & Gruppen-Hinweis, „Wo bist Du?"-Antwort mit Wetter, Tags für bessere KI-Suche. Widget: Schriftgröße einstellbar, Standard jetzt ungelesene Mails. Behoben: Ordner-Auswahl ließ Standard-Ordner verschwinden; Tastatur verdeckte Eingabe bei neuen Chats; Erst-Sync zeigt nur die importierte Anzahl; Einstellungen-Icon (drei Punkte).
 ```
+
+> Hinweis: In der Play Console unter **Release → What's new** wird der Text **ohne** die `<de-DE>`/`<en-GB>`-Tags eingetragen (die Tags sind nur für `version.md` im Repo). Pro Sprache ein eigener Eintrag, jeweils ≤ 500 Zeichen.
 
 ---
 
@@ -71,7 +63,8 @@ MailChat turns your email into private, chat-style conversations — with encryp
 • See your inbox as conversations, not a flat list.
 • Group chats for multiple recipients.
 • Quick replies, voice messages and file attachments.
-• Smart auto-replies (e.g. "Where are you?" shares your location).
+• Rich text formatting in replies: bold, italic, underline, alignment, font size, font family and lists — sent as clean HTML.
+• Smart auto-replies (e.g. "Where are you?" shares your location and the current weather).
 
 🛡️ SECURITY
 • OpenPGP (RFC 4880) with key management and optional key-server lookup.
@@ -87,7 +80,7 @@ MailChat turns your email into private, chat-style conversations — with encryp
 • Reply suggestions (formal / informal).
 • Real-name & appointment extraction.
 • AI assistant (chat with your data).
-• Home-screen widget showing your latest emails.
+• Home-screen widget showing your latest or unread emails (adjustable font size).
 • Image blocking for spam (anti tracking pixels).
 • Compress attachments (optional password-protected ZIP).
 
@@ -111,7 +104,8 @@ MailChat verwandelt deine E-Mails in private, chatartige Gespräche — mit Vers
 • Sieh dein Postfach als Gespräche, nicht als flache Liste.
 • Gruppenchats für mehrere Empfänger.
 • Schnelle Antworten, Sprachnachrichten und Dateianhänge.
-• Clevere Auto-Antworten (z. B. "Wo bist Du?" teilt deinen Standort).
+• Text-Formatierung in Antworten: fett, kursiv, unterstreichen, Ausrichtung, Schriftgröße, Schriftart und Listen — als sauberes HTML gesendet.
+• Clevere Auto-Antworten (z. B. "Wo bist Du?" teilt deinen Standort und das aktuelle Wetter).
 
 🛡️ SICHERHEIT
 • OpenPGP (RFC 4880) mit Schlüsselverwaltung und optionalem Key-Server-Lookup.
@@ -127,7 +121,7 @@ MailChat verwandelt deine E-Mails in private, chatartige Gespräche — mit Vers
 • Antwortvorschläge (formell / locker).
 • Name- & Termin-Erkennung.
 • KI-Assistent (Chat mit deinen Daten).
-• Startbildschirm-Widget mit deinen letzten E-Mails.
+• Startbildschirm-Widget mit deinen letzten oder ungelesenen E-Mails (Schriftgröße einstellbar).
 • Bild-Blockierung für Spam (Anti-Tracking-Pixel).
 • Anhänge komprimieren (optional passwortgeschütztes ZIP).
 
@@ -250,7 +244,7 @@ Die Play Console verlangt eine **öffentliche Privacy-Policy-URL**.
 - ✅ Release-AAB: `app/build/outputs/bundle/release/app-release.aab` (signiert)
 - ✅ Source: `https://github.com/Okertaler/MailChat`
 - ✅ Legal-Dokumente: in der App + `legal/`-Ordner
-- ✅ Version: 2.2 (versionCode 83, targetSdk 36 / Android 16)
+- ✅ Version: 2.3 (versionCode 86, targetSdk 36 / Android 16)
 
 ---
 
@@ -279,7 +273,8 @@ Die App teilt auf Wunsch des Nutzers dessen genauen Standort als Karten-Link an 
 
 ### 10.3 App-Qualität (Frist: Februar 2027)
 Grenzwerte für Arbeitsspeicher- und Code-Optimierung einhalten. Aktuelles AAB:
-27,4 MB — im grünen Bereich. Kein sofortiges Handeln, aber beobachten.
+19,0 MB (R8-Minification + Resource-Shrinking aktiv) — im grünen Bereich.
+Kein sofortiges Handeln, aber beobachten.
 
 ### 10.4 Japan (Frist: 01.12.2026) — nicht relevant
 Betrifft nur den Verkauf von Produkten/Dienstleistungen (Zahlungen) nach/von Japan.
