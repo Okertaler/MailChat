@@ -2013,8 +2013,17 @@ fun ChatDetailScreen(
             },
             onGenerateAi = { showComposeAiTone = true },
             onApplyAi = {
-                val merged = if (uiState.composeText.isBlank()) uiState.aiSuggestion
-                    else "${uiState.composeText}\n\n${uiState.aiSuggestion}"
+                // The compose text may already be HTML (rich-text editor) — in that case the
+                // plain-text AI suggestion is appended as an HTML paragraph.
+                val current = uiState.composeText
+                val merged = when {
+                    current.isBlank() -> uiState.aiSuggestion
+                    com.mailchat.network.SmtpService.looksLikeHtml(current) ->
+                        current + "<p>" +
+                            com.mailchat.network.SmtpService.escapeHtml(uiState.aiSuggestion).replace("\n", "<br>") +
+                            "</p>"
+                    else -> "$current\n\n${uiState.aiSuggestion}"
+                }
                 viewModel.onComposeTextChange(merged)
                 viewModel.clearAiSuggestion()
             },
@@ -2111,14 +2120,12 @@ fun ChatDetailScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = forwardText,
-                        onValueChange = { forwardText = it },
-                        label = { Text(stringResource(R.string.message)) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(100.dp),
-                        maxLines = 5
+                    // Rich-text editor for the forward note (same as reply / reply-all).
+                    com.mailchat.ui.component.RichTextEditor(
+                        initialHtml = forwardText,
+                        onHtmlChange = { forwardText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = stringResource(R.string.message)
                     )
                     val fwdAttachments = uiState.attachmentsByMessage[msg.id].orEmpty()
                     if (fwdAttachments.isNotEmpty()) {
@@ -2988,13 +2995,13 @@ private fun FullComposeOverlay(
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 12.dp, vertical = 4.dp)
                 ) {
-                    OutlinedTextField(
-                        value = body,
-                        onValueChange = onBodyChange,
+                    // Rich-text editor (bold, italic, underline, alignment, font size, font
+                    // family, lists) — used for the detail-email reply / reply-all / forward.
+                    com.mailchat.ui.component.RichTextEditor(
+                        initialHtml = body,
+                        onHtmlChange = onBodyChange,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text(stringResource(R.string.type_message)) },
-                        minLines = 6,
-                        maxLines = Int.MAX_VALUE
+                        placeholder = stringResource(R.string.type_message)
                     )
                     // Attachment picker (consistent with new email / share): paperclip + label.
                     Row(

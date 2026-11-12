@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -44,6 +45,7 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Merge
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
@@ -685,7 +687,9 @@ fun ChatListScreen(
                             )
                         }
                         IconButton(onClick = onSettings) {
-                            Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.settings))
+                            // Three-dot (overflow) icon instead of a hamburger, so it is not
+                            // confused with the filter icon.
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.settings))
                         }
                     }
                 }
@@ -1283,6 +1287,9 @@ private fun NewChatDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    // Push the content up when the keyboard appears so the focused input
+                    // field (group name / email) is not covered by the IME.
+                    .imePadding()
                     .verticalScroll(rememberScrollState())
             ) {
                 if (accounts.size > 1) {

@@ -46,8 +46,9 @@ class WeatherService @Inject constructor() {
                     val codeVal = codes.getInt(i)
                     val precipVal = if (precip != null && i < precip.length()) precip.getDouble(i) else 0.0
                     val desc = weatherCodeDescription(codeVal)
-                    sb.append("$hour: $temp°C, $desc")
-                    if (precipVal > 0.0) sb.append(", ${"%.1f".format(precipVal)}mm Regen")
+                    // Clean, aligned line: "21:00  15°C  klar" (+ precipitation when present).
+                    sb.append("$hour  $temp°C  $desc")
+                    if (precipVal > 0.0) sb.append("  (Regen: ${"%.0f".format(precipVal)} mm)")
                     if (i < times.length() - 1) sb.append("\n")
                 }
                 sb.toString().ifBlank { null }

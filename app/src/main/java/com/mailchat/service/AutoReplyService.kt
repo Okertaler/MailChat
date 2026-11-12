@@ -77,12 +77,13 @@ class AutoReplyService @Inject constructor(
         val lat = location.latitude
         val lon = location.longitude
 
-        // Build the reply text (location links).
+        // Build the reply text (location links), nicely structured with clear sections.
         val sb = StringBuilder()
-        sb.append("📍 Mein Standort:\n")
-        sb.append("OpenStreetMap: https://www.openstreetmap.org/?mlat=$lat&mlon=$lon#map=16/$lat/$lon\n")
-        sb.append("Google Maps: https://www.google.com/maps?q=$lat,$lon\n")
-        sb.append("Apple Maps: https://maps.apple.com/?ll=$lat,$lon")
+        sb.append("📍 Mein Standort\n\n")
+        sb.append("🗺️ Karten:\n")
+        sb.append("• OpenStreetMap: https://www.openstreetmap.org/?mlat=$lat&mlon=$lon#map=16/$lat/$lon\n")
+        sb.append("• Google Maps: https://www.google.com/maps?q=$lat,$lon\n")
+        sb.append("• Apple Maps: https://maps.apple.com/?ll=$lat,$lon")
 
         // Optionally include the weather for the next 4 hours. The weather does not need
         // street-level precision, so a coarsened location (≈1 km) is used for the query and
@@ -93,9 +94,9 @@ class AutoReplyService @Inject constructor(
             val weather = weatherService.getWeatherForNext4Hours(wLat, wLon)
             if (weather != null) {
                 val place = getPlaceName(wLat, wLon)
-                sb.append("\n\n🌦️ Wetter in ${place.ifBlank { "deiner Region" }} für die nächsten 4 Stunden:\n")
+                sb.append("\n\n🌦️ Wetter in ${place.ifBlank { "deiner Region" }} (nächste 4 Stunden)\n")
                 sb.append(weather)
-                sb.append("\nhttps://open-meteo.com/")
+                sb.append("\n\nQuelle: open-meteo.com")
             }
         }
 
@@ -162,7 +163,9 @@ class AutoReplyService @Inject constructor(
                 to = sender,
                 subject = subject,
                 body = finalBody,
-                extraHeaders = extraHeaders
+                extraHeaders = extraHeaders,
+                bodyFormat = if (isEncryptedMsg) com.mailchat.network.BodyFormat.PLAIN
+                    else com.mailchat.network.BodyFormat.PLAIN_AS_HTML
             )
             if (message.messageId.isNotBlank()) {
                 SettingsUtils.addAutoRepliedMessageId(appContext, message.messageId)

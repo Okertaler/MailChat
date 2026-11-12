@@ -121,6 +121,15 @@
     <string name="subject">Betreff</string>
     <string name="compose">Verfassen</string>
     <string name="type_message">Nachricht</string>
+    <string name="format_bold">Fett</string>
+    <string name="format_italic">Kursiv</string>
+    <string name="format_underline">Unterstreichen</string>
+    <string name="format_align_left">Linksbündig</string>
+    <string name="format_align_center">Zentriert</string>
+    <string name="format_align_right">Rechtsbündig</string>
+    <string name="format_font">Schriftart</string>
+    <string name="format_bullet_list">Aufzählung</string>
+    <string name="format_number_list">Nummerierung</string>
     <string name="select_recipient">Empfänger auswählen</string>
     <string name="contact_name">Kontaktname</string>
     <string name="filter_favorites">Favoriten</string>
@@ -203,6 +212,7 @@
     <string name="sync_15min">Alle 15 Minuten</string>
     <string name="sync_30min">Alle 30 Minuten</string>
     <string name="sync_1hour">Stündlich</string>
+    <string name="sync_imported_count">%1$d neue E-Mails importiert</string>
     <string name="contacts">Kontakte</string>
     <string name="general">Allgemein</string>
     <string name="ai_local">lokal</string>
@@ -1166,6 +1176,10 @@
     <string name="widget_content_mode">Anzeige</string>
     <string name="widget_content_latest">Letzte E-Mails</string>
     <string name="widget_content_unread">Ungelesene E-Mails</string>
+    <string name="widget_font_size">Schriftgröße</string>
+    <string name="widget_font_small">Klein</string>
+    <string name="widget_font_normal">Normal</string>
+    <string name="widget_font_large">Groß</string>
     <string name="widget_transparency">Durchsichtigkeit</string>
     <string name="widget_no_unread_emails">Keine ungelesenen E-Mails</string>
     <string name="you">Du</string>

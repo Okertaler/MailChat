@@ -1144,22 +1144,40 @@ class ChatDetailViewModel @Inject constructor(
                 java.util.Locale.getDefault()
             ).format(java.util.Date(message.timestamp))
             val displayName = if (contactName.isNotBlank()) contactName else to
+            // The custom text may be HTML (rich-text editor) or plain text; the forwarded
+            // email block and the signature are rendered to match.
+            val customTextIsHtml = com.mailchat.network.SmtpService.looksLikeHtml(customText)
+            fun plainToHtmlBlock(t: String): String =
+                com.mailchat.network.SmtpService.escapeHtml(t).replace("\n", "<br>")
             val forwardBody = buildString {
-                if (customText.isNotBlank()) {
-                    append(customText)
+                if (customTextIsHtml) {
+                    if (customText.isNotBlank()) {
+                        append(customText)
+                        append("<p></p>")
+                    }
+                    append("<p>---------- Weitergeleitete E-Mail ----------<br>Von: ${com.mailchat.network.SmtpService.escapeHtml(message.from)}<br>An: ${com.mailchat.network.SmtpService.escapeHtml(displayName)}<br>Datum: $dateStr")
+                    if (message.subject.isNotBlank()) append("<br>Betreff: ${com.mailchat.network.SmtpService.escapeHtml(message.subject)}")
+                    append("</p><p>${plainToHtmlBlock(quotedSource)}</p>")
+                } else {
+                    if (customText.isNotBlank()) {
+                        append(customText)
+                        appendLine()
+                        appendLine()
+                    }
+                    appendLine("---------- Weitergeleitete E-Mail ----------")
+                    appendLine("Von: ${message.from}")
+                    appendLine("An: $displayName")
+                    appendLine("Datum: $dateStr")
+                    if (message.subject.isNotBlank()) appendLine("Betreff: ${message.subject}")
                     appendLine()
-                    appendLine()
+                    append(quotedSource)
                 }
-                appendLine("---------- Weitergeleitete E-Mail ----------")
-                appendLine("Von: ${message.from}")
-                appendLine("An: $displayName")
-                appendLine("Datum: $dateStr")
-                if (message.subject.isNotBlank()) appendLine("Betreff: ${message.subject}")
-                appendLine()
-                append(quotedSource)
             }
             val signature = com.mailchat.util.SettingsUtils.getSignature(appContext)
-            val body = if (signature.isNotBlank()) "$forwardBody\n\n$signature" else forwardBody
+            val body = if (signature.isNotBlank()) {
+                if (customTextIsHtml) "$forwardBody<p>${plainToHtmlBlock(signature)}</p>"
+                else "$forwardBody\n\n$signature"
+            } else forwardBody
             _uiState.update { it.copy(isSending = true, sendError = null) }
             try {
                 val originalAttachments = messageRepository.getAttachmentsByMessageSync(message.id)
@@ -1258,7 +1276,10 @@ class ChatDetailViewModel @Inject constructor(
                     subject = fwdSubject,
                     body = finalBody,
                     attachments = forwardAttachments,
-                    extraHeaders = extraHeaders
+                    extraHeaders = extraHeaders,
+                    bodyFormat = if (isEncryptedMsg) com.mailchat.network.BodyFormat.PLAIN
+                        else if (com.mailchat.network.SmtpService.looksLikeHtml(body)) com.mailchat.network.BodyFormat.HTML
+                        else com.mailchat.network.BodyFormat.PLAIN_AS_HTML
                 )
                 val normalizedTo = EmailGrouping.normalize(to)
                 val existingChat = chatRepository.findByEmailAndAccount(normalizedTo, account.id)
@@ -1394,9 +1415,16 @@ class ChatDetailViewModel @Inject constructor(
                 extraHeaders["In-Reply-To"] = latestIncoming.messageId
                 extraHeaders["References"] = latestIncoming.messageId
             }
+            // The compose body may be HTML (rich-text editor) or plain text. Plain-text
+            // sections (quote, group notice, signature) are converted to HTML only when the
+            // body is already HTML, so the sections stay visually distinct in both cases.
+            val rawBodyIsHtml = com.mailchat.network.SmtpService.looksLikeHtml(rawBody)
+            fun plainToHtmlBlock(t: String): String =
+                com.mailchat.network.SmtpService.escapeHtml(t).replace("\n", "<br>")
             val pendingQuote = _uiState.value.pendingQuote
             val bodyWithQuote = if (pendingQuote != null && rawBody.isNotBlank()) {
-                "$rawBody\n\n$pendingQuote"
+                if (rawBodyIsHtml) "$rawBody<p>${plainToHtmlBlock(pendingQuote)}</p>"
+                else "$rawBody\n\n$pendingQuote"
             } else if (_uiState.value.quoteEnabled && rawBody.isNotBlank() && latestIncoming != null) {
                 val quotedSource = latestIncoming.bodyFull.ifBlank { latestIncoming.body }
                     .stripHtml()
@@ -1408,16 +1436,27 @@ class ChatDetailViewModel @Inject constructor(
                         java.util.Locale.getDefault()
                     ).format(java.util.Date(latestIncoming.timestamp))
                     val quote = quotedSource.lineSequence().joinToString("\n") { "> $it" }
-                    "$rawBody\n\n— $dateStr, ${latestIncoming.from}:\n$quote"
+                    val quoteBlock = "— $dateStr, ${latestIncoming.from}:\n$quote"
+                    if (rawBodyIsHtml) "$rawBody<p>${plainToHtmlBlock(quoteBlock)}</p>"
+                    else "$rawBody\n\n$quoteBlock"
                 } else rawBody
             } else rawBody
             val signature = com.mailchat.util.SettingsUtils.getSignature(appContext)
             // Group chats get an additional notice so recipients know to reply to all.
-            val groupNotice = if (isGroupChat) "\n\n" + appContext.getString(com.mailchat.R.string.group_chat_notice) else ""
-            val body = when {
-                signature.isNotBlank() -> "$bodyWithQuote\n\n$signature$groupNotice"
-                groupNotice.isNotBlank() -> "$bodyWithQuote$groupNotice"
-                else -> bodyWithQuote
+            val groupNoticeText = if (isGroupChat) appContext.getString(com.mailchat.R.string.group_chat_notice) else ""
+            // Clean structure: message body → group notice (clearly marked) → signature (last,
+            // separated by a blank line). The blank lines become paragraph breaks when the body
+            // is rendered as HTML, so the sections stay visually distinct.
+            val body = buildString {
+                append(bodyWithQuote)
+                if (groupNoticeText.isNotBlank()) {
+                    if (rawBodyIsHtml) append("<p>💬 $groupNoticeText</p>")
+                    else append("\n\n💬 $groupNoticeText")
+                }
+                if (signature.isNotBlank()) {
+                    if (rawBodyIsHtml) append("<p>${plainToHtmlBlock(signature)}</p>")
+                    else append("\n\n$signature")
+                }
             }
             if (recipient.isBlank() || (rawBody.isBlank() && state.composeAttachments.isEmpty())) {
                 return@launch
@@ -1536,7 +1575,10 @@ class ChatDetailViewModel @Inject constructor(
                     attachments = finalAttachments,
                     extraHeaders = extraHeaders,
                     cc = _uiState.value.composeCc,
-                    bcc = _uiState.value.composeBcc
+                    bcc = _uiState.value.composeBcc,
+                    bodyFormat = if (isEncryptedMsg) com.mailchat.network.BodyFormat.PLAIN
+                        else if (com.mailchat.network.SmtpService.looksLikeHtml(body)) com.mailchat.network.BodyFormat.HTML
+                        else com.mailchat.network.BodyFormat.PLAIN_AS_HTML
                 )
                 val message = Message(
                     chatId = chat.id,

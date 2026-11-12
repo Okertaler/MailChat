@@ -23,8 +23,8 @@ android {
         applicationId = "de.florescu.mailchat"
         minSdk = 26
         targetSdk = 36
-        versionCode = 85
-        versionName = "2.2.2"
+        versionCode = 86
+        versionName = "2.3"
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
         }

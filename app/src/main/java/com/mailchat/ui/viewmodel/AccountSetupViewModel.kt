@@ -103,12 +103,17 @@ class AccountSetupViewModel @Inject constructor(
             try {
                 val folders = imapService.listFolders(account)
                 _uiState.update { state ->
-                    // For new accounts (no folders selected yet) pre-select the sensible defaults:
-                    // INBOX (Posteingang) plus the first outgoing folder (e.g. Sent/Postausgang).
+                    // For accounts without an explicit folder selection, pre-select ALL default
+                    // folders that exist on the server (INBOX + the outgoing folder). This keeps
+                    // the default folders selected when the user adds another folder, so their
+                    // emails do not disappear (previously only INBOX + the first outgoing folder
+                    // were pre-selected, which could drop the others on save).
                     val defaults = if (state.selectedFolders.isEmpty()) {
+                        val defaultFolders = imapService.defaultSyncFolders()
                         buildSet {
-                            folders.firstOrNull { it.equals("INBOX", ignoreCase = true) }?.let { add(it) }
-                            folders.firstOrNull { imapService.isOutgoingFolder(it) }?.let { add(it) }
+                            folders.filter { f ->
+                                defaultFolders.any { it.equals(f, ignoreCase = true) }
+                            }.forEach { add(it) }
                         }
                     } else state.selectedFolders
                     state.copy(availableFolders = folders, isLoadingFolders = false, selectedFolders = defaults)

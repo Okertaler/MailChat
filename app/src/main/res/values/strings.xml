@@ -121,6 +121,15 @@
     <string name="subject">Subject</string>
     <string name="compose">Compose</string>
     <string name="type_message">Message</string>
+    <string name="format_bold">Bold</string>
+    <string name="format_italic">Italic</string>
+    <string name="format_underline">Underline</string>
+    <string name="format_align_left">Align left</string>
+    <string name="format_align_center">Align center</string>
+    <string name="format_align_right">Align right</string>
+    <string name="format_font">Font</string>
+    <string name="format_bullet_list">Bullet list</string>
+    <string name="format_number_list">Numbered list</string>
     <string name="select_recipient">Select recipient</string>
     <string name="contact_name">Contact name</string>
     <string name="filter_favorites">Favorites</string>
@@ -203,6 +212,7 @@
     <string name="sync_15min">Every 15 minutes</string>
     <string name="sync_30min">Every 30 minutes</string>
     <string name="sync_1hour">Every hour</string>
+    <string name="sync_imported_count">%1$d new emails imported</string>
     <string name="contacts">Contacts</string>
     <string name="general">General</string>
     <string name="ai_local">local</string>
@@ -1166,6 +1176,10 @@
     <string name="widget_content_mode">Show</string>
     <string name="widget_content_latest">Latest emails</string>
     <string name="widget_content_unread">Unread emails</string>
+    <string name="widget_font_size">Font size</string>
+    <string name="widget_font_small">Small</string>
+    <string name="widget_font_normal">Normal</string>
+    <string name="widget_font_large">Large</string>
     <string name="widget_transparency">Transparency</string>
     <string name="widget_no_unread_emails">No unread emails</string>
     <string name="you">You</string>

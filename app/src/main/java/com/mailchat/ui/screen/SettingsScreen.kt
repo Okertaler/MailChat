@@ -231,6 +231,8 @@ fun SettingsScreen(
     var showWidgetModeDropdown by remember { mutableStateOf(false) }
     var widgetContentMode by remember { mutableStateOf(SettingsUtils.getWidgetContentMode(context)) }
     var showWidgetContentDropdown by remember { mutableStateOf(false) }
+    var widgetFontSize by remember { mutableStateOf(SettingsUtils.getWidgetFontSize(context)) }
+    var showWidgetFontDropdown by remember { mutableStateOf(false) }
     var widgetTransparency by remember { mutableIntStateOf(SettingsUtils.getWidgetTransparency(context)) }
 
     // Key signature (second signature on encrypted emails)
@@ -998,6 +1000,55 @@ fun SettingsScreen(
                                     stringResource(R.string.widget_content_unread)
                                 else
                                     stringResource(R.string.widget_content_latest)
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Font size: small / normal / large.
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.widget_font_size)) },
+                    trailingContent = {
+                        androidx.compose.material3.DropdownMenu(
+                            expanded = showWidgetFontDropdown,
+                            onDismissRequest = { showWidgetFontDropdown = false }
+                        ) {
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(stringResource(R.string.widget_font_small)) },
+                                onClick = {
+                                    showWidgetFontDropdown = false
+                                    widgetFontSize = SettingsUtils.WIDGET_FONT_SMALL
+                                    SettingsUtils.setWidgetFontSize(context, SettingsUtils.WIDGET_FONT_SMALL)
+                                    com.mailchat.widget.MailWidgetProvider.refreshAll(context)
+                                }
+                            )
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(stringResource(R.string.widget_font_normal)) },
+                                onClick = {
+                                    showWidgetFontDropdown = false
+                                    widgetFontSize = SettingsUtils.WIDGET_FONT_NORMAL
+                                    SettingsUtils.setWidgetFontSize(context, SettingsUtils.WIDGET_FONT_NORMAL)
+                                    com.mailchat.widget.MailWidgetProvider.refreshAll(context)
+                                }
+                            )
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(stringResource(R.string.widget_font_large)) },
+                                onClick = {
+                                    showWidgetFontDropdown = false
+                                    widgetFontSize = SettingsUtils.WIDGET_FONT_LARGE
+                                    SettingsUtils.setWidgetFontSize(context, SettingsUtils.WIDGET_FONT_LARGE)
+                                    com.mailchat.widget.MailWidgetProvider.refreshAll(context)
+                                }
+                            )
+                        }
+                        TextButton(onClick = { showWidgetFontDropdown = true }) {
+                            Text(
+                                when (widgetFontSize) {
+                                    SettingsUtils.WIDGET_FONT_SMALL -> stringResource(R.string.widget_font_small)
+                                    SettingsUtils.WIDGET_FONT_LARGE -> stringResource(R.string.widget_font_large)
+                                    else -> stringResource(R.string.widget_font_normal)
+                                }
                             )
                         }
                     },

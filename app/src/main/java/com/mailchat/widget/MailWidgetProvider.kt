@@ -138,6 +138,11 @@ class MailWidgetProvider : AppWidgetProvider() {
             }
             views.setInt(R.id.widget_root, "setBackgroundResource", bgRes)
 
+            // User-configurable font size (small / normal / large) — a scale factor applied
+            // onto the base sp sizes defined in widget_mail_list.xml.
+            val fontScale = SettingsUtils.getWidgetFontScale(context)
+            fun scaledSp(baseSp: Int): Float = (baseSp * fontScale).toFloat()
+
             // Empty view text depends on the content mode (latest vs. unread).
             val contentMode = SettingsUtils.getWidgetContentMode(context)
             views.setTextViewText(
@@ -149,6 +154,7 @@ class MailWidgetProvider : AppWidgetProvider() {
                         R.string.widget_no_emails
                 )
             )
+            views.setTextViewTextSize(R.id.widget_empty, android.util.TypedValue.COMPLEX_UNIT_SP, scaledSp(13))
 
             // Tapping the header only brings the app to the foreground (NEW_TASK + CLEAR_TOP
             // reuse the existing task instead of starting a second instance).
@@ -202,6 +208,9 @@ class MailWidgetProvider : AppWidgetProvider() {
                     views.setTextViewText(slotId(context, "widget_sender", i), sender)
                     views.setTextViewText(slotId(context, "widget_subject", i), subject)
                     views.setTextViewText(slotId(context, "widget_time", i), DateUtils.formatRelative(context, message.timestamp))
+                    views.setTextViewTextSize(slotId(context, "widget_sender", i), android.util.TypedValue.COMPLEX_UNIT_SP, scaledSp(12))
+                    views.setTextViewTextSize(slotId(context, "widget_subject", i), android.util.TypedValue.COMPLEX_UNIT_SP, scaledSp(11))
+                    views.setTextViewTextSize(slotId(context, "widget_time", i), android.util.TypedValue.COMPLEX_UNIT_SP, scaledSp(10))
                     views.setViewVisibility(rootId, View.VISIBLE)
 
                     val intent = Intent(context, MainActivity::class.java).apply {

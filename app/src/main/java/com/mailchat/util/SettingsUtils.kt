@@ -309,19 +309,33 @@ object SettingsUtils {
 
     data class CustomTag(val name: String, val description: String)
 
+    // Tag names are bilingual (German / English) so the on-device AI understands the meaning
+    // in both languages; descriptions are English-only (the AI classifies best in English).
+    // The descriptions are deliberately specific and mutually exclusive to avoid misclassification
+    // (e.g. a marketing "Newsletter" must not be classified as "Arbeit / Work").
     private val DEFAULT_TAGS = listOf(
-        CustomTag("rechnung", "invoices, bills, payment requests, receipts"),
-        CustomTag("termin", "appointments, meetings, deadlines, reservations"),
-        CustomTag("versand", "shipping info, delivery dates, package tracking"),
-        CustomTag("medizin", "doctor reports, medical appointments, prescriptions, blood values"),
-        CustomTag("privat", "private emails from known contacts, personal matters"),
-        CustomTag("firma", "work-related info, employer, colleagues, projects"),
-        CustomTag("newsletter", "newsletters, marketing, promotional content"),
-        CustomTag("bank", "bank statements, credit card, loan, insurance")
+        CustomTag("Rechnung / Invoice", "invoices, bills, payment requests, receipts, payment reminders, payment due dates from companies or providers"),
+        CustomTag("Termin / Appointment", "appointments, meetings, deadlines, reservations, calendar invitations, booking and reservation confirmations"),
+        CustomTag("Versand / Shipping", "shipping info, delivery dates, package tracking, parcel notifications, courier and delivery updates"),
+        CustomTag("Medizin / Medical", "doctor reports, medical appointments, prescriptions, lab results, health insurance, pharmacy"),
+        CustomTag("Privat / Personal", "private emails from known personal contacts, family and friends, personal matters"),
+        CustomTag("Arbeit / Work", "work-related emails from employer, colleagues or clients; projects, internal company communication, HR, payroll — not marketing newsletters"),
+        CustomTag("Newsletter", "marketing newsletters, promotional content, advertisements, product updates, sales offers and discount codes — not work or business emails"),
+        CustomTag("Bank / Finance", "bank statements, credit card, loan, insurance, tax, investment and financial institution notices")
     )
+
+    // Bumped when the default tags are redesigned so existing installs pick up the new set
+    // (bilingual names + clearer descriptions) on the next launch.
+    private const val TAGS_VERSION = 2
 
     fun getCustomTags(context: Context): List<CustomTag> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val storedVersion = prefs.getInt("custom_tags_version", 1)
+        if (storedVersion < TAGS_VERSION) {
+            // Tags were redesigned — reset to the new defaults (one-time migration).
+            saveCustomTags(context, DEFAULT_TAGS)
+            return DEFAULT_TAGS
+        }
         val json = prefs.getString("custom_tags_json", null)
         if (json == null) {
             saveCustomTags(context, DEFAULT_TAGS)
@@ -349,6 +363,7 @@ object SettingsUtils {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString("custom_tags_json", arr.toString())
+            .putInt("custom_tags_version", TAGS_VERSION)
             .apply()
     }
 
@@ -481,10 +496,10 @@ object SettingsUtils {
     const val WIDGET_CONTENT_LATEST = "latest"
     const val WIDGET_CONTENT_UNREAD = "unread"
 
-    /** What the widget lists: [WIDGET_CONTENT_LATEST] (default) or [WIDGET_CONTENT_UNREAD]. */
+    /** What the widget lists: [WIDGET_CONTENT_UNREAD] (default) or [WIDGET_CONTENT_LATEST]. */
     fun getWidgetContentMode(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString("widget_content_mode", WIDGET_CONTENT_LATEST) ?: WIDGET_CONTENT_LATEST
+            .getString("widget_content_mode", WIDGET_CONTENT_UNREAD) ?: WIDGET_CONTENT_UNREAD
 
     fun setWidgetContentMode(context: Context, mode: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -504,5 +519,28 @@ object SettingsUtils {
             .edit()
             .putInt("widget_transparency", percent.coerceIn(0, 100))
             .apply()
+    }
+
+    const val WIDGET_FONT_SMALL = "small"
+    const val WIDGET_FONT_NORMAL = "normal"
+    const val WIDGET_FONT_LARGE = "large"
+
+    /** Widget font size: [WIDGET_FONT_SMALL], [WIDGET_FONT_NORMAL] (default) or [WIDGET_FONT_LARGE]. */
+    fun getWidgetFontSize(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("widget_font_size", WIDGET_FONT_NORMAL) ?: WIDGET_FONT_NORMAL
+
+    fun setWidgetFontSize(context: Context, size: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString("widget_font_size", size)
+            .apply()
+    }
+
+    /** Scale factor for the widget font size setting (multiplied onto the base sp sizes). */
+    fun getWidgetFontScale(context: Context): Float = when (getWidgetFontSize(context)) {
+        WIDGET_FONT_SMALL -> 0.85f
+        WIDGET_FONT_LARGE -> 1.2f
+        else -> 1.0f
     }
 }

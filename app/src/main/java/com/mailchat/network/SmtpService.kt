@@ -19,6 +19,18 @@ import javax.mail.internet.MimeMultipart
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** How the email body should be transmitted. */
+enum class BodyFormat {
+    /** Plain text, sent as-is (text/plain). Used for encrypted bodies and the SMTP test. */
+    PLAIN,
+
+    /** Plain text that is rendered as simple HTML (paragraphs, line breaks) before sending. */
+    PLAIN_AS_HTML,
+
+    /** The body is already HTML (rich-text editor output) — sent as-is (text/html). */
+    HTML
+}
+
 @Singleton
 class SmtpService @Inject constructor() {
 
@@ -57,7 +69,8 @@ class SmtpService @Inject constructor() {
         attachments: List<File> = emptyList(),
         extraHeaders: Map<String, String> = emptyMap(),
         cc: String = "",
-        bcc: String = ""
+        bcc: String = "",
+        bodyFormat: BodyFormat = BodyFormat.PLAIN
     ): String = withContext(Dispatchers.IO) {
         val (host, port) = resolveSmtpHost(account)
         val properties = Properties().apply {
@@ -93,10 +106,22 @@ class SmtpService @Inject constructor() {
             setSubject(subject, "UTF-8")
             extraHeaders.forEach { (name, value) -> setHeader(name, value) }
 
+            // Body handling depends on the format:
+            //  - PLAIN: sent as-is as text/plain (encrypted bodies MUST stay plain text,
+            //    as does the SMTP connection test).
+            //  - PLAIN_AS_HTML: plain text rendered as simple HTML so line breaks, the
+            //    signature and section spacing display cleanly in the recipient's client.
+            //  - HTML: the body is already HTML (rich-text editor) — wrapped in a minimal
+            //    document (if needed) and sent as text/html.
+            val (bodyToSend, contentType) = when (bodyFormat) {
+                BodyFormat.PLAIN -> body to "text/plain"
+                BodyFormat.PLAIN_AS_HTML -> plainTextToHtml(body) to "text/html"
+                BodyFormat.HTML -> wrapHtmlDocument(body) to "text/html"
+            }
             if (attachments.isNotEmpty()) {
                 val multipart = MimeMultipart()
                 val textPart = MimeBodyPart()
-                textPart.setText(body, "UTF-8")
+                textPart.setContent(bodyToSend, "$contentType; charset=UTF-8")
                 multipart.addBodyPart(textPart)
                 for (file in attachments) {
                     val part = MimeBodyPart()
@@ -107,13 +132,43 @@ class SmtpService @Inject constructor() {
                 }
                 setContent(multipart)
             } else {
-                setText(body, "UTF-8")
+                setContent(bodyToSend, "$contentType; charset=UTF-8")
             }
         }
 
         message.saveChanges()
         Transport.send(message)
         message.messageID ?: ""
+    }
+
+    /**
+     * Converts a plain-text email body into simple, clean HTML: HTML special characters are
+     * escaped, blank lines become paragraph breaks and single line breaks become <br>. A minimal
+     * inline style keeps the rendering consistent across clients.
+     */
+    private fun plainTextToHtml(text: String): String {
+        val escaped = text
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        val paragraphs = escaped
+            .split(Regex("\n{2,}"))
+            .filter { it.isNotBlank() }
+            .joinToString("</p>\n<p>") { it.replace("\n", "<br>") }
+        return "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head>" +
+            "<body style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#222222;\">" +
+            "<p>$paragraphs</p></body></html>"
+    }
+
+    /**
+     * Wraps an HTML fragment (rich-text editor output) in a minimal document with a base style,
+     * so the email renders consistently across clients. Full documents are returned unchanged.
+     */
+    private fun wrapHtmlDocument(fragment: String): String {
+        if (fragment.contains("<html", ignoreCase = true)) return fragment
+        return "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"></head>" +
+            "<body style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#222222;\">" +
+            fragment + "</body></html>"
     }
 
     private fun ensureFileSuffix(file: File): String {
@@ -150,5 +205,22 @@ class SmtpService @Inject constructor() {
         mime.contains("plain") -> "txt"
         mime.contains("html") -> "html"
         else -> ""
+    }
+
+    companion object {
+        /** Escapes HTML special characters so plain text can be embedded safely in an HTML body. */
+        fun escapeHtml(text: String): String = text
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+
+        /**
+         * Heuristic: does the text contain HTML markup produced by the rich-text editor
+         * (formatting tags, lists, line breaks)? Used to decide whether a compose body is
+         * already HTML or still plain text.
+         */
+        fun looksLikeHtml(text: String): Boolean =
+            Regex("<\\s*(b|i|u|div|span|ul|ol|li|p|br|font|table|style)\\b", RegexOption.IGNORE_CASE)
+                .containsMatchIn(text)
     }
 }

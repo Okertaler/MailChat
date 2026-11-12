@@ -248,13 +248,20 @@ class ImapService @Inject constructor(
         }
     }
 
+    /**
+     * The default folders synced when the account has no explicit folder selection. INBOX plus
+     * the common name variants of the outgoing (sent) folder, since providers differ.
+     */
+    fun defaultSyncFolders(): List<String> =
+        listOf("INBOX", "Sent", "Sent Messages", "INBOX.Sent", "INBOX/Sent", "Sent Items", "Gesendet", "Abgesendet")
+
     private fun getSyncFolders(account: EmailAccount): List<String> {
         val custom = account.syncFolders
             .split(",")
             .map { it.trim() }
             .filter { it.isNotBlank() }
         if (custom.isNotEmpty()) return custom
-        return listOf("INBOX", "Sent", "Sent Messages", "INBOX.Sent", "INBOX/Sent", "Sent Items", "Gesendet", "Abgesendet")
+        return defaultSyncFolders()
     }
 
     suspend fun deleteMessagesFromServer(

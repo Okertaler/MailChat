@@ -222,18 +222,21 @@ class ChatListViewModel @Inject constructor(
             val periodDays = SettingsUtils.getSyncPeriodDays(appContext)
             val periodStart = System.currentTimeMillis() - periodDays * 24L * 60L * 60L * 1000L
             val syncErrors = mutableListOf<String>()
+            var newIncomingCount = 0
             for (account in accounts) {
                 try {
                     val since = periodStart
                     val incoming = imapService.fetchNewMessages(account, since)
                     syncErrors.addAll(incoming.errors.map { "${account.emailAddress} $it" })
                     for (fetchedMsg in incoming.messages) {
-                        processFetchedMessage(account, fetchedMsg)
+                        // suppressNotifications: no per-email notification during a bulk sync —
+                        // a single summary with the imported count is shown at the end instead.
+                        if (processFetchedMessage(account, fetchedMsg, suppressNotifications = true)) newIncomingCount++
                     }
                     val sent = imapService.fetchSentMessages(account, since)
                     syncErrors.addAll(sent.errors.map { "${account.emailAddress} $it" })
                     for (fetchedMsg in sent.messages) {
-                        processFetchedMessage(account, fetchedMsg)
+                        processFetchedMessage(account, fetchedMsg, suppressNotifications = true)
                     }
                     accountRepository.updateAccount(
                         account.copy(lastSyncTimestamp = System.currentTimeMillis())
@@ -242,24 +245,39 @@ class ChatListViewModel @Inject constructor(
                     syncErrors.add("${account.emailAddress}: ${e.message}")
                 }
             }
+            // Refresh the widget once (instead of per email) so it reflects the new emails.
+            try {
+                com.mailchat.widget.MailWidgetProvider.refreshAll(appContext)
+            } catch (_: Exception) {
+            }
             _uiState.update { state ->
                 state.copy(
                     isSyncing = false,
-                    error = if (syncErrors.isEmpty()) null
-                    else syncErrors.take(2).joinToString("; ").take(300)
+                    error = when {
+                        syncErrors.isNotEmpty() -> syncErrors.take(2).joinToString("; ").take(300)
+                        newIncomingCount > 0 -> appContext.getString(com.mailchat.R.string.sync_imported_count, newIncomingCount)
+                        else -> null
+                    }
                 )
             }
         }
     }
 
+    /**
+     * Processes a single fetched message (dedupe, decrypt, insert, notify). Returns true when a
+     * NEW incoming email was inserted (used to count imports). When [suppressNotifications] is
+     * set (during a bulk/initial sync), no per-email notification is posted and the widget is not
+     * refreshed per item — the caller posts a single summary at the end instead.
+     */
     private suspend fun processFetchedMessage(
         account: EmailAccount,
-        fetchedMsg: com.mailchat.network.FetchedMessage
-    ) {
+        fetchedMsg: com.mailchat.network.FetchedMessage,
+        suppressNotifications: Boolean = false
+    ): Boolean {
         val msgId = fetchedMsg.message.messageId
         if (msgId.isNotBlank()) {
-            if (messageRepository.countByMessageId(msgId) > 0) return
-            if (SettingsUtils.getDeletedMessageIds(appContext).contains(msgId)) return
+            if (messageRepository.countByMessageId(msgId) > 0) return false
+            if (SettingsUtils.getDeletedMessageIds(appContext).contains(msgId)) return false
         }
         val chat = getOrCreateChat(fetchedMsg.participantEmail, account, fetchedMsg)
         if (msgId.isBlank()) {
@@ -269,7 +287,7 @@ class ChatListViewModel @Inject constructor(
                 fetchedMsg.message.subject,
                 fetchedMsg.message.timestamp
             )
-            if (dupCount > 0) return
+            if (dupCount > 0) return false
         }
         var msgBody = fetchedMsg.message.body
         var msgBodyFull = fetchedMsg.message.bodyFull
@@ -325,7 +343,8 @@ class ChatListViewModel @Inject constructor(
                 attachment.copy(messageId = dbMessageId)
             )
         }
-        if (fetchedMsg.isIncoming) {
+        val isNewIncoming = fetchedMsg.isIncoming
+        if (isNewIncoming && !suppressNotifications) {
             NotificationHelper.postNewEmail(
                 context = appContext,
                 chatId = chat.id,
@@ -339,9 +358,10 @@ class ChatListViewModel @Inject constructor(
             } catch (_: Exception) {
             }
         }
-        if (SettingsUtils.getAiEnabled(appContext) && SettingsUtils.getAiAutoProcess(appContext) && fetchedMsg.isIncoming) {
+        if (SettingsUtils.getAiEnabled(appContext) && SettingsUtils.getAiAutoProcess(appContext) && isNewIncoming) {
             processMessageWithAi(message.copy(id = dbMessageId))
         }
+        return isNewIncoming
         // Automatic "Wo bist Du?" reply: if this contact has the auto-location-reply enabled and
         // the message asks "Wo bist Du?", reply with the current location (+ optional weather).
         if (fetchedMsg.isIncoming) {
