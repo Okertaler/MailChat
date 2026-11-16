@@ -76,6 +76,20 @@ Complete feature list sorted by function category.
 - Select incoming only
 - Select outgoing only
 
+## Rich Text Formatting (Replies)
+
+- Formatting toolbar in the compose overlay (top, second row) with compress / mic / AI-answer icons at the start
+- Bold, italic, underline
+- Text color and highlight (background) color palettes
+- Alignment (left / center / right)
+- Font size (A− / A+, browser sizes 2–5)
+- Font family picker (Arial, Verdana, Georgia, Times New Roman, Courier New, Tahoma)
+- Bullet and numbered lists
+- With no text selected, formatting applies to the entire text
+- Highlight color with no selection sets the message field background (visual only, not part of the email content)
+- Message field grows with the text (stretchy WebView) and scrolls with the surrounding layout
+- Emails are sent as HTML with clean formatting
+
 ## AI Features
 
 ### Providers
@@ -89,7 +103,7 @@ Complete feature list sorted by function category.
 - AI spam detection (heuristic + AI classification)
 - Phishing probability (min 40% threshold)
 - AI summary per message (5 lines, in your language)
-- AI reply (formal/informal tone, own subject, uses existing reply text as starting point)
+- AI reply (formal/informal tone, own subject, follows the direction/intent of the text already in the message field, e.g. a refusal stays a refusal)
 - AI real name extraction
 - AI custom tag classification (with sender/subject context)
 - AI appointment extraction

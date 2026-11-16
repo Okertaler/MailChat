@@ -48,6 +48,10 @@ interface MessageDao {
     @Query("SELECT DISTINCT chatId, customTag FROM messages WHERE customTag != ''")
     fun getCustomTags(): Flow<List<CustomTagEntry>>
 
+    /** One-time tag rename: replaces [oldTag] with [newTag] in every message's customTag. */
+    @Query("UPDATE messages SET customTag = REPLACE(customTag, :oldTag, :newTag) WHERE customTag LIKE '%' || :oldTag || '%'")
+    suspend fun renameCustomTag(oldTag: String, newTag: String)
+
     @Query("SELECT COUNT(*) FROM messages WHERE messageId = :messageId AND messageId != ''")
     suspend fun countByMessageId(messageId: String): Int
 

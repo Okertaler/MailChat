@@ -309,47 +309,85 @@ object SettingsUtils {
 
     data class CustomTag(val name: String, val description: String)
 
-    // Tag names are bilingual (German / English) so the on-device AI understands the meaning
-    // in both languages; descriptions are English-only (the AI classifies best in English).
-    // The descriptions are deliberately specific and mutually exclusive to avoid misclassification
-    // (e.g. a marketing "Newsletter" must not be classified as "Arbeit / Work").
-    private val DEFAULT_TAGS = listOf(
-        CustomTag("Rechnung / Invoice", "invoices, bills, payment requests, receipts, payment reminders, payment due dates from companies or providers"),
-        CustomTag("Termin / Appointment", "appointments, meetings, deadlines, reservations, calendar invitations, booking and reservation confirmations"),
-        CustomTag("Versand / Shipping", "shipping info, delivery dates, package tracking, parcel notifications, courier and delivery updates"),
-        CustomTag("Medizin / Medical", "doctor reports, medical appointments, prescriptions, lab results, health insurance, pharmacy"),
-        CustomTag("Privat / Personal", "private emails from known personal contacts, family and friends, personal matters"),
-        CustomTag("Arbeit / Work", "work-related emails from employer, colleagues or clients; projects, internal company communication, HR, payroll — not marketing newsletters"),
-        CustomTag("Newsletter", "marketing newsletters, promotional content, advertisements, product updates, sales offers and discount codes — not work or business emails"),
-        CustomTag("Bank / Finance", "bank statements, credit card, loan, insurance, tax, investment and financial institution notices")
+    // Default tag definitions. The tag NAME is stored in the app's current language (German or
+    // English) so the UI shows a single, clean name; the DESCRIPTION is always English because
+    // the on-device AI classifies best in English. The descriptions are deliberately specific and
+    // mutually exclusive to avoid misclassification (e.g. a marketing "Marketing" tag must not be
+    // classified as "Arbeit / Work").
+    private data class TagDef(val nameEn: String, val nameDe: String, val desc: String)
+
+    private val TAG_DEFS = listOf(
+        TagDef("Invoice", "Rechnung", "invoices, bills, payment requests, receipts, payment reminders, payment due dates from companies or providers"),
+        TagDef("Appointment", "Termin", "appointments, meetings, deadlines, reservations, calendar invitations, booking and reservation confirmations"),
+        TagDef("Shipping", "Versand", "shipping info, delivery dates, package tracking, parcel notifications, courier and delivery updates"),
+        TagDef("Medical", "Medizin", "doctor reports, medical appointments, prescriptions, lab results, health insurance, pharmacy"),
+        TagDef("Personal", "Privat", "private emails from known personal contacts, family and friends, personal matters"),
+        TagDef("Work", "Arbeit", "work-related emails from employer, colleagues or clients; projects, internal company communication, HR, payroll — not marketing newsletters"),
+        TagDef("Marketing", "Marketing", "marketing newsletters, promotional content, advertisements, product updates, sales offers and discount codes — not work or business emails"),
+        TagDef("Finance", "Bank", "bank statements, credit card, loan, insurance, tax, investment and financial institution notices")
     )
 
+    /** Whether the UI language is German (explicit setting, or the system locale when "system"). */
+    fun isGermanUi(context: Context): Boolean {
+        val lang = LanguageUtils.getLanguage(context)
+        return when (lang) {
+            LanguageUtils.GERMAN -> true
+            LanguageUtils.ENGLISH -> false
+            else -> java.util.Locale.getDefault().language.equals("de", ignoreCase = true)
+        }
+    }
+
+    /** The default tags in the given language (name localized, description always English). */
+    fun defaultTags(german: Boolean): List<CustomTag> =
+        TAG_DEFS.map { if (german) CustomTag(it.nameDe, it.desc) else CustomTag(it.nameEn, it.desc) }
+
+    /**
+     * Maps the old bilingual default tag names ("Rechnung / Invoice") to the new single-language
+     * names, so already-applied tags (on messages/chats and in the tag list) can be renamed
+     * without wiping the user's custom tags.
+     */
+    fun bilingualTagRenameMapping(german: Boolean): Map<String, String> =
+        TAG_DEFS.associate { def ->
+            "${def.nameDe} / ${def.nameEn}" to (if (german) def.nameDe else def.nameEn)
+        }
+
     // Bumped when the default tags are redesigned so existing installs pick up the new set
-    // (bilingual names + clearer descriptions) on the next launch.
+    // on the next launch.
     private const val TAGS_VERSION = 2
 
     fun getCustomTags(context: Context): List<CustomTag> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val defaults = defaultTags(isGermanUi(context))
         val storedVersion = prefs.getInt("custom_tags_version", 1)
         if (storedVersion < TAGS_VERSION) {
             // Tags were redesigned — reset to the new defaults (one-time migration).
-            saveCustomTags(context, DEFAULT_TAGS)
-            return DEFAULT_TAGS
+            saveCustomTags(context, defaults)
+            return defaults
         }
         val json = prefs.getString("custom_tags_json", null)
         if (json == null) {
-            saveCustomTags(context, DEFAULT_TAGS)
-            return DEFAULT_TAGS
+            saveCustomTags(context, defaults)
+            return defaults
         }
-        return try {
+        val tags = try {
             val arr = org.json.JSONArray(json)
             (0 until arr.length()).map { i ->
                 val obj = arr.getJSONObject(i)
                 CustomTag(obj.getString("name"), obj.getString("desc"))
             }
         } catch (_: Exception) {
-            DEFAULT_TAGS
+            defaults
         }
+        // One-time rename: the default tags were bilingual ("Rechnung / Invoice") and are now
+        // single-language. Rename the known bilingual names, preserving any custom tags.
+        val renamed = renameBilingualTagNames(tags, isGermanUi(context))
+        if (renamed != tags) saveCustomTags(context, renamed)
+        return renamed
+    }
+
+    private fun renameBilingualTagNames(tags: List<CustomTag>, german: Boolean): List<CustomTag> {
+        val mapping = bilingualTagRenameMapping(german)
+        return tags.map { tag -> mapping[tag.name]?.let { tag.copy(name = it) } ?: tag }
     }
 
     fun saveCustomTags(context: Context, tags: List<CustomTag>) {
@@ -364,6 +402,22 @@ object SettingsUtils {
             .edit()
             .putString("custom_tags_json", arr.toString())
             .putInt("custom_tags_version", TAGS_VERSION)
+            .apply()
+    }
+
+    /**
+     * One-time flag: the old bilingual default tag names ("Rechnung / Invoice") have been renamed
+     * to single-language names on already-tagged messages and chats (see
+     * [com.mailchat.ui.viewmodel.ChatListViewModel.migrateTagNames]).
+     */
+    fun getTagNamesMigratedV3(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean("tag_names_migrated_v3", false)
+
+    fun setTagNamesMigratedV3(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("tag_names_migrated_v3", true)
             .apply()
     }
 

@@ -340,18 +340,24 @@ object GeminiService {
         val prompt = """Classify this email into exactly ONE category. Reply with only the category word, nothing else.
 Categories:
 - ham: normal personal or business email
-- newsletter: wanted advertising, newsletter, free service announcement
-- unwanted_ad: unwanted advertising, marketing spam
-- phishing: dangerous email, phishing, scam, fraud, fake urgency, domain mismatch with sender, suspicious links
+- newsletter: a newsletter or marketing email the recipient clearly subscribed to / wants to receive
+- unwanted_ad: advertising, marketing, promotional or sales email the recipient did not explicitly subscribe to; product offers, discount codes, free service announcements
+- phishing: ONLY emails that actively try to steal credentials, money or personal data (fake login pages, impersonation of a bank/official to extract data, urgent threats to hand over money or codes)
+
+Rules:
+- A link to a different domain, a tracking link, a payment link or mild urgency is NOT phishing by itself.
+- Marketing or promotional mail is almost always unwanted_ad, never phishing.
+- When in doubt between phishing and unwanted_ad, choose unwanted_ad.
+- Only use phishing for clear credential/money theft attempts.
 
 $domainInfo
 Email:
 $truncated"""
         val result = generate(prompt).trim().lowercase()
         when {
-            result.contains("phishing") || result.contains("scam") || result.contains("fraud") -> "phishing"
-            result.contains("unwanted") || result.contains("ad") || result.contains("spam") -> "unwanted_ad"
-            result.contains("newsletter") || result.contains("wanted") -> "newsletter"
+            result.contains("phishing") -> "phishing"
+            result.contains("unwanted") -> "unwanted_ad"
+            result.contains("newsletter") -> "newsletter"
             else -> "ham"
         }
     }
@@ -460,7 +466,7 @@ Regeln:
         generate(prompt, systemPrompt, maxOutputToken = 800, maxChars = maxChars.coerceAtMost(MAX_PROMPT_CHARS_ASSISTANT))
     }
 
-    suspend fun suggestReply(context: String, previousWords: List<String>, language: String = "system", subject: String = "", senderName: String = "", recipientName: String = ""): String = withContext(Dispatchers.IO) {
+    suspend fun suggestReply(context: String, previousWords: List<String>, language: String = "system", subject: String = "", senderName: String = "", recipientName: String = "", draftText: String = ""): String = withContext(Dispatchers.IO) {
         val langInstruction = when (language) {
             "de" -> "Respond in German."
             "en" -> "Respond in English."
@@ -474,7 +480,12 @@ Regeln:
             if (senderName.isNotBlank()) append("You are replying as: $senderName. ")
             if (recipientName.isNotBlank()) append("The recipient is: $recipientName. ")
         }
-        val prompt = "Based on the conversation context, suggest a short reply (1-2 sentences). $langInstruction $wordsPrompt $namesPrompt\n\n$subjectPrompt$context"
+        val draftInstruction = if (draftText.isNotBlank()) {
+            "The user already wrote this text in the reply field. Follow its direction and intent " +
+                "(e.g. if it declines, refuses or asks something, keep that) and expand it into a " +
+                "complete reply:\n$draftText\n\n"
+        } else ""
+        val prompt = "Based on the conversation context, suggest a short reply (1-2 sentences). $langInstruction $wordsPrompt $namesPrompt $draftInstruction\n\n$subjectPrompt$context"
         generate(prompt)
     }
 
@@ -496,7 +507,9 @@ Regeln:
             "Write personally and friendly, addressing the recipient with the informal you (\"Du\" in German)."
         }
         val draftInstruction = if (draftText.isNotBlank()) {
-            "The user already started a draft. Use it as a starting point and build on it:\n$draftText\n\n"
+            "The user already wrote this text in the reply field. Follow its direction and intent " +
+                "(e.g. if it declines, refuses or asks something, keep that) and expand it into a " +
+                "complete, well-formulated reply:\n$draftText\n\n"
         } else ""
         val prompt = "Write a complete reply to this email. $langInstruction $toneInstruction\n" +
             "Original subject: $originalSubject\n" +

@@ -16,14 +16,14 @@ MailChat
 
 In der Play Console unter **Release → What's new** eintragen.
 
-### Englisch (468 Zeichen)
+### Englisch (495 Zeichen)
 ```
-New: text formatting in replies (bold, italic, underline, alignment, font size, font, lists). Emails are now sent as HTML with clean formatting. Improved: signature & group notice, "Where are you?" auto-reply with weather, tags for better AI search. Widget: adjustable font size, default now unread emails. Fixed: folder selection dropped default folders; keyboard covered input in new chats; initial sync now shows only the imported count; settings icon (three dots).
+New: field background color – with no text selected the message field background is colored, with a selection the text is highlighted; the AI reply now takes the text in the message field into account (e.g. a refusal stays a refusal); the message field grows with the text and can be scrolled with a finger; the AI suggestion is fully readable (scrollable). Improved: default tags single-language (per app language), e.g. "Invoice". Fixed: status bar flickered while typing in the message field.
 ```
 
-### Deutsch (497 Zeichen)
+### Deutsch (488 Zeichen)
 ```
-Neu: Text-Formatierung in Antworten (fett, kursiv, unterstreichen, Ausrichtung, Schriftgröße, Schriftart, Listen). E-Mails werden als HTML gesendet. Verbessert: Signatur & Gruppen-Hinweis, „Wo bist Du?"-Antwort mit Wetter, Tags für bessere KI-Suche. Widget: Schriftgröße einstellbar, Standard jetzt ungelesene Mails. Behoben: Ordner-Auswahl ließ Standard-Ordner verschwinden; Tastatur verdeckte Eingabe bei neuen Chats; Erst-Sync zeigt nur die importierte Anzahl; Einstellungen-Icon (drei Punkte).
+Neu: Feld-Hintergrundfarbe – ohne Textmarkierung wird der Hintergrund des Nachrichtenfeldes gesetzt, mit Markierung der Text; die KI-Antwort berücksichtigt jetzt den Text im Nachrichtenfeld (z. B. Absage bleibt Absage); das Nachrichtenfeld wächst mit dem Text und lässt sich mit dem Finger scrollen; der KI-Vorschlag ist komplett lesbar (scrollbar). Verbessert: Standard-Tags einsprachig (je nach Sprache), z. B. „Rechnung“. Behoben: Statusleiste flackerte beim Tippen im Nachrichtenfeld.
 ```
 
 > Hinweis: In der Play Console unter **Release → What's new** wird der Text **ohne** die `<de-DE>`/`<en-GB>`-Tags eingetragen (die Tags sind nur für `version.md` im Repo). Pro Sprache ein eigener Eintrag, jeweils ≤ 500 Zeichen.
@@ -53,10 +53,11 @@ MailChat turns your email into private, chat-style conversations — with encryp
 🔒 PRIVACY FIRST
 • Your emails are stored locally and synced directly with your provider (IMAP/SMTP, TLS).
 • No ads, no tracking, no analytics, no crash reporters. Your data leaves your device only to the recipient.
+• Using of local AI
 • OpenPGP encryption: send emails that only the recipient can read.
 
 🤖 ON-DEVICE AI
-• Summaries, spam/phishing detection, custom tags, reply suggestions and appointment detection — processed locally with the Gemma model (Google LiteRT). No email content is sent to the cloud.
+• Summaries, spam/phishing detection, custom tags, reply suggestions and appointment detection — processed locally with the Gemma-4 model (Google LiteRT). No email content is sent to the cloud.
 • Optionally connect your own OpenAI-compatible endpoint for higher quality.
 
 💬 EMAIL AS CHATS
@@ -89,15 +90,17 @@ MailChat is a private, non-commercial app. Free to use.
 
 ### Deutsch
 ```
-MailChat verwandelt deine E-Mails in private, chatartige Gespräche — mit Verschlüsselung und KI, die komplett auf deinem Gerät läuft.
+Fast jeder besitzt eine E-mail Adresse. Die Serverstrucktur ist vorhanden. IMAP Push ist schnell, aber nicht Echtzeit (kommt später mit der Integration von SMS).
+MailChat verwandelt deine E-Mails in private, chatartige Gespräche — mit Verschlüsselung, die jeder einfach einrichten kann und KI, die komplett auf deinem Gerät läuft.
 
 🔒 PRIVATHEIT VOR ALLEM
 • Deine E-Mails werden lokal gespeichert und direkt mit deinem Provider synchronisiert (IMAP/SMTP, TLS).
 • Keine Werbung, kein Tracking, keine Analyse, keine Crash-Reporter. Deine Daten verlassen dein Gerät nur zum Empfänger.
+• Nutzung von lokaler KI
 • OpenPGP-Verschlüsselung: Sende E-Mails, die nur der Empfänger lesen kann.
 
 🤖 KI AUF DEM GERÄT
-• Zusammenfassungen, Spam-/Phishing-Erkennung, eigene Tags, Antwortvorschläge und Termin-Erkennung — lokal mit dem Gemma-Modell (Google LiteRT). Kein E-Mail-Inhalt wird in die Cloud gesendet.
+• Zusammenfassungen, Spam-/Phishing-Erkennung, eigene Tags, Antwortvorschläge und Termin-Erkennung — lokal mit dem Gemma-4-Modell (Google LiteRT). Kein E-Mail-Inhalt wird in die Cloud gesendet.
 • Optional: Eigener OpenAI-kompatibler Endpunkt für höhere Qualität.
 
 💬 E-MAIL ALS CHATS
@@ -244,7 +247,7 @@ Die Play Console verlangt eine **öffentliche Privacy-Policy-URL**.
 - ✅ Release-AAB: `app/build/outputs/bundle/release/app-release.aab` (signiert)
 - ✅ Source: `https://github.com/Okertaler/MailChat`
 - ✅ Legal-Dokumente: in der App + `legal/`-Ordner
-- ✅ Version: 2.3 (versionCode 86, targetSdk 36 / Android 16)
+- ✅ Version: 2.4 (versionCode 87, targetSdk 36 / Android 16)
 
 ---
 

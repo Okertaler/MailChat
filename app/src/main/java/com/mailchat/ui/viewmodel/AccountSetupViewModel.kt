@@ -237,7 +237,15 @@ class AccountSetupViewModel @Inject constructor(
                     lastSyncTimestamp = existing?.lastSyncTimestamp ?: 0,
                     syncFolders = state.selectedFolders.joinToString(",")
                 )
-                accountRepository.insertAccount(account)
+                // Editing an existing account must use UPDATE, not INSERT OR REPLACE:
+                // the REPLACE strategy deletes the old row first, which (with
+                // PRAGMA foreign_keys = ON) cascades to all chats/messages of the
+                // account and wipes the whole local history.
+                if (existing != null) {
+                    accountRepository.updateAccount(account)
+                } else {
+                    accountRepository.insertAccount(account)
+                }
                 _uiState.update { it.copy(isSaving = false) }
                 onDone()
             } catch (e: Exception) {

@@ -29,7 +29,7 @@ Drei fertige HTML-Seiten (einfaches, responsives Design, keine Abhängigkeiten):
 ## Vor dem Hochladen prüfen
 - [ ] E-Mail-Adresse in allen drei Dateien korrekt (`florescu@web.de`)?
 - [ ] App-Name in den Titeln passt?
-- [x] targetSdk auf 35 gesetzt (Play-Pflicht seit 31.08.2026)
+- [x] targetSdk auf 36 gesetzt (Android 16)
 - [x] Release-Keystore erstellt und AAB gebaut (`./gradlew :app:bundleRelease`)
 
 ## WICHTIG – Signing-Daten sicher aufbewahren

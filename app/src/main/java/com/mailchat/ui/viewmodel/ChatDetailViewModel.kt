@@ -601,8 +601,14 @@ class ChatDetailViewModel @Inject constructor(
                         "${if (it.isIncoming) "From" else "To"}: ${it.body.take(200)}"
                     }
                     val prevWords = com.mailchat.util.SettingsUtils.getPreviousComposeWords(appContext)
+                    // The user's own text in the reply field (e.g. a negative reply) — for
+                    // forwards, strip the forwarded-email block so only the user's note counts.
+                    val draft = state.composeText
+                        .substringBefore("---------- Weitergeleitete E-Mail ----------")
+                        .trim()
+                        .take(1000)
                     try {
-                        com.mailchat.ai.GeminiService.suggestReply(lastMessages, prevWords, language, subject, senderName, recipientName)
+                        com.mailchat.ai.GeminiService.suggestReply(lastMessages, prevWords, language, subject, senderName, recipientName, draft)
                     } catch (e: IllegalStateException) {
                         throw e
                     } catch (e: Exception) {
@@ -982,18 +988,16 @@ class ChatDetailViewModel @Inject constructor(
             .stripHtml()
             .normalizeWhitespace()
             .take(1500)
-        if (quotedSource.isBlank()) {
-            _uiState.update { it.copy(pendingQuote = null) }
-            return
-        }
         val dateStr = java.text.SimpleDateFormat(
             "dd.MM.yyyy HH:mm",
             java.util.Locale.getDefault()
         ).format(java.util.Date(message.timestamp))
         val quote = quotedSource.lineSequence().joinToString("\n") { "> $it" }
+        // Always set the recipient, even when the body is empty (e.g. image-only or
+        // attachment-only mail) — previously an early return left the To field blank.
         _uiState.update {
             it.copy(
-                pendingQuote = "— $dateStr, ${message.from}:\n$quote",
+                pendingQuote = if (quotedSource.isBlank()) null else "— $dateStr, ${message.from}:\n$quote",
                 selectedRecipient = if (message.isIncoming) message.from else null,
                 replyTargetMessageId = message.id
             )
@@ -1005,7 +1009,6 @@ class ChatDetailViewModel @Inject constructor(
             .stripHtml()
             .normalizeWhitespace()
             .take(1500)
-        if (quotedSource.isBlank()) return
         val dateStr = java.text.SimpleDateFormat(
             "dd.MM.yyyy HH:mm",
             java.util.Locale.getDefault()
@@ -1013,9 +1016,10 @@ class ChatDetailViewModel @Inject constructor(
         val quote = quotedSource.lineSequence().joinToString("\n") { "> $it" }
         val ownEmail = _uiState.value.accountEmail
         val ccList = message.cc.split(";").filter { it.isNotBlank() && !it.equals(ownEmail, ignoreCase = true) }
+        // Always set the recipient, even when the body is empty (see replyWithQuote).
         _uiState.update {
             it.copy(
-                pendingQuote = "— $dateStr, ${message.from}:\n$quote",
+                pendingQuote = if (quotedSource.isBlank()) null else "— $dateStr, ${message.from}:\n$quote",
                 selectedRecipient = if (message.isIncoming) message.from else null,
                 composeCc = ccList.joinToString(";"),
                 replyTargetMessageId = message.id
@@ -1122,6 +1126,56 @@ class ChatDetailViewModel @Inject constructor(
 
     fun clearPendingQuote() {
         _uiState.update { it.copy(pendingQuote = null) }
+    }
+
+    /**
+     * Prepares a forward in the unified full compose overlay (same UI as reply / reply-all).
+     * The complete original text (as a "forwarded email" block) and the original attachments
+     * are pre-selected; the recipient is left empty for the user to pick. The actual send goes
+     * through the normal [send] path.
+     */
+    fun prepareForward(message: Message) {
+        viewModelScope.launch {
+            val quotedSource = message.bodyFull.ifBlank { message.body }
+                .stripHtml()
+                .normalizeWhitespace()
+            val dateStr = java.text.SimpleDateFormat(
+                "dd.MM.yyyy HH:mm",
+                java.util.Locale.getDefault()
+            ).format(java.util.Date(message.timestamp))
+            val forwardBlock = buildString {
+                appendLine("---------- Weitergeleitete E-Mail ----------")
+                appendLine("Von: ${message.from}")
+                appendLine("Datum: $dateStr")
+                if (message.subject.isNotBlank()) appendLine("Betreff: ${message.subject}")
+                appendLine()
+                append(quotedSource)
+            }
+            // Use the attachments already loaded for the detail view (same source the user
+            // sees), falling back to a DB lookup. This is more reliable than a fresh DB read.
+            val attEntities = _uiState.value.attachmentsByMessage[message.id]
+                ?: messageRepository.getAttachmentsByMessageSync(message.id)
+            val originalAttachments = attEntities
+                .map { java.io.File(it.uri) }
+                .filter { it.exists() }
+            val chat = _uiState.value.chat ?: return@launch
+            val sender = senderAccountFor(chat)
+            _uiState.update {
+                it.copy(
+                    composeText = forwardBlock,
+                    composeAttachments = originalAttachments,
+                    selectedRecipient = null,
+                    composeCc = "",
+                    composeBcc = "",
+                    pendingQuote = null,
+                    quoteEnabled = false,
+                    replyTargetMessageId = null,
+                    fullComposeOpen = true,
+                    composeFromAccountId = 0L,
+                    accountEmail = sender?.emailAddress ?: it.accountEmail
+                )
+            }
+        }
     }
 
     fun forwardTo(recipient: String, message: Message, customText: String = "", contactName: String = "", forceUnencrypted: Boolean = false) {
@@ -1408,7 +1462,9 @@ class ChatDetailViewModel @Inject constructor(
             pendingSendSubject = baseSubject
             val replySubject = if (!isGroupChat && latestIncoming != null &&
                 !baseSubject.startsWith("Re:", ignoreCase = true) &&
-                !baseSubject.startsWith("Aw:", ignoreCase = true)
+                !baseSubject.startsWith("Aw:", ignoreCase = true) &&
+                !baseSubject.startsWith("Fwd:", ignoreCase = true) &&
+                !baseSubject.startsWith("Fw:", ignoreCase = true)
             ) "Re: $baseSubject" else baseSubject
             val extraHeaders = mutableMapOf<String, String>()
             if (latestIncoming != null && latestIncoming.messageId.isNotBlank()) {

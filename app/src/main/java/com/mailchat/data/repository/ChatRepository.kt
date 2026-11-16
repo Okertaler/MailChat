@@ -32,6 +32,8 @@ class ChatRepository @Inject constructor(
 
     suspend fun updateChat(chat: Chat) = chatDao.updateChat(chat)
 
+    suspend fun renameCustomTag(oldTag: String, newTag: String) = chatDao.renameCustomTag(oldTag, newTag)
+
     suspend fun setChatHidden(chatId: Long, hidden: Boolean) = chatDao.setChatHidden(chatId, hidden)
 
     suspend fun setChatFavorite(chatId: Long, favorite: Boolean) = chatDao.setChatFavorite(chatId, favorite)

@@ -84,6 +84,7 @@
     <string name="from">From</string>
     <string name="date">Date</string>
     <string name="attachments">Attachments</string>
+    <string name="attachments_count">Attachments (%1$d)</string>
     <string name="version_history">Version history</string>
     <string name="help">Help</string>
     <string name="settings_version">Version</string>
@@ -128,8 +129,12 @@
     <string name="format_align_center">Align center</string>
     <string name="format_align_right">Align right</string>
     <string name="format_font">Font</string>
+    <string name="format_text_color">Text color</string>
+    <string name="format_bg_color">Highlight color</string>
     <string name="format_bullet_list">Bullet list</string>
     <string name="format_number_list">Numbered list</string>
+    <string name="format_help_title">Formatting toolbar</string>
+    <string name="format_help_text">The formatting toolbar only affects the message field. It can be scrolled horizontally to reveal more functions. If no text is selected, the formatting is applied to the entire text.\n\nFunctions:\n• Compress: attach the message as an encrypted ZIP archive\n• Mic: voice recording (long-press)\n• AI: AI reply suggestion\n• Bold / Italic / Underline\n• Text color / Highlight color\n• Align left / Center / Right\n• A− / A+: decrease / increase font size\n• Font: choose font family\n• Bullet list / Numbered list</string>
     <string name="select_recipient">Select recipient</string>
     <string name="contact_name">Contact name</string>
     <string name="filter_favorites">Favorites</string>
@@ -399,7 +404,7 @@
     <string name="help_ai_image_block_title">Image Blocking for Spam</string>
     <string name="help_ai_image_block_text">For emails classified as phishing or unwanted ads, images are blocked by default in the detail view to protect against tracking pixels and malicious content. Newsletter images are still loaded. You can manually enable image loading if needed.</string>
     <string name="help_version_history_title">Versionsverlauf</string>
-    <string name="help_version_history_text">v1.70 – LiteRT-LM (Gemma 4) on-device AI\nv1.69 – Spam-Klassifikation (3 Stufen: Phishing, Ungewollt, Newsletter)\nv1.68 – CC/BCC, Reply All, Komprimieren mit AES-256\nv1.67 – UI-Modernisierung: FAB, Swipe-Gesten, Filter-BottomSheet\nv1.66 – Gruppenchat: Absender-Foto + Name pro E-Mail</string>
+    <string name="help_version_history_text">v2.4 – Feld-Hintergrundfarbe (ohne Textmarkierung); KI-Antwort berücksichtigt den Text im Nachrichtenfeld; Nachrichtenfeld wächst mit dem Text (scrollbar); KI-Vorschlag komplett lesbar. Behoben: Statusleiste flackerte beim Tippen\nv2.3 – Text-Formatierung in Antworten (fett, kursiv, unterstreichen, Ausrichtung, Schriftgröße, Schriftart, Listen) als HTML; Widget-Schriftgröße; „Wo bist Du?" mit Wetter; Tags für KI-Suche\nv1.70 – LiteRT-LM (Gemma 4) on-device AI\nv1.69 – Spam-Klassifikation (3 Stufen: Phishing, Ungewollt, Newsletter)\nv1.68 – CC/BCC, Reply All, Komprimieren mit AES-256\nv1.67 – UI-Modernisierung: FAB, Swipe-Gesten, Filter-BottomSheet\nv1.66 – Gruppenchat: Absender-Foto + Name pro E-Mail</string>
     <string name="contact_developer">Contact Developer</string>
     <string name="dev_chat_subject">Help Request for MailChat</string>
     <string name="ai_settings">AI</string>
@@ -460,6 +465,14 @@
         <item>Group chats: emails with multiple recipients are collected in one chat</item>
         <item>New emails can be sent to multiple recipients (comma separated)</item>
         <item>Replies in a group chat are sent to all members</item>
+    </string-array>
+    <string-array name="version_2_4_changes">
+        <item>New: Field background color — with no text selected the message field background is colored, with a selection the text is highlighted</item>
+        <item>New: The message field grows with the text and can be scrolled with a finger</item>
+        <item>Improved: The AI reply now takes the text in the message field into account (e.g. a refusal stays a refusal)</item>
+        <item>Improved: The AI reply suggestion is fully readable (scrollable)</item>
+        <item>Improved: Default tags are now single-language (per app language), e.g. "Invoice" instead of "Rechnung / Invoice"</item>
+        <item>Fixed: The status bar no longer flickers while typing in the message field</item>
     </string-array>
     <string-array name="version_2_3_changes">
         <item>New: Rich text formatting in replies (reply, reply all, forward) — bold, italic, underline, alignment, font size, font family, bullet and numbered lists</item>

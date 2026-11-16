@@ -3,6 +3,7 @@ package com.mailchat.ui.screen
 import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.view.View
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -53,11 +54,13 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.automirrored.filled.Forward
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Image
@@ -119,6 +122,7 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -142,6 +146,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -1936,7 +1941,14 @@ fun ChatDetailScreen(
                 viewModel.openFullCompose()
             },
             onForward = { msg ->
-                forwardMessage = msg
+                // Unified forward: open the full compose overlay (same as reply / reply-all)
+                // with the complete text and the original attachments pre-selected.
+                viewModel.prepareForward(msg)
+                val subj = msg.subject
+                val fwdSubject = if (subj.startsWith("Fwd:", ignoreCase = true) || subj.startsWith("Fw:", ignoreCase = true)) subj else "Fwd: ${subj.ifBlank { msg.from }}"
+                selectedSubject = fwdSubject
+                viewModel.onSubjectChange(fwdSubject)
+                selectedMessage = null
             },
             isSpamNow = liveMessage.isSpam,
             spamCategory = liveMessage.spamCategory,
@@ -2792,6 +2804,10 @@ private fun FullComposeOverlay(
     var showQuote by remember { mutableStateOf(true) }
     var contactPickerFor by remember { mutableStateOf<String?>(null) }
     var showCompressDialog by remember { mutableStateOf(false) }
+    var showToolbarHelp by remember { mutableStateOf(false) }
+    // Shared controller so the formatting toolbar (rendered above the keyboard, next to the
+    // compress / mic / AI buttons) can drive the rich-text editor.
+    val editorController = remember { com.mailchat.ui.component.RichTextEditorController() }
 
     fun appendContact(field: String, email: String) {
         when (field) {
@@ -2863,15 +2879,34 @@ private fun FullComposeOverlay(
             }
         )
     }
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = onClose,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    if (showToolbarHelp) {
+        AlertDialog(
+            onDismissRequest = { showToolbarHelp = false },
+            title = { Text(stringResource(R.string.format_help_title)) },
+            text = { Text(stringResource(R.string.format_help_text)) },
+            confirmButton = {
+                TextButton(onClick = { showToolbarHelp = false }) {
+                    Text(stringResource(R.string.ok))
+                }
+            }
+        )
+    }
+    // Full-screen overlay (NOT a separate Dialog window). A separate dialog window is not
+    // edge-to-edge, so when the stretchy editor grows on each keystroke the window re-lays out
+    // and briefly hides the status bar (shifting the content). As a full-screen composable the
+    // content is part of the activity's edge-to-edge window, so the status bar stays put.
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
     ) {
+        BackHandler { onClose() }
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.surface
         ) {
-            Column(modifier = Modifier.fillMaxSize().imePadding()) {
+            Scaffold(
+                topBar = {
                 TopAppBar(
                     title = { Text(stringResource(R.string.compose)) },
                     navigationIcon = {
@@ -2880,6 +2915,9 @@ private fun FullComposeOverlay(
                         }
                     },
                     actions = {
+                        IconButton(onClick = { showToolbarHelp = true }) {
+                            Icon(Icons.Default.Help, contentDescription = stringResource(R.string.help))
+                        }
                         IconButton(onClick = onSend, enabled = !isSending && body.isNotBlank()) {
                             if (isSending) {
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -2889,12 +2927,99 @@ private fun FullComposeOverlay(
                         }
                     }
                 )
+                }
+            ) { padding ->
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp)
+                        .fillMaxSize()
+                        .padding(padding)
                 ) {
+                    // Formatting toolbar, placed at the top (second row) so it is always
+                    // visible. The compress / mic / AI-answer actions are built in as icons
+                    // at the start of the toolbar.
+                    com.mailchat.ui.component.RichTextToolbar(
+                        controller = editorController,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        leadingContent = {
+                            // Compress (Zip)
+                            IconButton(onClick = { showCompressDialog = true }) {
+                                Icon(Icons.Default.Compress, contentDescription = stringResource(R.string.compress), modifier = Modifier.size(20.dp))
+                            }
+                            // Mic (long-press to record)
+                            Box(
+                                modifier = Modifier
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                onRecordStart()
+                                                tryAwaitRelease()
+                                                onRecordStop()
+                                            }
+                                        )
+                                    }
+                                    .size(32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
+                                    contentDescription = stringResource(R.string.voice_record),
+                                    tint = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(20.dp).offset(y = 7.dp)
+                                )
+                            }
+                            // AI answer
+                            IconButton(onClick = onGenerateAi, enabled = !isGeneratingSuggestion) {
+                                if (isGeneratingSuggestion) {
+                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Outlined.AutoAwesome, contentDescription = stringResource(R.string.ai_reply), modifier = Modifier.size(20.dp))
+                                }
+                            }
+                            // Separator between the action icons and the formatting buttons.
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 4.dp, vertical = 8.dp)
+                                    .width(1.dp)
+                                    .height(20.dp)
+                                    .background(MaterialTheme.colorScheme.outlineVariant)
+                            )
+                        }
+                    )
+                    HorizontalDivider()
+                    // AI suggestion (fixed position, below the toolbar) so it is always
+                    // visible when generated — the bottom of the dialog is off-screen.
+                    if (aiSuggestion.isNotBlank()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(stringResource(R.string.ai_reply), style = MaterialTheme.typography.labelMedium)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                // Scrollable so the full suggestion can be read (max height 160dp).
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 160.dp)
+                                        .verticalScroll(rememberScrollState())
+                                ) {
+                                    Text(aiSuggestion, style = MaterialTheme.typography.bodySmall)
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    TextButton(onClick = onApplyAi) { Text(stringResource(R.string.ai_apply)) }
+                                    TextButton(onClick = onClearAi) { Text(stringResource(R.string.cancel)) }
+                                }
+                            }
+                        }
+                    }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .imePadding()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp)
+                    ) {
                 var showFromDropdown by remember { mutableStateOf(false) }
                 val selectedFrom = smtpAccounts.firstOrNull { it.id == fromAccountId }
                 Row(
@@ -2987,21 +3112,16 @@ private fun FullComposeOverlay(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                     )
-                }
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = 4.dp)
-                ) {
-                    // Rich-text editor (bold, italic, underline, alignment, font size, font
-                    // family, lists) — used for the detail-email reply / reply-all / forward.
+                    // Rich-text editor — used for the detail-email reply / reply-all / forward.
+                    // The formatting toolbar is rendered separately above the keyboard (see
+                    // RichTextToolbar below), so it is not shown on top of the editor here.
                     com.mailchat.ui.component.RichTextEditor(
                         initialHtml = body,
                         onHtmlChange = onBodyChange,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = stringResource(R.string.type_message)
+                        placeholder = stringResource(R.string.type_message),
+                        controller = editorController,
+                        showToolbar = false
                     )
                     // Attachment picker (consistent with new email / share): paperclip + label.
                     Row(
@@ -3043,7 +3163,6 @@ private fun FullComposeOverlay(
                         }
                         Spacer(modifier = Modifier.height(24.dp))
                     }
-                }
                 if (isRecording) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -3079,66 +3198,11 @@ private fun FullComposeOverlay(
                         }
                     }
                 }
-                if (aiSuggestion.isNotBlank()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Text(stringResource(R.string.ai_reply), style = MaterialTheme.typography.labelMedium)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(aiSuggestion, style = MaterialTheme.typography.bodySmall, maxLines = 6, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TextButton(onClick = onApplyAi) { Text(stringResource(R.string.ai_apply)) }
-                                TextButton(onClick = onClearAi) { Text(stringResource(R.string.cancel)) }
-                            }
-                        }
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    // Attachment picking is via the "Add attachment" row above (consistent
-                    // with new email / share). Compress stays here for quick access.
-                    IconButton(onClick = { showCompressDialog = true }) {
-                        Icon(Icons.Default.Compress, contentDescription = stringResource(R.string.compress))
-                    }
-                    Box(
-                        modifier = Modifier
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onPress = {
-                                        onRecordStart()
-                                        tryAwaitRelease()
-                                        onRecordStop()
-                                    }
-                                )
-                            }
-                            .size(44.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
-                            contentDescription = stringResource(R.string.voice_record),
-                            tint = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    Spacer(modifier = Modifier.weight(1f))
-                    TextButton(onClick = onGenerateAi, enabled = !isGeneratingSuggestion) {
-                        if (isGeneratingSuggestion) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Outlined.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.ai_reply))
-                        }
-                    }
                 }
             }
         }
     }
+}
 }
 
 /** A URL found in a plaintext email body: its character range and the URL itself. */
@@ -3206,6 +3270,7 @@ private fun FullEmailView(
     val isPhishingEmail = spamCategory == "phishing"
     val blockImagesForSpam = isSpamNow && spamCategory != "newsletter"
     var loadImages by remember { mutableStateOf(false) }
+    var showAttachments by remember { mutableStateOf(false) }
     var webViewRef by remember { mutableStateOf<android.webkit.WebView?>(null) }
     var isCreatingEvent by remember { mutableStateOf(false) }
     val htmlForView = remember(message.bodyFull, attachments, loadImages) {
@@ -3624,41 +3689,58 @@ private fun FullEmailView(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    Text(
-                        text = stringResource(R.string.attachments),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    attachments.forEach { attachment ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = attachment.fileName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable {
-                                        onOpenAttachment(attachment)
-                                    }
-                            )
-                            if (attachment.sizeBytes > 0) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showAttachments = !showAttachments }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (showAttachments) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = stringResource(R.string.attachments_count, attachments.size),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    if (showAttachments) {
+                        attachments.forEach { attachment ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Text(
-                                    text = formatFileSize(attachment.sizeBytes),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(end = 4.dp)
+                                    text = attachment.fileName,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            onOpenAttachment(attachment)
+                                        }
                                 )
-                            }
-                            IconButton(onClick = {
-                                shareAttachmentFile(context, File(attachment.uri), attachment.mimeType)
-                            }) {
-                                Icon(
-                                    Icons.Default.Share,
-                                    contentDescription = stringResource(R.string.share),
-                                    modifier = Modifier.size(18.dp)
-                                )
+                                if (attachment.sizeBytes > 0) {
+                                    Text(
+                                        text = formatFileSize(attachment.sizeBytes),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(end = 4.dp)
+                                    )
+                                }
+                                IconButton(onClick = {
+                                    shareAttachmentFile(context, File(attachment.uri), attachment.mimeType)
+                                }) {
+                                    Icon(
+                                        Icons.Default.Share,
+                                        contentDescription = stringResource(R.string.share),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
                         }
                     }

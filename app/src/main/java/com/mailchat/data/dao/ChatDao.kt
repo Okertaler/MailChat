@@ -35,6 +35,10 @@ interface ChatDao {
     @Query("SELECT * FROM chats WHERE participantEmail = :email AND accountId = :accountId LIMIT 1")
     suspend fun findByEmailAndAccount(email: String, accountId: Long): Chat?
 
+    /** One-time tag rename: replaces [oldTag] with [newTag] in every chat's customTag. */
+    @Query("UPDATE chats SET customTag = REPLACE(customTag, :oldTag, :newTag) WHERE customTag LIKE '%' || :oldTag || '%'")
+    suspend fun renameCustomTag(oldTag: String, newTag: String)
+
     @Query("SELECT COUNT(*) FROM chats WHERE favorite = 1")
     suspend fun getFavoriteCount(): Int
 

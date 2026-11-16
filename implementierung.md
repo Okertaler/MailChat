@@ -1,5 +1,10 @@
 # Implementierungsplan: Mailchat – WhatsApp-ähnlicher E-Mail-Client für Android
 
+> **Hinweis:** Dies ist der ursprüngliche Implementierungsplan aus dem Projektstart. Die App ist seitdem
+> deutlich gewachsen (u. a. On-Device-KI, OpenPGP-Verschlüsselung, Spam-/Phishing-Erkennung, Tags,
+> Rich-Text-Formatierung, Widget, Auto-Antworten). Der aktuelle Funktionsumfang steht in
+> [FEATURES.md](FEATURES.md); die aktuelle Version in [version.md](version.md).
+
 ## 1. Projektübersicht
 
 Ein Android-E-Mail-Client, der Chats wie WhatsApp-Sprechblasen darstellt. E-Mails werden nach Absender zusammengefasst, in Chats organisiert und mit Sprechblasen-UI angezeigt. Mehrere IMAP-Konten werden unterstützt.
@@ -15,7 +20,7 @@ Ein Android-E-Mail-Client, der Chats wie WhatsApp-Sprechblasen darstellt. E-Mail
 - **DI:** Hilt (Dependency Injection)
 - **Build:** Gradle Kotlin DSL
 - **Min SDK:** 26 (Android 8.0)
-- **Target SDK:** 34
+- **Target SDK:** 36 (Android 16)
 
 ## 3. Projektstruktur
 

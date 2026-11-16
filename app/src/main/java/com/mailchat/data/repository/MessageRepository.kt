@@ -48,6 +48,8 @@ class MessageRepository @Inject constructor(
         list.associate { it.chatId to it.customTag }
     }
 
+    suspend fun renameCustomTag(oldTag: String, newTag: String) = messageDao.renameCustomTag(oldTag, newTag)
+
     suspend fun countByMessageId(messageId: String): Int = messageDao.countByMessageId(messageId)
 
     suspend fun getBrokenCidMessages(accountId: Long): List<Message> = messageDao.getBrokenCidMessages(accountId)

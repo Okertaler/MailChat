@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,7 +29,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -101,6 +108,23 @@ fun ChatBubble(
     val firstImage = attachments.firstOrNull { isImageFile(it) && resolveLocalFile(it, context) != null }
     val firstImageUri = firstImage?.let { resolveLocalFile(it, context)?.absolutePath }
 
+    // Aspect ratio (height/width) of the first image, decoded cheaply (bounds only) so the
+    // bubble image keeps its natural proportions instead of a fixed 200.dp height.
+    var imageAspectRatio by remember(firstImageUri) { mutableStateOf(1f) }
+    LaunchedEffect(firstImageUri) {
+        firstImageUri?.let { uri ->
+            imageAspectRatio = withContext(Dispatchers.IO) {
+                runCatching {
+                    val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    android.graphics.BitmapFactory.decodeFile(uri, opts)
+                    val w = opts.outWidth
+                    val h = opts.outHeight
+                    if (w > 0 && h > 0) h.toFloat() / w else 1f
+                }.getOrDefault(1f)
+            }
+        }
+    }
+
     Box(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -114,10 +138,9 @@ fun ChatBubble(
         ) {
             Column(
                 modifier = Modifier
-                    .then(
-                        if (firstImage != null) Modifier.fillMaxWidth()
-                        else Modifier.widthIn(max = 300.dp)
-                    )
+                    // Image and text bubbles share the same width cap so an image bubble
+                    // is never wider than a text bubble.
+                    .widthIn(max = 300.dp)
                     .align(Alignment.Bottom)
             ) {
                 if (isOutgoing && senderEmail != null) {
@@ -285,15 +308,23 @@ fun ChatBubble(
                         )
                 ) {
                 if (firstImageUri != null) {
-                    AsyncImage(
-                        model = firstImageUri,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .clip(shape)
-                    )
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val bubbleWidth = maxWidth
+                        // Keep the natural aspect ratio, but cap the height so the image can't
+                        // be more than 2x taller than wide (crop top/bottom beyond that).
+                        val maxRatio = 2f
+                        val targetHeight = (bubbleWidth * imageAspectRatio)
+                            .coerceAtMost(bubbleWidth * maxRatio)
+                        AsyncImage(
+                            model = firstImageUri,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(targetHeight)
+                                .clip(shape)
+                        )
+                    }
                 }
 
                 Column(

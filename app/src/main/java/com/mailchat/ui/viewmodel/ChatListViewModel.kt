@@ -104,6 +104,7 @@ class ChatListViewModel @Inject constructor(
         viewModelScope.launch { repairAttachmentPaths() }
         viewModelScope.launch { cleanupNoReplyNamePrefix() }
         viewModelScope.launch { repairChatPreviews() }
+        viewModelScope.launch { migrateTagNames() }
         viewModelScope.launch {
             accountRepository.getAllAccounts().collectLatest { accounts ->
                 _uiState.update { it.copy(accounts = accounts) }
@@ -999,6 +1000,28 @@ class ChatListViewModel @Inject constructor(
             android.util.Log.w("MailchatList", "repairChatPreviews failed", e)
         }
         SettingsUtils.setChatPreviewsRepaired(appContext)
+    }
+
+    /**
+     * One-time migration: the default custom tags were bilingual ("Rechnung / Invoice") and are
+     * now single-language (German or English, depending on the app language). The tag list itself
+     * is renamed by [SettingsUtils.getCustomTags]; this renames the same values that were already
+     * applied to messages and chats, so filters and tag chips keep matching. Runs once (flag in
+     * [SettingsUtils.getTagNamesMigratedV3]) and preserves any user-defined custom tags.
+     */
+    private suspend fun migrateTagNames() {
+        if (SettingsUtils.getTagNamesMigratedV3(appContext)) return
+        try {
+            val mapping = SettingsUtils.bilingualTagRenameMapping(SettingsUtils.isGermanUi(appContext))
+            for ((oldTag, newTag) in mapping) {
+                messageRepository.renameCustomTag(oldTag, newTag)
+                chatRepository.renameCustomTag(oldTag, newTag)
+            }
+            android.util.Log.i("MailchatList", "migrateTagNames: renamed ${mapping.size} bilingual tag names")
+        } catch (e: Exception) {
+            android.util.Log.w("MailchatList", "migrateTagNames failed", e)
+        }
+        SettingsUtils.setTagNamesMigratedV3(appContext)
     }
 
     private suspend fun deleteChatInternal(chat: Chat): String? {

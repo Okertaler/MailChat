@@ -84,6 +84,7 @@
     <string name="from">Von</string>
     <string name="date">Datum</string>
     <string name="attachments">Anhänge</string>
+    <string name="attachments_count">Anhänge (%1$d)</string>
     <string name="version_history">Versionshistorie</string>
     <string name="help">Hilfe</string>
     <string name="settings_version">Version</string>
@@ -128,8 +129,12 @@
     <string name="format_align_center">Zentriert</string>
     <string name="format_align_right">Rechtsbündig</string>
     <string name="format_font">Schriftart</string>
+    <string name="format_text_color">Schriftfarbe</string>
+    <string name="format_bg_color">Hintergrundfarbe</string>
     <string name="format_bullet_list">Aufzählung</string>
     <string name="format_number_list">Nummerierung</string>
+    <string name="format_help_title">Formatierungsleiste</string>
+    <string name="format_help_text">Die Formatierungsleiste wirkt nur im Nachrichtenfeld. Sie lässt sich horizontal verschieben, um weitere Funktionen zu sehen. Wenn kein Text markiert ist, wird die Formatierung auf den gesamten Text angewendet.\n\nFunktionen:\n• Komprimieren: Nachricht als verschlüsseltes ZIP-Archiv anhängen\n• Mikrofon: Sprachaufnahme (gedrückt halten)\n• KI: Antwortvorschlag per KI\n• Fett / Kursiv / Unterstrichen\n• Schriftfarbe / Hintergrundfarbe\n• Linksbündig / Zentriert / Rechtsbündig\n• A− / A+: Schriftgröße verkleinern / vergrößern\n• Schriftart: Schriftart wählen\n• Aufzählung / Nummerierung</string>
     <string name="select_recipient">Empfänger auswählen</string>
     <string name="contact_name">Kontaktname</string>
     <string name="filter_favorites">Favoriten</string>
@@ -399,7 +404,7 @@
     <string name="help_ai_image_block_title">Bildblockade für Spam</string>
     <string name="help_ai_image_block_text">Für E-Mails, die als Phishing oder ungewollte Werbung klassifiziert wurden, werden Bilder in der Detailansicht standardmäßig blockiert, um Tracking-Pixel und schädliche Inhalte zu verhindern. Newsletter-Bilder werden weiterhin geladen. Du kannst das Laden von Bildern manuell aktivieren, falls nötig.</string>
     <string name="help_version_history_title">Versionsverlauf</string>
-    <string name="help_version_history_text">v1.70 – LiteRT-LM (Gemma 4) on-device AI\nv1.69 – Spam-Klassifikation (3 Stufen: Phishing, Ungewollt, Newsletter)\nv1.68 – CC/BCC, Reply All, Komprimieren mit AES-256\nv1.67 – UI-Modernisierung: FAB, Swipe-Gesten, Filter-BottomSheet\nv1.66 – Gruppenchat: Absender-Foto + Name pro E-Mail</string>
+    <string name="help_version_history_text">v2.4 – Feld-Hintergrundfarbe (ohne Textmarkierung); KI-Antwort berücksichtigt den Text im Nachrichtenfeld; Nachrichtenfeld wächst mit dem Text (scrollbar); KI-Vorschlag komplett lesbar. Behoben: Statusleiste flackerte beim Tippen\nv2.3 – Text-Formatierung in Antworten (fett, kursiv, unterstreichen, Ausrichtung, Schriftgröße, Schriftart, Listen) als HTML; Widget-Schriftgröße; „Wo bist Du?" mit Wetter; Tags für KI-Suche\nv1.70 – LiteRT-LM (Gemma 4) on-device AI\nv1.69 – Spam-Klassifikation (3 Stufen: Phishing, Ungewollt, Newsletter)\nv1.68 – CC/BCC, Reply All, Komprimieren mit AES-256\nv1.67 – UI-Modernisierung: FAB, Swipe-Gesten, Filter-BottomSheet\nv1.66 – Gruppenchat: Absender-Foto + Name pro E-Mail</string>
     <string name="contact_developer">Entwickler kontaktieren</string>
     <string name="dev_chat_subject">Hilfe Anfrage zu MailChat</string>
     <string name="ai_settings">KI</string>
@@ -460,6 +465,14 @@
         <item>Gruppenchats: E-Mails mit mehreren Empfängern werden in einem Chat gesammelt</item>
         <item>Neue E-Mails können an mehrere Empfänger (kommagetrennt) gesendet werden</item>
         <item>Antworten in einem Gruppenchat gehen an alle Mitglieder</item>
+    </string-array>
+    <string-array name="version_2_4_changes">
+        <item>Neu: Feld-Hintergrundfarbe – ohne Textmarkierung wird der Hintergrund des Nachrichtenfeldes gesetzt, mit Markierung der Text</item>
+        <item>Neu: Das Nachrichtenfeld wächst mit dem Text und lässt sich mit dem Finger scrollen</item>
+        <item>Verbessert: Die KI-Antwort berücksichtigt jetzt den Text im Nachrichtenfeld (z. B. bleibt eine Absage eine Absage)</item>
+        <item>Verbessert: Der KI-Antwortvorschlag ist komplett lesbar (scrollbar)</item>
+        <item>Verbessert: Standard-Tags sind jetzt einsprachig (je nach Sprache), z. B. „Rechnung“ statt „Rechnung / Invoice“</item>
+        <item>Behoben: Die Statusleiste flackert nicht mehr beim Tippen im Nachrichtenfeld</item>
     </string-array>
     <string-array name="version_2_3_changes">
         <item>Neu: Text-Formatierung in Antworten (Antwort, Allen antworten, Weiterleiten) — fett, kursiv, unterstreichen, Ausrichtung, Schriftgröße, Schriftart, Aufzählungs- und Nummerierungslisten</item>
