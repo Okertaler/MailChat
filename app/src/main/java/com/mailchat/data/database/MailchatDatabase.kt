@@ -12,6 +12,7 @@ import com.mailchat.data.dao.ChatDao
 import com.mailchat.data.dao.DraftDao
 import com.mailchat.data.dao.MessageDao
 import com.mailchat.data.dao.MessageEmbeddingDao
+import com.mailchat.data.dao.PollDao
 import com.mailchat.data.dao.SyncStateDao
 import com.mailchat.data.model.Attachment
 import com.mailchat.data.model.Chat
@@ -19,11 +20,13 @@ import com.mailchat.data.model.Draft
 import com.mailchat.data.model.EmailAccount
 import com.mailchat.data.model.Message
 import com.mailchat.data.model.MessageEmbedding
+import com.mailchat.data.model.Poll
+import com.mailchat.data.model.PollVote
 import com.mailchat.data.model.SyncState
 
 @Database(
-    entities = [EmailAccount::class, Chat::class, Message::class, Attachment::class, Draft::class, SyncState::class, MessageEmbedding::class],
-    version = 22,
+    entities = [EmailAccount::class, Chat::class, Message::class, Attachment::class, Draft::class, SyncState::class, MessageEmbedding::class, Poll::class, PollVote::class],
+    version = 24,
     exportSchema = true
 )
 abstract class MailchatDatabase : RoomDatabase() {
@@ -34,6 +37,7 @@ abstract class MailchatDatabase : RoomDatabase() {
     abstract fun draftDao(): DraftDao
     abstract fun syncStateDao(): SyncStateDao
     abstract fun messageEmbeddingDao(): MessageEmbeddingDao
+    abstract fun pollDao(): PollDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -199,6 +203,57 @@ abstract class MailchatDatabase : RoomDatabase() {
             }
         }
 
+        // Polls (Umfragen): new tables for poll definitions and votes, plus two columns on
+        // messages to mark poll / poll-answer messages (answers are hidden in the chat).
+        val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `polls` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`accountId` INTEGER NOT NULL, " +
+                        "`chatId` INTEGER NOT NULL, " +
+                        "`title` TEXT NOT NULL DEFAULT '', " +
+                        "`question` TEXT NOT NULL DEFAULT '', " +
+                        "`options` TEXT NOT NULL DEFAULT '[]', " +
+                        "`multi` INTEGER NOT NULL DEFAULT 0, " +
+                        "`creatorEmail` TEXT NOT NULL DEFAULT '', " +
+                        "`pollMessageId` TEXT NOT NULL DEFAULT '', " +
+                        "`status` TEXT NOT NULL DEFAULT 'open', " +
+                        "`closedBy` TEXT NOT NULL DEFAULT '', " +
+                        "`createdAt` INTEGER NOT NULL DEFAULT 0, " +
+                        "`closedAt` INTEGER NOT NULL DEFAULT 0, " +
+                        "PRIMARY KEY(`id`, `accountId`))"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_polls_chatId` ON `polls` (`chatId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_polls_accountId` ON `polls` (`accountId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `poll_votes` (" +
+                        "`pollId` TEXT NOT NULL, " +
+                        "`accountId` INTEGER NOT NULL, " +
+                        "`voterEmail` TEXT NOT NULL, " +
+                        "`optionIndices` TEXT NOT NULL DEFAULT '[]', " +
+                        "`messageId` TEXT NOT NULL DEFAULT '', " +
+                        "`answeredAt` INTEGER NOT NULL DEFAULT 0, " +
+                        "PRIMARY KEY(`pollId`, `accountId`, `voterEmail`))"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_poll_votes_pollId` ON `poll_votes` (`pollId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_poll_votes_accountId` ON `poll_votes` (`accountId`)")
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `pollId` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `isPollAnswer` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        // Per-recipient poll-IDs: the creator sends one poll email per recipient, each with its
+        // own poll-ID, all linked by a shared groupId (the logical poll). recipientEmail records
+        // who a per-recipient poll-ID was sent to (creator's records only).
+        val MIGRATION_23_24 = object : Migration(23, 24) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `polls` ADD COLUMN `groupId` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `polls` ADD COLUMN `recipientEmail` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_polls_groupId` ON `polls` (`groupId`)")
+            }
+        }
+
         @Volatile
         private var INSTANCE: MailchatDatabase? = null
 
@@ -215,7 +270,7 @@ abstract class MailchatDatabase : RoomDatabase() {
                         db.execSQL("PRAGMA foreign_keys = ON")
                     }
                 })
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
                 .build().also { INSTANCE = it }
             }
         }

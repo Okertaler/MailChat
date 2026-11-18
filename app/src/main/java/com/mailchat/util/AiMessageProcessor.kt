@@ -2,6 +2,7 @@ package com.mailchat.util
 
 import android.content.Context
 import com.mailchat.ai.GeminiService
+import com.mailchat.data.model.Chat
 import com.mailchat.data.model.Message
 
 /**
@@ -60,5 +61,19 @@ object AiMessageProcessor {
             summaryLanguage = if (newSummary.isNotBlank()) lang else message.summaryLanguage,
             customTag = customTag
         )
+    }
+
+    /**
+     * Creates a display name (Klarnamen) for [chat] if it doesn't have one yet (i.e. the chat name
+     * is still the bare email address). Uses the AI to derive a name from the email address and
+     * persists it via [updateChat]. Returns true if a display name was created. The caller must
+     * ensure the AI engine is initialized (see [AiEngine.configureAndInitialize]).
+     */
+    suspend fun ensureDisplayName(chat: Chat, updateChat: suspend (Chat) -> Unit): Boolean {
+        if (chat.participantName != chat.participantEmail) return false
+        val base = GeminiService.extractDisplayName(chat.participantEmail)
+        if (base.isBlank()) return false
+        updateChat(chat.copy(participantName = base))
+        return true
     }
 }

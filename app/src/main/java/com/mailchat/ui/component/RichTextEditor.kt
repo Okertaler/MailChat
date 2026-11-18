@@ -132,34 +132,44 @@ fun RichTextEditor(
                         // Highlight color without a selection: set the background of the
                         // message field itself (visual only, not part of the email content)
                         // instead of coloring the entire text.
-                        val js = if (cmd == "hiliteColor" && value != null) {
-                            "var _sel = window.getSelection();" +
-                                "if (_sel && !_sel.isCollapsed) {" +
+                        val js = when {
+                            cmd == "hiliteColor" && value != null -> {
+                                "var _sel = window.getSelection();" +
+                                    "if (_sel && !_sel.isCollapsed) {" +
+                                    "document.getElementById('editor').focus();" +
+                                    "document.execCommand('hiliteColor', false, ${JSONObject.quote(value)});" +
+                                    "} else {" +
+                                    "document.getElementById('editor').style.backgroundColor = ${JSONObject.quote(value)};" +
+                                    "}" +
+                                    "notify();"
+                            }
+                            // Undo/Redo: use the WebView's native editing history. No select-all
+                            // (that would corrupt the undo stack) — just focus and execute.
+                            cmd == "undo" || cmd == "redo" -> {
                                 "document.getElementById('editor').focus();" +
-                                "document.execCommand('hiliteColor', false, ${JSONObject.quote(value)});" +
-                                "} else {" +
-                                "document.getElementById('editor').style.backgroundColor = ${JSONObject.quote(value)};" +
-                                "}" +
-                                "notify();"
-                        } else {
-                            // All other commands: if no text is selected, select the entire
-                            // content first so the formatting is applied to the whole text
-                            // (the user expects this).
-                            val selectAllFirst = "var _sel = window.getSelection();" +
-                                "if (!_sel || _sel.isCollapsed) {" +
-                                "var _ed = document.getElementById('editor'); _ed.focus();" +
-                                "var _r = document.createRange(); _r.selectNodeContents(_ed);" +
-                                "_sel.removeAllRanges(); _sel.addRange(_r);}"
-                            if (value != null) {
-                                selectAllFirst +
-                                    "document.getElementById('editor').focus();" +
-                                    "document.execCommand('$cmd', false, ${JSONObject.quote(value)});" +
+                                    "document.execCommand('$cmd');" +
                                     "notify();"
-                            } else {
-                                selectAllFirst +
-                                    "document.getElementById('editor').focus();" +
-                                    "document.execCommand('$cmd', false);" +
-                                    "notify();"
+                            }
+                            else -> {
+                                // All other commands: if no text is selected, select the entire
+                                // content first so the formatting is applied to the whole text
+                                // (the user expects this).
+                                val selectAllFirst = "var _sel = window.getSelection();" +
+                                    "if (!_sel || _sel.isCollapsed) {" +
+                                    "var _ed = document.getElementById('editor'); _ed.focus();" +
+                                    "var _r = document.createRange(); _r.selectNodeContents(_ed);" +
+                                    "_sel.removeAllRanges(); _sel.addRange(_r);}"
+                                if (value != null) {
+                                    selectAllFirst +
+                                        "document.getElementById('editor').focus();" +
+                                        "document.execCommand('$cmd', false, ${JSONObject.quote(value)});" +
+                                        "notify();"
+                                } else {
+                                    selectAllFirst +
+                                        "document.getElementById('editor').focus();" +
+                                        "document.execCommand('$cmd', false);" +
+                                        "notify();"
+                                }
                             }
                         }
                         wv.evaluateJavascript(js, null)

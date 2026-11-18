@@ -232,6 +232,22 @@ object SettingsUtils {
             .apply()
     }
 
+    /**
+     * When enabled, a display name (Klarnamen) is created automatically for a new sender the
+     * first time an email is received, using the AI (see [com.mailchat.ai.GeminiService.extractDisplayName]).
+     * Only chats whose name is still the bare email address are affected.
+     */
+    fun getAiAutoRealNames(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean("ai_auto_real_names", false)
+
+    fun setAiAutoRealNames(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("ai_auto_real_names", enabled)
+            .apply()
+    }
+
     fun getAiModel(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_AI_MODEL, DEFAULT_AI_MODEL) ?: DEFAULT_AI_MODEL

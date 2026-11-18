@@ -16,14 +16,14 @@ MailChat
 
 In der Play Console unter **Release → What's new** eintragen.
 
-### Englisch (495 Zeichen)
+### Englisch (484 Zeichen)
 ```
-New: field background color – with no text selected the message field background is colored, with a selection the text is highlighted; the AI reply now takes the text in the message field into account (e.g. a refusal stays a refusal); the message field grows with the text and can be scrolled with a finger; the AI suggestion is fully readable (scrollable). Improved: default tags single-language (per app language), e.g. "Invoice". Fixed: status bar flickered while typing in the message field.
+New: polls in chat – create and answer polls (single or multiple choice) with a bar chart, auto-close after the last vote, result by email; works with regular email clients. Link confirmation before opening (with a "Phishing" option that blocks all links in the email). Undo/redo in the message field. AI creates display names for new senders (optional). Multiple detected appointments: pick which one to add to the calendar. Notifications: multiple new emails arrive as one summary.
 ```
 
-### Deutsch (488 Zeichen)
+### Deutsch (493 Zeichen)
 ```
-Neu: Feld-Hintergrundfarbe – ohne Textmarkierung wird der Hintergrund des Nachrichtenfeldes gesetzt, mit Markierung der Text; die KI-Antwort berücksichtigt jetzt den Text im Nachrichtenfeld (z. B. Absage bleibt Absage); das Nachrichtenfeld wächst mit dem Text und lässt sich mit dem Finger scrollen; der KI-Vorschlag ist komplett lesbar (scrollbar). Verbessert: Standard-Tags einsprachig (je nach Sprache), z. B. „Rechnung“. Behoben: Statusleiste flackerte beim Tippen im Nachrichtenfeld.
+Neu: Umfragen im Chat erstellen und beantworten (Einzel- oder Mehrfachauswahl) – Balkendiagramm, Auto-Abschluss nach der letzten Stimme, Ergebnis per E-Mail, auch mit normalen E-Mail-Programmen. Links-Bestätigung vor dem Öffnen (mit „Phishing"-Option). Rückgängig/Wiederholen im Nachrichtenfeld. KI erstellt automatisch Klarnamen für neue Absender (optional). Mehrere erkannte Termine: Auswahl, welcher in den Kalender. Benachrichtigungen: mehrere neue E-Mails kommen als eine Zusammenfassung.
 ```
 
 > Hinweis: In der Play Console unter **Release → What's new** wird der Text **ohne** die `<de-DE>`/`<en-GB>`-Tags eingetragen (die Tags sind nur für `version.md` im Repo). Pro Sprache ein eigener Eintrag, jeweils ≤ 500 Zeichen.
@@ -90,7 +90,8 @@ MailChat is a private, non-commercial app. Free to use.
 
 ### Deutsch
 ```
-Fast jeder besitzt eine E-mail Adresse. Die Serverstrucktur ist vorhanden. IMAP Push ist schnell, aber nicht Echtzeit (kommt später mit der Integration von SMS).
+Fast jeder besitzt eine E-mail Adresse. Die Serverstrucktur ist vorhanden. IMAP Push ist schnell, aber nicht Echtzeit (kommt später mit der Integration von SMS). 
+Ich benötige Feedback für Fehler und neue Funktionen für die Weiterentwicklung.
 MailChat verwandelt deine E-Mails in private, chatartige Gespräche — mit Verschlüsselung, die jeder einfach einrichten kann und KI, die komplett auf deinem Gerät läuft.
 
 🔒 PRIVATHEIT VOR ALLEM
@@ -247,7 +248,7 @@ Die Play Console verlangt eine **öffentliche Privacy-Policy-URL**.
 - ✅ Release-AAB: `app/build/outputs/bundle/release/app-release.aab` (signiert)
 - ✅ Source: `https://github.com/Okertaler/MailChat`
 - ✅ Legal-Dokumente: in der App + `legal/`-Ordner
-- ✅ Version: 2.4 (versionCode 87, targetSdk 36 / Android 16)
+- ✅ Version: 2.5 (versionCode 88, targetSdk 36 / Android 16)
 
 ---
 

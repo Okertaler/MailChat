@@ -155,6 +155,7 @@ fun SettingsScreen(
     var signatureText by remember { mutableStateOf(SettingsUtils.getSignature(context)) }
     var aiEnabled by remember { mutableStateOf(SettingsUtils.getAiEnabled(context)) }
     var aiAutoProcess by remember { mutableStateOf(SettingsUtils.getAiAutoProcess(context)) }
+    var aiAutoRealNames by remember { mutableStateOf(SettingsUtils.getAiAutoRealNames(context)) }
     var showAiWarning by remember { mutableStateOf(false) }
     var showAiLog by remember { mutableStateOf(false) }
     var showOpenAiWarning by remember { mutableStateOf(false) }
@@ -704,6 +705,23 @@ fun SettingsScreen(
                             onCheckedChange = {
                                 aiAutoProcess = it
                                 SettingsUtils.setAiAutoProcess(context, it)
+                            }
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.ai_auto_real_names)) },
+                    supportingContent = {
+                        Text(stringResource(R.string.ai_auto_real_names_desc))
+                    },
+                    trailingContent = {
+                        androidx.compose.material3.Switch(
+                            checked = aiAutoRealNames,
+                            onCheckedChange = {
+                                aiAutoRealNames = it
+                                SettingsUtils.setAiAutoRealNames(context, it)
                             }
                         )
                     },

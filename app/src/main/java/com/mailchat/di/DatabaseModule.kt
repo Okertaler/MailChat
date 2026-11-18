@@ -6,6 +6,7 @@ import com.mailchat.data.dao.AttachmentDao
 import com.mailchat.data.dao.ChatDao
 import com.mailchat.data.dao.DraftDao
 import com.mailchat.data.dao.MessageDao
+import com.mailchat.data.dao.PollDao
 import com.mailchat.data.dao.SyncStateDao
 import com.mailchat.data.database.MailchatDatabase
 import dagger.Module
@@ -44,4 +45,7 @@ object DatabaseModule {
 
     @Provides
     fun provideMessageEmbeddingDao(db: MailchatDatabase): com.mailchat.data.dao.MessageEmbeddingDao = db.messageEmbeddingDao()
+
+    @Provides
+    fun providePollDao(db: MailchatDatabase): PollDao = db.pollDao()
 }

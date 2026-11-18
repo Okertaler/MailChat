@@ -179,6 +179,18 @@ object ConfigBackupUtils {
         settings.put("openpgpAutoLookup", com.mailchat.crypto.OpenPgpKeyService.isAutoLookupEnabled(context))
         settings.put("openpgpWriteBackSent", com.mailchat.crypto.OpenPgpKeyService.isAutoWriteBackEnabled(context))
         settings.put("openpgpWriteBackInbox", com.mailchat.crypto.OpenPgpKeyService.isAutoWriteBackInboxEnabled(context))
+        // Further settings (previously not backed up).
+        settings.put("aiAutoRealNames", SettingsUtils.getAiAutoRealNames(context))
+        settings.put("widgetOpenMode", SettingsUtils.getWidgetOpenMode(context))
+        settings.put("widgetContentMode", SettingsUtils.getWidgetContentMode(context))
+        settings.put("widgetTransparency", SettingsUtils.getWidgetTransparency(context))
+        settings.put("widgetFontSize", SettingsUtils.getWidgetFontSize(context))
+        val phishingBlacklist = JSONArray()
+        SettingsUtils.getPhishingBlacklist(context).forEach { phishingBlacklist.put(it) }
+        settings.put("phishingBlacklist", phishingBlacklist)
+        val autoRepliedIds = JSONArray()
+        SettingsUtils.getAutoRepliedMessageIds(context).forEach { autoRepliedIds.put(it) }
+        settings.put("autoRepliedMsgIds", autoRepliedIds)
 
         // Custom tags.
         val tagsArr = JSONArray()
@@ -219,12 +231,20 @@ object ConfigBackupUtils {
 
         val prefs = context.getSharedPreferences("mailchat_crypto", android.content.Context.MODE_PRIVATE)
         val pgp = JSONObject()
-        val privKey = prefs.getString("private_key", "") ?: ""
-        val pubKey = prefs.getString("public_key", "") ?: ""
+        // NOTE: the real prefs keys are "pgp_private_key"/"pgp_public_key" (see CryptoService).
+        // Older versions read "private_key"/"public_key" (wrong), so legacy keys were never backed up.
+        val privKey = prefs.getString("pgp_private_key", "") ?: ""
+        val pubKey = prefs.getString("pgp_public_key", "") ?: ""
         val keyEmail = prefs.getString("key_email", "") ?: ""
+        val pgpFingerprint = prefs.getString("pgp_fingerprint", "") ?: ""
+        val pinHash = prefs.getString("pin_hash", "") ?: ""
+        val pinValue = prefs.getString("pin_value", "") ?: ""
         if (privKey.isNotBlank()) pgp.put("privateKey", privKey)
         if (pubKey.isNotBlank()) pgp.put("publicKey", pubKey)
         if (keyEmail.isNotBlank()) pgp.put("keyEmail", keyEmail)
+        if (pgpFingerprint.isNotBlank()) pgp.put("fingerprint", pgpFingerprint)
+        if (pinHash.isNotBlank()) pgp.put("pinHash", pinHash)
+        if (pinValue.isNotBlank()) pgp.put("pinValue", pinValue)
         val peers = com.mailchat.crypto.CryptoService.getPeers(context)
         if (peers.isNotEmpty()) {
             val peersArr = JSONArray()
@@ -402,6 +422,34 @@ object ConfigBackupUtils {
         if (settings.has("openpgpWriteBackInbox")) {
             com.mailchat.crypto.OpenPgpKeyService.setAutoWriteBackInboxEnabled(context, settings.getBoolean("openpgpWriteBackInbox"))
         }
+        // Further settings (previously not backed up).
+        if (settings.has("aiAutoRealNames")) {
+            SettingsUtils.setAiAutoRealNames(context, settings.getBoolean("aiAutoRealNames"))
+        }
+        if (settings.has("widgetOpenMode")) {
+            SettingsUtils.setWidgetOpenMode(context, settings.optString("widgetOpenMode"))
+        }
+        if (settings.has("widgetContentMode")) {
+            SettingsUtils.setWidgetContentMode(context, settings.optString("widgetContentMode"))
+        }
+        if (settings.has("widgetTransparency")) {
+            SettingsUtils.setWidgetTransparency(context, settings.getInt("widgetTransparency"))
+        }
+        if (settings.has("widgetFontSize")) {
+            SettingsUtils.setWidgetFontSize(context, settings.optString("widgetFontSize"))
+        }
+        val phishingBlacklist = settings.optJSONArray("phishingBlacklist")
+        if (phishingBlacklist != null) {
+            val emails = (0 until phishingBlacklist.length()).map { phishingBlacklist.getString(it) }
+            if (emails.isNotEmpty()) SettingsUtils.addPhishingBlacklist(context, emails)
+        }
+        val autoRepliedIds = settings.optJSONArray("autoRepliedMsgIds")
+        if (autoRepliedIds != null) {
+            val ids = (0 until autoRepliedIds.length()).map { autoRepliedIds.getString(it) }
+            if (ids.isNotEmpty()) {
+                for (id in ids) SettingsUtils.addAutoRepliedMessageId(context, id)
+            }
+        }
 
         val tagsArr = settings.optJSONArray("customTags")
         if (tagsArr != null) {
@@ -454,9 +502,16 @@ object ConfigBackupUtils {
             val privKey = pgp.optString("privateKey", "")
             val pubKey = pgp.optString("publicKey", "")
             val keyEmail = pgp.optString("keyEmail", "")
-            if (privKey.isNotBlank()) cryptoEditor.putString("private_key", privKey)
-            if (pubKey.isNotBlank()) cryptoEditor.putString("public_key", pubKey)
+            val pgpFingerprint = pgp.optString("fingerprint", "")
+            val pinHash = pgp.optString("pinHash", "")
+            val pinValue = pgp.optString("pinValue", "")
+            // NOTE: the real prefs keys are "pgp_private_key"/"pgp_public_key" (see CryptoService).
+            if (privKey.isNotBlank()) cryptoEditor.putString("pgp_private_key", privKey)
+            if (pubKey.isNotBlank()) cryptoEditor.putString("pgp_public_key", pubKey)
             if (keyEmail.isNotBlank()) cryptoEditor.putString("key_email", keyEmail)
+            if (pgpFingerprint.isNotBlank()) cryptoEditor.putString("pgp_fingerprint", pgpFingerprint)
+            if (pinHash.isNotBlank()) cryptoEditor.putString("pin_hash", pinHash)
+            if (pinValue.isNotBlank()) cryptoEditor.putString("pin_value", pinValue)
             cryptoEditor.apply()
 
             val peersArr = pgp.optJSONArray("peers")

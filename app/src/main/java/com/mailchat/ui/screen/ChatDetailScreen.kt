@@ -24,10 +24,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -44,7 +46,9 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Block
@@ -74,6 +78,7 @@ import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Poll
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.Reply
@@ -109,7 +114,10 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -134,6 +142,7 @@ import com.mailchat.util.stripHtml
 import com.mailchat.util.normalizeWhitespace
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.filter
@@ -174,6 +183,7 @@ import com.mailchat.ui.component.GroupAvatar
 import com.mailchat.ui.viewmodel.ChatDetailViewModel
 import com.mailchat.util.DateUtils
 import com.mailchat.util.EmailGrouping
+import com.mailchat.util.PollFormat
 import com.mailchat.util.SettingsUtils
 import com.mailchat.util.VoiceRecorder
 import com.mailchat.util.cleanInvisible
@@ -196,6 +206,7 @@ fun ChatDetailScreen(
     var customTagMessage by remember { mutableStateOf<Message?>(null) }
     var replyToneMessage by remember { mutableStateOf<Message?>(null) }
     var showComposeAiTone by remember { mutableStateOf(false) }
+    var showPollEditor by remember { mutableStateOf(false) }
     var showMembersDialog by remember { mutableStateOf(false) }
     var showSizeWarning by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
@@ -296,10 +307,24 @@ fun ChatDetailScreen(
 
 
     val filteredMessages = remember(uiState.messages, searchQuery) {
+        // Poll answers are suppressed in the chat (they are aggregated in the poll itself).
+        var visible = uiState.messages.filter { !it.isPollAnswer }
+        // The creator sends one poll email per recipient (each with its own poll-ID, all linked by
+        // a shared groupId). Show only ONE poll message per group (the first one) so the chat
+        // doesn't show the same poll N times.
+        val seenGroups = mutableSetOf<String>()
+        visible = visible.filter { msg ->
+            val isPollMsg = msg.pollId.isNotBlank() && !msg.isPollAnswer &&
+                PollFormat.parseResultMarker(msg.bodyFull.ifBlank { msg.body }) == null
+            if (!isPollMsg) return@filter true
+            if (msg.pollId in seenGroups) return@filter false
+            seenGroups.add(msg.pollId)
+            true
+        }
         if (searchQuery.isBlank()) {
-            uiState.messages
+            visible
         } else {
-            uiState.messages.filter {
+            visible.filter {
                 it.subject.contains(searchQuery, ignoreCase = true) ||
                     it.body.contains(searchQuery, ignoreCase = true) ||
                     it.bodyFull.contains(searchQuery, ignoreCase = true)
@@ -734,6 +759,10 @@ fun ChatDetailScreen(
                                 Icons.Default.Report,
                                 contentDescription = stringResource(R.string.spam_category)
                             )
+                        }
+                        // Create a poll (Umfrage) in this chat.
+                        IconButton(onClick = { showPollEditor = true }) {
+                            Icon(Icons.Default.Poll, contentDescription = stringResource(R.string.poll_create))
                         }
                     }
                 }
@@ -1956,6 +1985,9 @@ fun ChatDetailScreen(
                 spamDialogSingleMessage = liveMessage
                 showSpamCategoryDialog = true
             },
+            onMarkAsPhishing = { msg ->
+                viewModel.setSpamCategoryForMessages(listOf(msg), "phishing")
+            },
             customTag = liveMessage.customTag,
             isStarredNow = liveMessage.isStarred,
             onToggleStarred = { viewModel.toggleStarred(liveMessage) },
@@ -1975,7 +2007,8 @@ fun ChatDetailScreen(
                 if (msgIndex in uiState.messages.indices && msgIndex < uiState.messages.size - 1) {
                     selectedMessage = uiState.messages[msgIndex + 1]
                 }
-            }
+            },
+            viewModel = viewModel
         )
     }
 
@@ -2044,6 +2077,19 @@ fun ChatDetailScreen(
             smtpAccounts = uiState.smtpAccounts,
             fromAccountId = uiState.composeFromAccountId,
             onFromChange = { viewModel.setComposeFrom(it) }
+        )
+    }
+
+    if (showPollEditor) {
+        PollEditor(
+            isSending = uiState.isSending,
+            onDismiss = { showPollEditor = false },
+            onCreate = { title, question, options, multi ->
+                showPollEditor = false
+                viewModel.createPoll(title, question, options, multi)
+                // The poll is a standalone email — close the compose overlay for a clean flow.
+                viewModel.closeFullCompose()
+            }
         )
     }
 
@@ -2915,6 +2961,14 @@ private fun FullComposeOverlay(
                         }
                     },
                     actions = {
+                        // Undo/Redo for the message field (rich-text editor). Uses the WebView's
+                        // native editing history via the shared editor controller.
+                        IconButton(onClick = { editorController.exec("undo") }) {
+                            Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.undo))
+                        }
+                        IconButton(onClick = { editorController.exec("redo") }) {
+                            Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.redo))
+                        }
                         IconButton(onClick = { showToolbarHelp = true }) {
                             Icon(Icons.Default.Help, contentDescription = stringResource(R.string.help))
                         }
@@ -3238,6 +3292,378 @@ private fun buildClickableText(plain: String, linkColor: androidx.compose.ui.gra
     return builder.toAnnotatedString() to spans
 }
 
+/**
+ * Removes the email address header (From/To/Cc/Date/Subject lines) from the beginning of [text]
+ * so the appointment search starts after it. The header contains the email's received date, which
+ * must not be extracted as an appointment. Only leading header lines are removed; the body is kept
+ * intact. Works for the German and English labels used by the full-email view.
+ */
+private fun stripEmailHeader(text: String): String {
+    val headerPrefixes = listOf(
+        "from:", "to:", "cc:", "bcc:", "date:", "subject:",
+        "von:", "an:", "datum:", "betreff:"
+    )
+    val lines = text.lines()
+    var i = 0
+    // Skip a leading subject line (the first non-header line, if the next line is a header line).
+    if (lines.isNotEmpty() && !lines[0].trim().isBlank()) {
+        val firstLower = lines[0].trim().lowercase()
+        val nextIsHeader = lines.getOrNull(1)?.trim()?.lowercase()?.let { nl ->
+            headerPrefixes.any { nl.startsWith(it) }
+        } == true
+        if (!headerPrefixes.any { firstLower.startsWith(it) } && nextIsHeader) i = 1
+    }
+    // Skip the consecutive header lines.
+    while (i < lines.size) {
+        val lower = lines[i].trim().lowercase()
+        if (lower.isBlank()) break
+        if (headerPrefixes.any { lower.startsWith(it) }) i++ else break
+    }
+    return lines.drop(i).joinToString("\n").trim()
+}
+
+/**
+ * Opens the system calendar's "insert event" screen pre-filled with [appointment]. Used both for
+ * a single detected appointment and after the user picked one from the multi-appointment dialog.
+ */
+private fun launchCalendarEventInsert(
+    context: android.content.Context,
+    appointment: com.mailchat.ai.GeminiService.Appointment,
+    description: String,
+    chooserLabel: String
+) {
+    val (title, dateStr, timeStr, durationMin) = appointment
+    val calendarIntent = android.content.Intent(android.content.Intent.ACTION_INSERT).apply {
+        data = android.net.Uri.parse("content://com.android.calendar/events")
+        putExtra("title", title)
+        putExtra("description", description)
+        if (dateStr.isNotBlank()) {
+            try {
+                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+                val dateTime = sdf.parse("$dateStr $timeStr")
+                if (dateTime != null) {
+                    putExtra("beginTime", dateTime.time)
+                    putExtra("endTime", dateTime.time + (durationMin * 60L * 1000L))
+                }
+            } catch (_: Exception) { }
+        }
+    }
+    context.startActivity(android.content.Intent.createChooser(calendarIntent, chooserLabel))
+}
+
+/**
+ * Poll (Umfrage) editor: title, question, a dynamic list of options and a multiple-choice toggle.
+ * Shown as a full-screen overlay; [onCreate] is called with the validated poll data.
+ */
+@Composable
+private fun PollEditor(
+    isSending: Boolean,
+    onDismiss: () -> Unit,
+    onCreate: (title: String, question: String, options: List<String>, multi: Boolean) -> Unit
+) {
+    val context = LocalContext.current
+    // Pre-fill the title with "Umfrage: " / "Poll: " (editable) so the poll start email
+    // contains the word "Umfrage:" by default.
+    val isGermanUi = com.mailchat.util.SettingsUtils.isGermanUi(context)
+    var title by remember { mutableStateOf(if (isGermanUi) "Umfrage: " else "Poll: ") }
+    var question by remember { mutableStateOf("") }
+    // IMPORTANT: always replace the list with a NEW instance (never mutate in place) so Compose
+    // detects the change and recomposes (in-place mutation of a list in mutableStateOf is not
+    // observed → text fields wouldn't update and deleting an option would crash).
+    var options by remember { mutableStateOf(listOf("", "")) }
+    var multi by remember { mutableStateOf(false) }
+    val validOptions = options.map { it.trim() }.filter { it.isNotBlank() }
+    val canSend = title.isNotBlank() && validOptions.size >= 2 && !isSending
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        stringResource(R.string.poll_editor_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancel))
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text(stringResource(R.string.poll_title_label)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = question,
+                        onValueChange = { question = it },
+                        label = { Text(stringResource(R.string.poll_question_label)) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    for (i in options.indices) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = options[i],
+                                onValueChange = { newValue ->
+                                    val updated = options.toMutableList()
+                                    updated[i] = newValue
+                                    options = updated
+                                },
+                                label = { Text(stringResource(R.string.poll_option_label, i + 1)) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (options.size > 2) {
+                                IconButton(onClick = {
+                                    val updated = options.toMutableList()
+                                    updated.removeAt(i)
+                                    options = updated
+                                }) {
+                                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancel), modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    TextButton(onClick = {
+                        if (options.size < 10) options = options + ""
+                    }) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.poll_add_option))
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = multi, onCheckedChange = { multi = it })
+                        Text(stringResource(R.string.poll_multi_choice), style = MaterialTheme.typography.bodyMedium)
+                    }
+                    // The send button lives INSIDE the scrollable area so it is always fully
+                    // visible (a fixed button at the bottom edge gets clipped when the keyboard
+                    // or the screen height is small).
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = { onCreate(title.trim(), question.trim(), validOptions, multi) },
+                        enabled = canSend,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (isSending) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        } else {
+                            Text(stringResource(R.string.poll_send))
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Interactive poll (Umfrage) view: shows the question, the options as checkboxes (when open),
+ * an answer button, the results as a bar chart and (for the creator) a close button.
+ */
+@Composable
+private fun PollView(message: Message, viewModel: ChatDetailViewModel) {
+    val pollId = message.pollId
+    var results by remember { mutableStateOf<ChatDetailViewModel.PollResults?>(null) }
+    LaunchedEffect(pollId) {
+        viewModel.observePollResults(pollId).collect { results = it }
+    }
+    val accountEmail = viewModel.uiState.value.accountEmail?.let { it.trim().lowercase() } ?: ""
+    var selected by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var initialized by remember { mutableStateOf(false) }
+
+    val r = results
+    if (r == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+    // Pre-select the user's existing vote (once, so live updates don't clobber the selection).
+    if (!initialized) {
+        val myVote = r.votes.firstOrNull { it.voterEmail.trim().lowercase() == accountEmail }
+        selected = myVote?.let { PollFormat.indicesFromJson(it.optionIndices).toSet() } ?: emptySet()
+        initialized = true
+    }
+    val poll = r.poll
+    val options = PollFormat.optionsFromJson(poll.options)
+    val isOpen = poll.status == com.mailchat.data.model.Poll.STATUS_OPEN
+    // The poll message is outgoing in the creator's account and incoming in a recipient's.
+    val isCreator = !message.isIncoming
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Text("📊 ${poll.title}", style = MaterialTheme.typography.titleLarge)
+        // When the poll is closed, show the RESULT (bar chart) instead of the poll (question +
+        // options). The options are still visible in the bar chart (with their counts).
+        if (isOpen) {
+            if (poll.question.isNotBlank()) {
+                Text(
+                    poll.question,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            Text(
+                if (poll.multi) stringResource(R.string.poll_multi) else stringResource(R.string.poll_single),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        } else {
+            Text(
+                stringResource(R.string.poll_result),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+
+        if (isOpen) {
+            for (i in options.indices) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = i in selected,
+                        onCheckedChange = {
+                            if (poll.multi) {
+                                val mutable = selected.toMutableSet()
+                                if (i in mutable) mutable.remove(i) else mutable.add(i)
+                                selected = mutable
+                            } else {
+                                selected = if (i in selected) emptySet() else setOf(i)
+                            }
+                        }
+                    )
+                    Text(options[i], style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = { viewModel.answerPoll(pollId, selected.toList()) },
+                enabled = selected.isNotEmpty()
+            ) {
+                Text(stringResource(R.string.poll_answer))
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        PollBarChart(options = options, counts = r.counts, totalVotes = r.totalVotes)
+
+        // The creator sees who has answered (per recipient).
+        if (isCreator && r.recipients.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            Text(stringResource(R.string.poll_recipients), style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(4.dp))
+            for (recipient in r.recipients) {
+                val hasVoted = r.votes.any {
+                    it.voterEmail.trim().lowercase() == recipient.recipientEmail.trim().lowercase()
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (hasVoted) "✓" else "○",
+                        color = if (hasVoted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(recipient.recipientEmail, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+
+        if (isOpen) {
+            if (isCreator) {
+                Spacer(Modifier.height(12.dp))
+                TextButton(onClick = { viewModel.closePoll(pollId) }) {
+                    Text(stringResource(R.string.poll_close))
+                }
+            }
+        } else {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                stringResource(R.string.poll_closed),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/** A simple horizontal bar chart for the poll results. */
+@Composable
+private fun PollBarChart(options: List<String>, counts: List<Int>, totalVotes: Int) {
+    val maxCount = counts.maxOrNull() ?: 0
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        for (i in options.indices) {
+            val count = counts.getOrElse(i) { 0 }
+            val fraction = if (maxCount > 0) count.toFloat() / maxCount else 0f
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    options[i],
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.widthIn(max = 140.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.width(8.dp))
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(18.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    if (fraction > 0f) {
+                        Box(
+                            Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(fraction)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(MaterialTheme.colorScheme.primary)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+                Text("$count", style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(28.dp))
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            stringResource(R.string.poll_votes, totalVotes),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FullEmailView(
@@ -3253,6 +3679,8 @@ private fun FullEmailView(
     isSpamNow: Boolean,
     spamCategory: String = "",
     onShowSpamCategory: () -> Unit,
+    // Marks this email as phishing (from the link-confirmation dialog).
+    onMarkAsPhishing: (Message) -> Unit = {},
     customTag: String = "",
     isStarredNow: Boolean,
     onToggleStarred: () -> Unit,
@@ -3263,16 +3691,33 @@ private fun FullEmailView(
     onSaveDecryptedToSent: (Message) -> Unit = {},
     onOpenAttachment: (Attachment) -> Unit,
     onPrevious: () -> Unit,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    viewModel: ChatDetailViewModel
 ) {
     val context = LocalContext.current
     val isHtml = message.bodyFull.contains("<", ignoreCase = true)
+    // A poll message (not a poll answer, not a result email) is rendered as an interactive poll
+    // instead of the raw body. Result emails show the ASCII bars as a regular email.
+    val isPoll = message.pollId.isNotBlank() && !message.isPollAnswer &&
+        PollFormat.parseResultMarker(message.bodyFull.ifBlank { message.body }) == null
     val isPhishingEmail = spamCategory == "phishing"
+    // The WebView's client is created once (in the AndroidView factory), so it would capture a
+    // stale phishing state. rememberUpdatedState keeps a reference that always reads the current
+    // value, so marking/unmarking phishing takes effect immediately (no need to reopen the email).
+    val isPhishingEmailRef = rememberUpdatedState(isPhishingEmail)
     val blockImagesForSpam = isSpamNow && spamCategory != "newsletter"
     var loadImages by remember { mutableStateOf(false) }
     var showAttachments by remember { mutableStateOf(false) }
     var webViewRef by remember { mutableStateOf<android.webkit.WebView?>(null) }
     var isCreatingEvent by remember { mutableStateOf(false) }
+    // Multiple appointments detected by the AI: shown as a selection dialog before anything is
+    // created in the calendar. Null = no selection pending.
+    var pendingAppointments by remember { mutableStateOf<List<com.mailchat.ai.GeminiService.Appointment>?>(null) }
+    // A link in the email was tapped: shown as a confirmation dialog (full, unmasked URL) before
+    // it is opened. The user can also mark the email as phishing from this dialog. Null = none.
+    var pendingUrl by remember { mutableStateOf<String?>(null) }
+    // Help dialog for the link-confirmation dialog (explains the phishing option).
+    var showLinkHelp by remember { mutableStateOf(false) }
     val htmlForView = remember(message.bodyFull, attachments, loadImages) {
         val selectionCss = "<style>*{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;} body{margin:0;padding:8px;}</style>"
         var h = message.bodyFull
@@ -3426,8 +3871,12 @@ private fun FullEmailView(
                                         }
                                         withTimeoutOrNull(3000) { deferred.await() } ?: ""
                                     } else ""
-                                    val textToUse = if (selectedText.isNotBlank()) selectedText
+                                    val rawText = if (selectedText.isNotBlank()) selectedText
                                     else message.bodyFull.stripHtml().normalizeWhitespace()
+                                    // Start the appointment search AFTER the address header: the
+                                    // header (From/To/Date/Subject) contains the email's received
+                                    // date, which must not be extracted as an appointment.
+                                    val textToUse = stripEmailHeader(rawText)
                                     com.mailchat.ai.AppLogger.log(context, "Termin: textLen=${textToUse.length} selected=${selectedText.isNotBlank()} preview=${textToUse.take(100)}")
                                     val initOk = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                         com.mailchat.util.AiEngine.configureAndInitialize(context)
@@ -3437,30 +3886,22 @@ private fun FullEmailView(
                                         isCreatingEvent = false
                                         return@launch
                                     }
-                                    val aiResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                        com.mailchat.ai.GeminiService.extractAppointment(textToUse)
+                                    val aiResults = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        com.mailchat.ai.GeminiService.extractAppointments(textToUse)
                                     }
-                                    com.mailchat.ai.AppLogger.log(context, "Termin: AI result=$aiResult")
-                                    if (aiResult != null) {
-                                        val (title, dateStr, timeStr, durationMin) = aiResult
-                                        val calendarIntent = android.content.Intent(android.content.Intent.ACTION_INSERT).apply {
-                                            data = android.net.Uri.parse("content://com.android.calendar/events")
-                                            putExtra("title", title)
-                                            putExtra("description", message.subject)
-                                            if (dateStr.isNotBlank()) {
-                                                try {
-                                                    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
-                                                    val dateTime = sdf.parse("$dateStr $timeStr")
-                                                    if (dateTime != null) {
-                                                        putExtra("beginTime", dateTime.time)
-                                                        putExtra("endTime", dateTime.time + (durationMin * 60L * 1000L))
-                                                    }
-                                                } catch (_: Exception) { }
-                                            }
+                                    com.mailchat.ai.AppLogger.log(context, "Termin: AI results=$aiResults")
+                                    when {
+                                        aiResults.isEmpty() -> {
+                                            com.mailchat.ai.AppLogger.log(context, "Termin: AI could not extract appointment")
                                         }
-                                        context.startActivity(android.content.Intent.createChooser(calendarIntent, createEventLabel))
-                                    } else {
-                                        com.mailchat.ai.AppLogger.log(context, "Termin: AI could not extract appointment")
+                                        aiResults.size == 1 -> {
+                                            launchCalendarEventInsert(context, aiResults[0], message.subject, createEventLabel)
+                                        }
+                                        else -> {
+                                            // Multiple appointments: let the user choose before anything
+                                            // is created in the calendar.
+                                            pendingAppointments = aiResults
+                                        }
                                     }
                                 } catch (e: Exception) {
                                     com.mailchat.ai.AppLogger.log(context, "Termin error: ${e.message}")
@@ -3491,8 +3932,14 @@ private fun FullEmailView(
                 .padding(padding)
         ) {
             if (isHtml && !loadImages) {
+                // For phishing emails the hint also mentions the blocked links (they cannot be
+                // loaded anyway); otherwise it only mentions the images.
                 Text(
-                    text = stringResource(R.string.images_blocked_hint),
+                    text = if (isPhishingEmail) {
+                        stringResource(R.string.images_links_blocked_phishing)
+                    } else {
+                        stringResource(R.string.images_blocked_hint)
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
@@ -3580,7 +4027,9 @@ private fun FullEmailView(
                 HeaderRow(stringResource(R.string.to_label), toAddress)
                 HeaderRow(stringResource(R.string.date), DateUtils.formatFull(message.timestamp))
             }
-            if (isHtml) {
+            if (isPoll) {
+                PollView(message = message, viewModel = viewModel)
+            } else if (isHtml) {
                 AndroidView(
                     factory = { ctx ->
                         WebView(ctx).apply {
@@ -3602,7 +4051,9 @@ private fun FullEmailView(
                                     view: WebView,
                                     request: WebResourceRequest
                                 ): Boolean {
-                                    if (isPhishingEmail) {
+                                    // Read the CURRENT phishing state (the client is created once,
+                                    // so a plain capture would be stale after marking/unmarking).
+                                    if (isPhishingEmailRef.value) {
                                         // Links in Phishing-E-mails sind gesperrt
                                         android.widget.Toast.makeText(
                                             ctx,
@@ -3611,11 +4062,10 @@ private fun FullEmailView(
                                         ).show()
                                         return true
                                     }
-                                    val intent = android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW,
-                                        request.url
-                                    )
-                                    ctx.startActivity(intent)
+                                    // Show the full (unmasked) URL in a confirmation dialog before
+                                    // opening it (phishing protection). The user can also mark the
+                                    // email as phishing from that dialog.
+                                    pendingUrl = request.url.toString()
                                     return true
                                 }
                             }
@@ -3666,15 +4116,9 @@ private fun FullEmailView(
                                         val pos = layout.getOffsetForPosition(offset)
                                         val span = urlSpans.firstOrNull { pos in it.start until it.end }
                                         if (span != null) {
-                                            try {
-                                                context.startActivity(
-                                                    android.content.Intent(
-                                                        android.content.Intent.ACTION_VIEW,
-                                                        android.net.Uri.parse(span.url)
-                                                    )
-                                                )
-                                            } catch (_: Exception) {
-                                            }
+                                            // Show the full (unmasked) URL in a confirmation dialog
+                                            // before opening it (phishing protection).
+                                            pendingUrl = span.url
                                         }
                                     }
                                 }
@@ -3786,6 +4230,123 @@ private fun FullEmailView(
                 }
             }
         }
+    }
+
+    // Multiple appointments were detected: let the user pick one before it is created in the
+    // calendar. Tapping an entry opens the calendar insert screen for that appointment.
+    // Multiple appointments were detected: let the user pick one before it is created in the
+    // calendar. Tapping an entry opens the calendar insert screen for that appointment.
+    // (An `if` + `for` loop is used instead of `let`/`forEach` because those are regular
+    // lambdas and would leave the composable context.)
+    val pendingAppointmentsList = pendingAppointments
+    if (pendingAppointmentsList != null) {
+        // Captured here (composable context) because the clickable lambda below is not composable.
+        val createEventLabel = stringResource(R.string.create_event)
+        AlertDialog(
+            onDismissRequest = { pendingAppointments = null },
+            title = { Text(stringResource(R.string.select_appointment)) },
+            text = {
+                Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
+                    for (appt in pendingAppointmentsList) {
+                        val dateLabel = try {
+                            val parsed = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).parse(appt.date)
+                            if (parsed != null) {
+                                java.text.SimpleDateFormat("d.M.yyyy", java.util.Locale.getDefault()).format(parsed)
+                            } else appt.date
+                        } catch (_: Exception) { appt.date }
+                        ListItem(
+                            headlineContent = { Text(appt.title) },
+                            supportingContent = { Text("$dateLabel · ${appt.time}") },
+                            modifier = Modifier.clickable {
+                                pendingAppointments = null
+                                launchCalendarEventInsert(context, appt, message.subject, createEventLabel)
+                            }
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { pendingAppointments = null }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    // Link confirmation: before a link is opened, show the full (unmasked) URL and ask for
+    // confirmation. The user can also mark the email as phishing (which blocks all links in
+    // this email). The help icon explains the options.
+    val pendingUrlValue = pendingUrl
+    if (pendingUrlValue != null) {
+        AlertDialog(
+            onDismissRequest = { pendingUrl = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.link_open_confirm_title), modifier = Modifier.weight(1f))
+                    IconButton(onClick = { showLinkHelp = true }) {
+                        Icon(Icons.Default.Help, contentDescription = stringResource(R.string.help), modifier = Modifier.size(18.dp))
+                    }
+                }
+            },
+            text = {
+                Column {
+                    Text(stringResource(R.string.link_open_confirm_text))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    // Full, unmasked URL (selectable so it can be inspected / copied).
+                    SelectionContainer {
+                        Text(
+                            text = pendingUrlValue,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(8.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val url = pendingUrlValue
+                    pendingUrl = null
+                    try {
+                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                    } catch (_: Exception) { }
+                }) {
+                    Text(stringResource(R.string.ok))
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = {
+                        pendingUrl = null
+                        onMarkAsPhishing(message)
+                    }) {
+                        Text(stringResource(R.string.spam_phishing), color = MaterialTheme.colorScheme.error)
+                    }
+                    TextButton(onClick = { pendingUrl = null }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            }
+        )
+    }
+    // Help for the link-confirmation dialog (explains the phishing option).
+    if (showLinkHelp) {
+        AlertDialog(
+            onDismissRequest = { showLinkHelp = false },
+            title = { Text(stringResource(R.string.link_help_title)) },
+            text = { Text(stringResource(R.string.link_help_text)) },
+            confirmButton = {
+                TextButton(onClick = { showLinkHelp = false }) {
+                    Text(stringResource(R.string.ok))
+                }
+            }
+        )
     }
 }
 

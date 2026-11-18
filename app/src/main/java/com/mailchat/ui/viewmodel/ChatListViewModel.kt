@@ -71,6 +71,7 @@ class ChatListViewModel @Inject constructor(
     private val contactService: ContactService,
     private val syncStateDao: com.mailchat.data.dao.SyncStateDao,
     private val autoReplyService: com.mailchat.service.AutoReplyService,
+    private val pollProcessor: com.mailchat.service.PollProcessor,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
@@ -189,6 +190,8 @@ class ChatListViewModel @Inject constructor(
                     val messages = messageRepository.getMessagesByChatSync(chat.id)
                     for (message in messages) {
                         if (message.bodyFull.isBlank()) continue
+                        // Polls (and poll answers) get no AI tagging/spam detection.
+                        if (message.pollId.isNotBlank()) continue
                         try {
                             messageRepository.updateMessage(
                                 com.mailchat.util.AiMessageProcessor.processMessage(appContext, message)
@@ -230,14 +233,14 @@ class ChatListViewModel @Inject constructor(
                     val incoming = imapService.fetchNewMessages(account, since)
                     syncErrors.addAll(incoming.errors.map { "${account.emailAddress} $it" })
                     for (fetchedMsg in incoming.messages) {
-                        // suppressNotifications: no per-email notification during a bulk sync —
-                        // a single summary with the imported count is shown at the end instead.
-                        if (processFetchedMessage(account, fetchedMsg, suppressNotifications = true)) newIncomingCount++
+                        // No per-email notification during a bulk sync — the imported count is
+                        // shown in the UI at the end instead (the user is looking at the app).
+                        processFetchedMessage(account, fetchedMsg)?.let { newIncomingCount++ }
                     }
                     val sent = imapService.fetchSentMessages(account, since)
                     syncErrors.addAll(sent.errors.map { "${account.emailAddress} $it" })
                     for (fetchedMsg in sent.messages) {
-                        processFetchedMessage(account, fetchedMsg, suppressNotifications = true)
+                        processFetchedMessage(account, fetchedMsg)
                     }
                     accountRepository.updateAccount(
                         account.copy(lastSyncTimestamp = System.currentTimeMillis())
@@ -265,20 +268,20 @@ class ChatListViewModel @Inject constructor(
     }
 
     /**
-     * Processes a single fetched message (dedupe, decrypt, insert, notify). Returns true when a
-     * NEW incoming email was inserted (used to count imports). When [suppressNotifications] is
-     * set (during a bulk/initial sync), no per-email notification is posted and the widget is not
-     * refreshed per item — the caller posts a single summary at the end instead.
+     * Processes a single fetched message (dedupe, decrypt, insert). Returns a
+     * [NotificationHelper.NewEmailInfo] when a NEW incoming email was inserted (so the caller can
+     * batch the notifications and post a single one — or a summary with a count — at the end of
+     * the sync), or null otherwise. No per-email notification or widget refresh happens here
+     * anymore; the caller does both once at the end.
      */
     private suspend fun processFetchedMessage(
         account: EmailAccount,
-        fetchedMsg: com.mailchat.network.FetchedMessage,
-        suppressNotifications: Boolean = false
-    ): Boolean {
+        fetchedMsg: com.mailchat.network.FetchedMessage
+    ): NotificationHelper.NewEmailInfo? {
         val msgId = fetchedMsg.message.messageId
         if (msgId.isNotBlank()) {
-            if (messageRepository.countByMessageId(msgId) > 0) return false
-            if (SettingsUtils.getDeletedMessageIds(appContext).contains(msgId)) return false
+            if (messageRepository.countByMessageId(msgId) > 0) return null
+            if (SettingsUtils.getDeletedMessageIds(appContext).contains(msgId)) return null
         }
         val chat = getOrCreateChat(fetchedMsg.participantEmail, account, fetchedMsg)
         if (msgId.isBlank()) {
@@ -288,7 +291,7 @@ class ChatListViewModel @Inject constructor(
                 fetchedMsg.message.subject,
                 fetchedMsg.message.timestamp
             )
-            if (dupCount > 0) return false
+            if (dupCount > 0) return null
         }
         var msgBody = fetchedMsg.message.body
         var msgBodyFull = fetchedMsg.message.bodyFull
@@ -344,25 +347,40 @@ class ChatListViewModel @Inject constructor(
                 attachment.copy(messageId = dbMessageId)
             )
         }
+        // Polls (Umfragen): detect a poll or a poll answer and record it. Poll answers are
+        // suppressed in the chat, so they must not trigger a notification either.
+        var isPollAnswerMsg = false
+        var isPollMsg = false
+        try {
+            val processed = pollProcessor.processMessageForPolls(message.copy(id = dbMessageId), chat)
+            isPollAnswerMsg = processed.isPollAnswer
+            isPollMsg = processed.pollId.isNotBlank()
+        } catch (e: Exception) {
+            android.util.Log.w("MailchatList", "poll processing failed", e)
+        }
         val isNewIncoming = fetchedMsg.isIncoming
-        if (isNewIncoming && !suppressNotifications) {
-            NotificationHelper.postNewEmail(
-                context = appContext,
+        // No per-email notification here anymore — the caller collects the new emails and posts
+        // a single notification (or a summary with a count) at the end of the sync.
+        // Polls (and poll answers) get no AI tagging/spam detection — at most the encryption
+        // symbol is shown (driven by isEncrypted, not by the AI).
+        if (SettingsUtils.getAiEnabled(appContext) && SettingsUtils.getAiAutoProcess(appContext) && isNewIncoming && !isPollMsg) {
+            processMessageWithAi(message.copy(id = dbMessageId))
+        }
+        // Automatically create a display name (Klarnamen) for a new sender (controlled by a
+        // separate switch, so it also runs when auto-summarize is off).
+        if (SettingsUtils.getAiEnabled(appContext) && SettingsUtils.getAiAutoRealNames(appContext) && isNewIncoming) {
+            ensureDisplayNameForChat(chat)
+        }
+        // Poll answers are suppressed in the chat → no notification for them.
+        return if (isNewIncoming && !isPollAnswerMsg) {
+            NotificationHelper.NewEmailInfo(
                 chatId = chat.id,
                 sender = fetchedMsg.message.from,
                 subject = fetchedMsg.message.subject,
-                preview = fetchedMsg.message.body.take(200)
+                preview = msgBody.take(200),
+                timestamp = fetchedMsg.message.timestamp
             )
-            // Refresh the home-screen widget so it shows the new email.
-            try {
-                com.mailchat.widget.MailWidgetProvider.refreshAll(appContext)
-            } catch (_: Exception) {
-            }
-        }
-        if (SettingsUtils.getAiEnabled(appContext) && SettingsUtils.getAiAutoProcess(appContext) && isNewIncoming) {
-            processMessageWithAi(message.copy(id = dbMessageId))
-        }
-        return isNewIncoming
+        } else null
         // Automatic "Wo bist Du?" reply: if this contact has the auto-location-reply enabled and
         // the message asks "Wo bist Du?", reply with the current location (+ optional weather).
         if (fetchedMsg.isIncoming) {
@@ -396,6 +414,24 @@ class ChatListViewModel @Inject constructor(
                 messageRepository.updateMessage(updated)
             } catch (e: Exception) {
                 android.util.Log.e("MailchatAI", "processMessageWithAi failed: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Creates a display name (Klarnamen) for [chat] if it doesn't have one yet (the chat name is
+     * still the bare email address). Runs in the background; no-op if the chat already has a name.
+     */
+    private fun ensureDisplayNameForChat(chat: Chat) {
+        if (chat.participantName != chat.participantEmail) return
+        viewModelScope.launch {
+            try {
+                com.mailchat.util.AiEngine.configureAndInitialize(appContext)
+                com.mailchat.util.AiMessageProcessor.ensureDisplayName(chat) { updated ->
+                    chatRepository.updateChat(updated)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MailchatAI", "ensureDisplayNameForChat failed: ${e.message}")
             }
         }
     }
@@ -799,6 +835,8 @@ class ChatListViewModel @Inject constructor(
                     val messages = messageRepository.getMessagesByChatSync(chat.id)
                     for (message in messages) {
                         if (message.bodyFull.isBlank()) continue
+                        // Polls (and poll answers) get no AI tagging/spam detection.
+                        if (message.pollId.isNotBlank()) continue
                         try {
                             messageRepository.updateMessage(
                                 com.mailchat.util.AiMessageProcessor.processMessage(appContext, message)
@@ -1131,15 +1169,27 @@ class ChatListViewModel @Inject constructor(
                 accountRepository.updateAccount(account.copy(lastSyncTimestamp = 0))
                 // Bei "Erneuern" alle E-Mails laden, nicht nur Sync-Periode
                 val periodStart = 0L
+                // Collect the new incoming emails and post ONE notification (or a summary with the
+                // count) at the end, instead of one notification per email (which flooded the
+                // shade when a folder with many emails was imported).
+                val newEmails = mutableListOf<NotificationHelper.NewEmailInfo>()
                 val incoming = imapService.fetchNewMessages(account, periodStart)
                 com.mailchat.ai.AppLogger.log(appContext, "RENEW: fetched ${incoming.messages.size} incoming, ${incoming.errors.size} errors")
                 for (fetchedMsg in incoming.messages) {
-                    processFetchedMessage(account, fetchedMsg)
+                    processFetchedMessage(account, fetchedMsg)?.let { newEmails.add(it) }
                 }
                 val sent = imapService.fetchSentMessages(account, periodStart)
                 com.mailchat.ai.AppLogger.log(appContext, "RENEW: fetched ${sent.messages.size} sent, ${sent.errors.size} errors")
                 for (fetchedMsg in sent.messages) {
-                    processFetchedMessage(account, fetchedMsg)
+                    processFetchedMessage(account, fetchedMsg)?.let { newEmails.add(it) }
+                }
+                NotificationHelper.postNewEmailNotifications(appContext, newEmails)
+                // Refresh the home-screen widget once (instead of per email).
+                if (newEmails.isNotEmpty()) {
+                    try {
+                        com.mailchat.widget.MailWidgetProvider.refreshAll(appContext)
+                    } catch (_: Exception) {
+                    }
                 }
                 val folderErrors = incoming.errors + sent.errors
                 if (folderErrors.isNotEmpty()) {

@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.mailchat.data.model.Attachment
 import com.mailchat.data.model.Chat
 import com.mailchat.data.model.Message
+import com.mailchat.data.model.Poll
+import com.mailchat.data.model.PollVote
 import com.mailchat.data.repository.AccountRepository
 import com.mailchat.data.repository.ChatRepository
 import com.mailchat.data.repository.MessageRepository
@@ -14,16 +16,24 @@ import com.mailchat.network.SmtpService
 import com.mailchat.service.ContactService
 import com.mailchat.service.Contact
 import com.mailchat.util.EmailGrouping
+import com.mailchat.util.PollFormat
+import com.mailchat.util.SettingsUtils
 import com.mailchat.util.normalizeWhitespace
 import com.mailchat.util.stripHtml
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import android.content.Context
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -77,6 +87,9 @@ class ChatDetailViewModel @Inject constructor(
     private val imapService: ImapService,
     private val contactService: ContactService,
     private val draftDao: com.mailchat.data.dao.DraftDao,
+    private val pollRepository: com.mailchat.data.repository.PollRepository,
+    private val pollProcessor: com.mailchat.service.PollProcessor,
+    private val syncEngine: com.mailchat.service.SyncEngine,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
@@ -145,6 +158,27 @@ class ChatDetailViewModel @Inject constructor(
                 }
                 loadAttachments(messages)
                 repairUndecryptedPgpMime(messages)
+            }
+        }
+        // Fetch new emails for this chat from the server when the chat is opened. The chat detail
+        // view only reads the local DB, so without this new emails (e.g. poll answers) would only
+        // appear after the next background sync (chat overview). Dedupe by Message-ID makes a
+        // re-fetch of already-stored mail a no-op.
+        viewModelScope.launch {
+            val chat = chatRepository.getChatById(chatId) ?: return@launch
+            val account = accountRepository.getAccountById(chat.accountId) ?: return@launch
+            try {
+                val periodStart = if (chat.lastMessageTimestamp > 0) {
+                    chat.lastMessageTimestamp - 60_000
+                } else {
+                    System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+                }
+                val incoming = imapService.fetchNewMessages(account, periodStart)
+                for (fetchedMsg in incoming.messages) {
+                    syncEngine.processFetchedMessage(account, fetchedMsg)
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("MailchatChat", "fetch-on-open failed", e)
             }
         }
     }
@@ -249,22 +283,78 @@ class ChatDetailViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Returns all messages belonging to the poll of [message] (the per-recipient poll emails, the
+     * answers and the result emails), or just [message] when it's not a poll message. Deleting a
+     * poll removes the whole poll flow.
+     */
+    private suspend fun pollRelatedMessages(message: Message): List<Message> {
+        val isPollMsg = message.pollId.isNotBlank() && !message.isPollAnswer &&
+            PollFormat.parseResultMarker(message.bodyFull.ifBlank { message.body }) == null
+        if (!isPollMsg) return listOf(message)
+        // Group poll: the message carries the groupId. Collect the per-recipient poll IDs too so
+        // the answers and result emails (which carry the per-recipient poll-ID) are included.
+        val groupPolls = pollRepository.getPollsByGroupSync(message.pollId, message.accountId)
+        val pollIds = if (groupPolls.isNotEmpty()) {
+            (listOf(message.pollId) + groupPolls.map { it.id }).distinct()
+        } else {
+            listOf(message.pollId)
+        }
+        val related = mutableListOf<Message>()
+        for (id in pollIds) {
+            related.addAll(messageRepository.getMessagesByPollId(id))
+        }
+        if (related.none { it.id == message.id }) related.add(message)
+        return related
+    }
+
+    /** Deletes the poll records and votes of the poll of [message] (no-op when not a poll). */
+    private suspend fun cleanupPollData(message: Message) {
+        val isPollMsg = message.pollId.isNotBlank() && !message.isPollAnswer &&
+            PollFormat.parseResultMarker(message.bodyFull.ifBlank { message.body }) == null
+        if (!isPollMsg) return
+        val groupPolls = pollRepository.getPollsByGroupSync(message.pollId, message.accountId)
+        val pollIds = if (groupPolls.isNotEmpty()) {
+            groupPolls.map { it.id }
+        } else {
+            listOf(message.pollId)
+        }
+        for (id in pollIds) {
+            pollRepository.deleteVotes(id, message.accountId)
+            pollRepository.deletePoll(id, message.accountId)
+        }
+    }
+
+    /** Deletes [toDelete] from the IMAP server (grouped by incoming/outgoing) and locally. */
+    private suspend fun deleteMessagesWithServer(account: com.mailchat.data.model.EmailAccount?, toDelete: List<Message>) {
+        if (account != null) {
+            try {
+                val incoming = toDelete.filter { it.isIncoming && it.messageId.isNotBlank() }.map { it.messageId }
+                val outgoing = toDelete.filter { !it.isIncoming && it.messageId.isNotBlank() }.map { it.messageId }
+                if (incoming.isNotEmpty()) {
+                    imapService.deleteMessagesFromServer(account, incoming, isIncoming = true)
+                }
+                if (outgoing.isNotEmpty()) {
+                    imapService.deleteMessagesFromServer(account, outgoing, isIncoming = false)
+                }
+            } catch (_: Exception) {}
+        }
+        for (msg in toDelete) {
+            messageRepository.deleteAttachmentsByMessage(msg.id)
+            messageRepository.deleteMessage(msg)
+        }
+    }
+
     fun deleteMessage(message: Message) {
         viewModelScope.launch {
             try {
                 val chat = _uiState.value.chat
                 val account = chat?.let { accountRepository.getAccountById(it.accountId) }
-                if (account != null && message.messageId.isNotBlank()) {
-                    try {
-                        imapService.deleteMessagesFromServer(
-                            account = account,
-                            messageIds = listOf(message.messageId),
-                            isIncoming = message.isIncoming
-                        )
-                    } catch (_: Exception) {}
-                }
-                messageRepository.deleteAttachmentsByMessage(message.id)
-                messageRepository.deleteMessage(message)
+                // When deleting a poll, remove the whole poll flow (poll emails, answers, result
+                // emails) from the server and locally, plus the poll records and votes.
+                val toDelete = pollRelatedMessages(message)
+                deleteMessagesWithServer(account, toDelete)
+                cleanupPollData(message)
             } catch (_: Exception) {
             }
         }
@@ -276,18 +366,16 @@ class ChatDetailViewModel @Inject constructor(
                 val chat = _uiState.value.chat
                 val account = chat?.let { accountRepository.getAccountById(it.accountId) }
                 val messages = _uiState.value.messages.filter { it.id in messageIds }
-                if (account != null) {
-                    try {
-                        imapService.deleteMessagesFromServer(
-                            account = account,
-                            messageIds = messages.filter { it.messageId.isNotBlank() }.map { it.messageId },
-                            isIncoming = messages.firstOrNull()?.isIncoming ?: true
-                        )
-                    } catch (_: Exception) {}
-                }
+                // Expand poll messages to the whole poll flow (poll emails, answers, result emails).
+                val toDelete = mutableListOf<Message>()
                 for (msg in messages) {
-                    messageRepository.deleteAttachmentsByMessage(msg.id)
-                    messageRepository.deleteMessage(msg)
+                    for (related in pollRelatedMessages(msg)) {
+                        if (toDelete.none { it.id == related.id }) toDelete.add(related)
+                    }
+                }
+                deleteMessagesWithServer(account, toDelete)
+                for (msg in messages) {
+                    cleanupPollData(msg)
                 }
                 val remaining = messageRepository.getMessagesByChatSync(chatId)
                 _uiState.update { it.copy(messages = remaining) }
@@ -1715,6 +1803,367 @@ class ChatDetailViewModel @Inject constructor(
             } catch (e: Exception) {
                 _uiState.update { it.copy(isSending = false, sendError = e.message) }
             }
+        }
+    }
+
+    // --- Polls (Umfragen) ---
+
+    data class PollResults(
+        val poll: Poll,
+        val votes: List<PollVote>,
+        val counts: List<Int>,
+        val totalVotes: Int,
+        // The group's per-recipient polls (for the creator's "who has answered" list). Empty for
+        // single polls (recipient's view / legacy polls).
+        val recipients: List<Poll> = emptyList()
+    )
+
+    /**
+     * Observes a poll and its votes (for the bar chart). Emits null when the poll is gone.
+     *
+     * When [pollId] is a group (the creator's logical poll, linking several per-recipient
+     * poll-IDs), the results are aggregated across ALL per-recipient poll-IDs and ALL accounts
+     * (the same vote can be recorded in several accounts → deduped by voter, last answer wins).
+     * This is what makes the multi-account setup work (the creator reads several accounts).
+     */
+    fun observePollResults(pollId: String): Flow<PollResults?> {
+        val chat = _uiState.value.chat ?: return flowOf(null)
+        val accountId = chat.accountId
+        return flow {
+            val groupPolls = pollRepository.getPollsByGroupSync(pollId, accountId)
+            if (groupPolls.isNotEmpty()) {
+                // Group (creator's logical poll): aggregate all per-recipient poll-IDs + votes
+                // across all accounts. The votes query is REACTIVE (re-emits when a vote is
+                // inserted/updated), so the view updates live without reopening the email.
+                pollRepository.getPollsByGroup(pollId, accountId)
+                    .flatMapLatest { polls ->
+                        if (polls.isEmpty()) {
+                            flowOf(null)
+                        } else {
+                            val pollIds = polls.map { it.id }
+                            pollRepository.getVotesForPollsAllAccountsFlow(pollIds).map { votes ->
+                                val deduped = dedupeVotesByVoter(votes)
+                                val options = PollFormat.optionsFromJson(polls.first().options)
+                                val counts = IntArray(options.size)
+                                var total = 0
+                                for (v in votes) {
+                                    val idx = PollFormat.indicesFromJson(v.optionIndices)
+                                    for (i in idx) if (i in options.indices) counts[i]++
+                                    total += idx.size
+                                }
+                                // The group is open while ANY per-recipient poll is still open.
+                                val status = if (polls.any { it.status == Poll.STATUS_OPEN }) Poll.STATUS_OPEN else Poll.STATUS_CLOSED
+                                PollResults(polls.first().copy(status = status), deduped, counts.toList(), total, recipients = polls)
+                            }
+                        }
+                    }.collect { emit(it) }
+            } else {
+                // Single poll (recipient's view or a legacy poll): per-account votes.
+                val pollFlow = pollRepository.getPollsByChat(chat.id, accountId)
+                    .map { list -> list.firstOrNull { it.id == pollId } }
+                val votesFlow = pollRepository.getVotes(pollId, accountId)
+                combine(pollFlow, votesFlow) { poll, votes ->
+                    if (poll == null) null
+                    else {
+                        val options = PollFormat.optionsFromJson(poll.options)
+                        val counts = IntArray(options.size)
+                        var total = 0
+                        for (v in votes) {
+                            val idx = PollFormat.indicesFromJson(v.optionIndices)
+                            for (i in idx) if (i in options.indices) counts[i]++
+                            total += idx.size
+                        }
+                        PollResults(poll, votes, counts.toList(), total)
+                    }
+                }.collect { emit(it) }
+            }
+        }
+    }
+
+    /**
+     * Dedupes votes by voter (the same person can answer in several accounts / re-answer).
+     * The LAST answer wins (by answeredAt).
+     */
+    private fun dedupeVotesByVoter(votes: List<PollVote>): List<PollVote> =
+        votes.groupBy { it.voterEmail.trim().lowercase() }
+            .values
+            .mapNotNull { it.maxByOrNull { v -> v.answeredAt } }
+            .toList()
+
+    /**
+     * Creates and sends a poll to the current chat (1:1 or group). The creator sends ONE poll
+     * email per recipient, each with its own poll-ID. All per-recipient poll-IDs are linked by a
+     * shared [groupId] (the logical poll) and managed together until the poll is closed.
+     */
+    fun createPoll(
+        title: String,
+        question: String,
+        options: List<String>,
+        multi: Boolean,
+        forceUnencrypted: Boolean = false
+    ) {
+        viewModelScope.launch {
+            val chat = _uiState.value.chat ?: return@launch
+            val account = senderAccountFor(chat) ?: return@launch
+            val recipients = recipientEmailsForChat(chat, account)
+            if (recipients.isEmpty()) {
+                _uiState.update { it.copy(sendError = "No recipients") }
+                return@launch
+            }
+            val isGerman = SettingsUtils.isGermanUi(appContext)
+            val choiceLabel = if (multi) {
+                if (isGerman) "mehrere Antworten möglich" else "multiple answers possible"
+            } else {
+                if (isGerman) "nur eine Antwort möglich" else "only one answer possible"
+            }
+            val instruction = if (isGerman) {
+                "Antwort: X in die Box(en) setzen und diese E-Mail beantworten. " +
+                    "Kommentare werden nicht angezeigt und verfallen."
+            } else {
+                "Answer: put an X in the box(es) and reply to this email. " +
+                    "Comments are not displayed and will be discarded."
+            }
+            val subject = "📊 $title"
+            val groupId = PollFormat.newPollId()
+            val isGroupChat = EmailGrouping.isGroupKey(chat.participantEmail)
+            _uiState.update { it.copy(isSending = true, sendError = null) }
+            try {
+                // Prepare (build + encrypt) every recipient FIRST, so an encryption failure is
+                // detected before anything is sent (a retry then resends cleanly, no duplicates).
+                data class Prepared(val recipient: String, val pollId: String, val body: String, val enc: com.mailchat.crypto.EncryptionHelper.Result)
+                val prepared = mutableListOf<Prepared>()
+                for (recipient in recipients) {
+                    val pollId = PollFormat.newPollId()
+                    val body = PollFormat.buildPollBody(title, question, options, multi, pollId, choiceLabel, instruction)
+                    val enc = com.mailchat.crypto.EncryptionHelper.encryptForRecipients(
+                        appContext, body, listOf(recipient.trim().lowercase()), isGroupChat, chat.isEncrypted, forceUnencrypted
+                    )
+                    prepared.add(Prepared(recipient, pollId, body, enc))
+                }
+                // Send one poll email per recipient and register the per-recipient poll.
+                var firstBody = ""
+                for (p in prepared) {
+                    if (firstBody.isEmpty()) firstBody = p.body
+                    val extraHeaders = mutableMapOf("X-MailChat-Poll" to p.pollId)
+                    extraHeaders.putAll(p.enc.headers)
+                    // PLAIN (text/plain): the poll format is line-based and must stay plain text so
+                    // the marker/options can be parsed reliably when fetched back.
+                    val sentMessageId = smtpService.sendEmail(
+                        account = account,
+                        to = p.recipient,
+                        subject = subject,
+                        body = p.enc.body,
+                        extraHeaders = extraHeaders,
+                        bodyFormat = com.mailchat.network.BodyFormat.PLAIN
+                    )
+                    // Register the per-recipient poll in the creator's account (linked to the group).
+                    val poll = Poll(
+                        id = p.pollId,
+                        accountId = account.id,
+                        chatId = chat.id,
+                        groupId = groupId,
+                        recipientEmail = p.recipient.trim().lowercase(),
+                        title = title,
+                        question = question,
+                        options = PollFormat.optionsToJson(options),
+                        multi = multi,
+                        creatorEmail = account.emailAddress,
+                        pollMessageId = sentMessageId,
+                        status = Poll.STATUS_OPEN,
+                        createdAt = System.currentTimeMillis()
+                    )
+                    pollRepository.insertPoll(poll)
+                    // One local message per recipient (real Message-ID → deduped when the sent
+                    // email is fetched back). pollId = groupId so the chat shows the logical poll.
+                    val message = Message(
+                        chatId = chat.id,
+                        accountId = account.id,
+                        from = account.emailAddress,
+                        subject = subject,
+                        body = p.body,
+                        bodyFull = p.body,
+                        timestamp = System.currentTimeMillis(),
+                        isRead = true,
+                        isIncoming = false,
+                        messageId = sentMessageId,
+                        isEncrypted = p.enc.isEncrypted
+                    )
+                    val messageId = messageRepository.insertMessage(message)
+                    messageRepository.updateMessage(message.copy(id = messageId, pollId = groupId))
+                }
+                // The creator can also vote: a dedicated per-recipient poll-ID for the creator
+                // (NOT sent as an email — it only exists so the creator's "Answer" button works
+                // and their vote is tracked like any other recipient's).
+                pollRepository.insertPoll(
+                    Poll(
+                        id = PollFormat.newPollId(),
+                        accountId = account.id,
+                        chatId = chat.id,
+                        groupId = groupId,
+                        recipientEmail = account.emailAddress.trim().lowercase(),
+                        title = title,
+                        question = question,
+                        options = PollFormat.optionsToJson(options),
+                        multi = multi,
+                        creatorEmail = account.emailAddress,
+                        pollMessageId = "",
+                        status = Poll.STATUS_OPEN,
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+                chatRepository.updateChat(
+                    chat.copy(
+                        lastMessageTimestamp = System.currentTimeMillis(),
+                        lastMessageBody = firstBody,
+                        lastMessageSubject = subject
+                    )
+                )
+                _uiState.update { it.copy(isSending = false) }
+            } catch (e: com.mailchat.crypto.EncryptionHelper.EncryptionFailed) {
+                encryptionErrorRetry = { createPoll(title, question, options, multi, forceUnencrypted = true) }
+                _uiState.update { it.copy(isSending = false, encryptionErrorDialog = e.message) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSending = false, sendError = e.message) }
+            }
+        }
+    }
+
+    /** Answers a poll: sends the selected options as a reply to the chat. */
+    fun answerPoll(pollId: String, selectedIndices: List<Int>, forceUnencrypted: Boolean = false) {
+        viewModelScope.launch {
+            val chat = _uiState.value.chat ?: return@launch
+            val account = senderAccountFor(chat) ?: return@launch
+            // Resolve the actual poll-ID: when [pollId] is a group (the creator's logical poll,
+            // shown in the chat), use the voter's own per-recipient poll-ID (the one whose
+            // recipientEmail matches the voter). Without this the creator could not vote, because
+            // the chat message carries the groupId, not a real poll-ID.
+            val groupPolls = pollRepository.getPollsByGroupSync(pollId, account.id)
+            val poll = if (groupPolls.isNotEmpty()) {
+                val voterEmail = account.emailAddress.trim().lowercase()
+                groupPolls.firstOrNull { it.recipientEmail.trim().lowercase() == voterEmail }
+                    ?: groupPolls.first()
+            } else {
+                pollRepository.getPoll(pollId, account.id) ?: return@launch
+            }
+            // For recipient-side single polls (groupId empty), use the creator's per-recipient
+            // poll ID so the answer email references a poll ID that exists in the creator's
+            // account. This allows the creator's device to find the poll and record the vote
+            // when the answer email is synced.
+            val actualPollId = if (poll.groupId.isNotBlank()) {
+                poll.id
+            } else {
+                val creatorAccount = accountRepository.getAllAccounts().first()
+                    .firstOrNull { it.emailAddress.trim().lowercase() == poll.creatorEmail.trim().lowercase() }
+                if (creatorAccount != null) {
+                    pollRepository.getPollsByChatSync(chat.id, creatorAccount.id)
+                        .firstOrNull { it.recipientEmail.trim().lowercase() == poll.recipientEmail.trim().lowercase() }
+                        ?.id ?: poll.id
+                } else {
+                    poll.id
+                }
+            }
+            val options = PollFormat.optionsFromJson(poll.options)
+            val body = PollFormat.buildAnswerBody(options, selectedIndices, actualPollId)
+            val subject = if (EmailGrouping.isGroupKey(chat.participantEmail)) {
+                chat.participantName
+            } else {
+                "Re: ${poll.title}"
+            }
+            // The creator votes for themselves: the answer must arrive in their own account (so
+            // the vote is recorded there). Everyone else answers to the chat's other party.
+            val isCreator = account.emailAddress.trim().lowercase() == poll.creatorEmail.trim().lowercase()
+            val recipient = if (isCreator) account.emailAddress else recipientForChat(chat, account)
+            _uiState.update { it.copy(isSending = true, sendError = null) }
+            try {
+                // Encrypt the answer like a regular message (OpenPGP / legacy fallback).
+                val recipients = recipient.split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }
+                val isGroupChat = EmailGrouping.isGroupKey(chat.participantEmail)
+                val enc = com.mailchat.crypto.EncryptionHelper.encryptForRecipients(
+                    appContext, body, recipients, isGroupChat, chat.isEncrypted, forceUnencrypted
+                )
+                val extraHeaders = mutableMapOf("X-MailChat-Poll-Answer" to actualPollId)
+                extraHeaders.putAll(enc.headers)
+                // PLAIN (text/plain): the answer format is line-based and must stay plain text.
+                val sentMessageId = smtpService.sendEmail(
+                    account = account,
+                    to = recipient,
+                    subject = subject,
+                    body = enc.body,
+                    extraHeaders = extraHeaders,
+                    bodyFormat = com.mailchat.network.BodyFormat.PLAIN
+                )
+                // The local copy keeps the PLAINTEXT body (so the vote can be parsed);
+                // isEncrypted drives the encryption symbol in the chat.
+                val message = Message(
+                    chatId = chat.id,
+                    accountId = account.id,
+                    from = account.emailAddress,
+                    subject = subject,
+                    body = body,
+                    bodyFull = body,
+                    timestamp = System.currentTimeMillis(),
+                    isRead = true,
+                    isIncoming = false,
+                    messageId = sentMessageId,
+                    isEncrypted = enc.isEncrypted
+                )
+                val messageId = messageRepository.insertMessage(message)
+                pollProcessor.processMessageForPolls(message.copy(id = messageId), chat)
+                chatRepository.updateChat(
+                    chat.copy(
+                        lastMessageTimestamp = System.currentTimeMillis(),
+                        lastMessageBody = body,
+                        lastMessageSubject = subject
+                    )
+                )
+                _uiState.update { it.copy(isSending = false) }
+            } catch (e: com.mailchat.crypto.EncryptionHelper.EncryptionFailed) {
+                encryptionErrorRetry = { answerPoll(pollId, selectedIndices, forceUnencrypted = true) }
+                _uiState.update { it.copy(isSending = false, encryptionErrorDialog = e.message) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSending = false, sendError = e.message) }
+            }
+        }
+    }
+
+    /** Closes an open poll (by the creator) and sends the result email(s). */
+    fun closePoll(pollId: String) {
+        viewModelScope.launch {
+            val chat = _uiState.value.chat ?: return@launch
+            val accountId = chat.accountId
+            val groupPolls = pollRepository.getPollsByGroupSync(pollId, accountId)
+            if (groupPolls.isNotEmpty()) {
+                // Group (creator's logical poll): close all per-recipient polls + send result emails.
+                pollProcessor.closePollGroup(groupPolls, chat)
+            } else {
+                // Single poll: current behavior.
+                val poll = pollRepository.getPoll(pollId, accountId) ?: return@launch
+                pollProcessor.closePollByCreator(poll, chat)
+            }
+        }
+    }
+
+    /** The recipient emails for the current chat (1:1 or group, excluding the sender). */
+    private fun recipientEmailsForChat(chat: Chat, account: com.mailchat.data.model.EmailAccount): List<String> {
+        return if (EmailGrouping.isGroupKey(chat.participantEmail)) {
+            chat.participantEmail.split(";")
+                .map { it.trim() }
+                .filter { it.isNotBlank() && it != EmailGrouping.normalize(account.emailAddress) }
+        } else {
+            listOf(chat.participantEmail.trim()).filter { it.isNotBlank() }
+        }
+    }
+
+    /** The recipient string for the current chat (1:1 or group, excluding the sender). */
+    private fun recipientForChat(chat: Chat, account: com.mailchat.data.model.EmailAccount): String {
+        return if (EmailGrouping.isGroupKey(chat.participantEmail)) {
+            chat.participantEmail.split(";")
+                .map { it.trim() }
+                .filter { it.isNotBlank() && it != EmailGrouping.normalize(account.emailAddress) }
+                .joinToString(",")
+                .ifBlank { chat.participantEmail }
+        } else {
+            chat.participantEmail
         }
     }
 

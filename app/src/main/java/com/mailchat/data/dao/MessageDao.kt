@@ -26,6 +26,10 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE id = :id")
     suspend fun getMessageById(id: Long): Message?
 
+    /** All messages linked to a poll (pollId = the poll-ID or the group-ID). */
+    @Query("SELECT * FROM messages WHERE pollId = :pollId")
+    suspend fun getMessagesByPollId(pollId: String): List<Message>
+
     @Query("UPDATE messages SET isRead = 1 WHERE chatId = :chatId AND isRead = 0")
     suspend fun markAllRead(chatId: Long)
 

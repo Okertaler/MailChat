@@ -35,7 +35,8 @@ class SyncEngine @Inject constructor(
     private val accountRepository: AccountRepository,
     private val chatRepository: ChatRepository,
     private val messageRepository: MessageRepository,
-    private val autoReplyService: AutoReplyService
+    private val autoReplyService: AutoReplyService,
+    private val pollProcessor: PollProcessor
 ) {
 
     // Background scope for the inbox write-back (must not block the sync loop).
@@ -59,17 +60,20 @@ class SyncEngine @Inject constructor(
         val periodStart = System.currentTimeMillis() - periodDays * 24L * 60L * 60L * 1000L
         val errorDetails = mutableListOf<String>()
         var failures = 0
+        // Collect all NEW incoming emails of this sync run and post a single notification (or a
+        // summary with a count) at the end, instead of one notification per email.
+        val newEmails = mutableListOf<NotificationHelper.NewEmailInfo>()
         for (account in accounts) {
             try {
                 val incoming = imapService.fetchNewMessages(account, periodStart)
                 errorDetails.addAll(incoming.errors.map { "${account.emailAddress} $it" })
                 for (fetchedMsg in incoming.messages) {
-                    processFetchedMessage(account, fetchedMsg)
+                    processFetchedMessage(account, fetchedMsg)?.let { newEmails.add(it) }
                 }
                 val sent = imapService.fetchSentMessages(account, periodStart)
                 errorDetails.addAll(sent.errors.map { "${account.emailAddress} $it" })
                 for (fetchedMsg in sent.messages) {
-                    processFetchedMessage(account, fetchedMsg)
+                    processFetchedMessage(account, fetchedMsg)?.let { newEmails.add(it) }
                 }
                 accountRepository.updateAccount(
                     account.copy(lastSyncTimestamp = System.currentTimeMillis())
@@ -79,19 +83,30 @@ class SyncEngine @Inject constructor(
                 errorDetails.add("${account.emailAddress}: ${e.message}")
             }
         }
+        // One notification (or a summary with the count) for everything fetched in this run.
+        NotificationHelper.postNewEmailNotifications(context, newEmails)
+        // Refresh the home-screen widget once (instead of per email) so it shows the new emails.
+        if (newEmails.isNotEmpty()) {
+            try {
+                com.mailchat.widget.MailWidgetProvider.refreshAll(context)
+            } catch (_: Exception) {
+            }
+        }
         return SyncResult(errorDetails, accounts.size, failures)
     }
 
     /**
      * Store a single fetched message: dedupe, create/update the chat, insert the message and its
-     * attachments, post a notification for incoming mail and run the AI auto-processing.
+     * attachments and run the AI auto-processing. Returns a [NotificationHelper.NewEmailInfo]
+     * when a NEW incoming email was inserted (so the caller can batch the notifications and post
+     * a single one — or a summary with a count — at the end of the sync), or null otherwise.
      */
     suspend fun processFetchedMessage(
         account: EmailAccount,
         fetchedMsg: FetchedMessage
-    ) {
+    ): NotificationHelper.NewEmailInfo? {
         val msgId = fetchedMsg.message.messageId
-        if (msgId.isNotBlank() && messageRepository.countByMessageId(msgId) > 0) return
+        if (msgId.isNotBlank() && messageRepository.countByMessageId(msgId) > 0) return null
         val participants = fetchedMsg.participants
         val isGroup = participants.size > 2
         val chatEmail = if (isGroup) participants.sorted().joinToString(";") else fetchedMsg.participantEmail
@@ -139,7 +154,7 @@ class SyncEngine @Inject constructor(
                 fetchedMsg.message.subject,
                 fetchedMsg.message.timestamp
             )
-            if (dupCount > 0) return
+            if (dupCount > 0) return null
         }
         // Phishing blacklist: a blacklisted sender is marked as phishing immediately (persists
         // in SharedPreferences, survives chat deletion).
@@ -155,21 +170,44 @@ class SyncEngine @Inject constructor(
         for (attachment in fetchedMsg.attachments) {
             messageRepository.insertAttachment(attachment.copy(messageId = dbMessageId))
         }
+        // Polls (Umfragen): detect a poll or a poll answer and record it (works for incoming and
+        // outgoing mail, so the creator's sent poll is registered too). Poll answers are
+        // suppressed in the chat, so they must not trigger a notification either.
+        var isPollAnswerMsg = false
+        var isPollMsg = false
+        try {
+            val processed = pollProcessor.processMessageForPolls(message.copy(id = dbMessageId), chat)
+            isPollAnswerMsg = processed.isPollAnswer
+            isPollMsg = processed.pollId.isNotBlank()
+        } catch (e: Exception) {
+            android.util.Log.w("MailchatSync", "poll processing failed", e)
+        }
         if (fetchedMsg.isIncoming) {
-            NotificationHelper.postNewEmail(
-                context = context,
-                chatId = chat.id,
-                sender = fetchedMsg.message.from,
-                subject = fetchedMsg.message.subject,
-                preview = fetchedMsg.message.body.take(200)
-            )
-            if (SettingsUtils.getAiEnabled(context) && SettingsUtils.getAiAutoProcess(context)) {
+            // Polls (and poll answers) get no AI tagging/spam detection — at most the
+            // encryption symbol is shown (driven by isEncrypted, not by the AI).
+            if (SettingsUtils.getAiEnabled(context) && SettingsUtils.getAiAutoProcess(context) && !isPollMsg) {
                 try {
                     com.mailchat.util.AiEngine.configureAndInitialize(context)
                     val updatedMsg = com.mailchat.util.AiMessageProcessor.processMessage(context, message)
                     messageRepository.updateMessage(updatedMsg.copy(id = dbMessageId))
                 } catch (e: Exception) {
                     android.util.Log.w("MailchatSync", "ai auto-process failed", e)
+                }
+            }
+            // Automatically create a display name (Klarnamen) for a new sender (controlled by a
+            // separate switch, so it also runs when auto-summarize is off).
+            if (SettingsUtils.getAiEnabled(context) && SettingsUtils.getAiAutoRealNames(context) &&
+                chat.participantName == chat.participantEmail
+            ) {
+                writeBackScope.launch {
+                    try {
+                        com.mailchat.util.AiEngine.configureAndInitialize(context)
+                        com.mailchat.util.AiMessageProcessor.ensureDisplayName(chat) { updated ->
+                            chatRepository.updateChat(updated)
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.w("MailchatSync", "auto real-name failed", e)
+                    }
                 }
             }
             // Automatic "Wo bist Du?" reply (see AutoReplyService).
@@ -196,11 +234,18 @@ class SyncEngine @Inject constructor(
                     }
                 }
             }
-            // Refresh the home-screen widget so it shows the new email.
-            try {
-                com.mailchat.widget.MailWidgetProvider.refreshAll(context)
-            } catch (_: Exception) {
-            }
         }
+        // Return the new-email info so the caller can batch the notification (and the widget
+        // refresh) at the end of the sync instead of doing it per email. Poll answers are
+        // suppressed in the chat → no notification for them.
+        return if (fetchedMsg.isIncoming && !isPollAnswerMsg) {
+            NotificationHelper.NewEmailInfo(
+                chatId = chat.id,
+                sender = fetchedMsg.message.from,
+                subject = fetchedMsg.message.subject,
+                preview = fetchedMsg.message.body.take(200),
+                timestamp = fetchedMsg.message.timestamp
+            )
+        } else null
     }
 }

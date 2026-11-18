@@ -52,5 +52,9 @@ data class Message(
     val bcc: String = "",
     val customTag: String = "",
     val isEncrypted: Boolean = false,
-    val signatureStatus: String = ""
+    val signatureStatus: String = "",
+    /** The poll ID when this message is a poll or a poll answer ("" otherwise). */
+    val pollId: String = "",
+    /** True when this message is a poll answer (hidden in the chat, counted in the poll). */
+    val isPollAnswer: Boolean = false
 )

@@ -80,6 +80,13 @@
     <string name="delete">Delete</string>
     <string name="full_email">Full email</string>
     <string name="create_event">Create Event</string>
+    <string name="select_appointment">Select appointment</string>
+    <string name="undo">Undo</string>
+    <string name="redo">Redo</string>
+    <string name="link_open_confirm_title">Really open?</string>
+    <string name="link_open_confirm_text">The following link will be opened:</string>
+    <string name="link_help_title">Opening links</string>
+    <string name="link_help_text">Links in emails can be dangerous (phishing). Always check the address before opening a link.\n\n• OK: opens the link in your browser.\n• Phishing: marks this email as phishing — all links in it are then blocked and the sender is added to the phishing blacklist.\n• Cancel: closes this dialog without opening the link.</string>
     <string name="load_images">Load images</string>
     <string name="from">From</string>
     <string name="date">Date</string>
@@ -218,6 +225,23 @@
     <string name="sync_30min">Every 30 minutes</string>
     <string name="sync_1hour">Every hour</string>
     <string name="sync_imported_count">%1$d new emails imported</string>
+    <string name="new_emails_count">%1$d new emails</string>
+    <string name="poll_multi">multiple answers possible</string>
+    <string name="poll_single">only one answer possible</string>
+    <string name="poll_answer">Answer</string>
+    <string name="poll_close">Close poll</string>
+    <string name="poll_closed">Poll closed</string>
+    <string name="poll_votes">%1$d votes</string>
+    <string name="poll_recipients">Recipients</string>
+    <string name="poll_result">Result</string>
+    <string name="poll_create">Poll</string>
+    <string name="poll_editor_title">New poll</string>
+    <string name="poll_title_label">Title</string>
+    <string name="poll_question_label">Question</string>
+    <string name="poll_option_label">Option %1$d</string>
+    <string name="poll_add_option">Add option</string>
+    <string name="poll_multi_choice">Multiple answers allowed</string>
+    <string name="poll_send">Send poll</string>
     <string name="contacts">Contacts</string>
     <string name="general">General</string>
     <string name="ai_local">local</string>
@@ -434,6 +458,8 @@
     <string name="assistant_q4">Which senders were marked as spam?</string>
     <string name="ai_auto_process">Auto-summarize &amp; classify on receive</string>
     <string name="ai_auto_process_desc">Incoming emails are summarized and classified automatically.</string>
+    <string name="ai_auto_real_names">Auto-create display names</string>
+    <string name="ai_auto_real_names_desc">When a new sender appears, the AI creates a display name (e.g. \"max.mustermann@firma.de\" → \"Max Mustermann\") automatically.</string>
     <string name="ai_auto_process_warning">Increased battery usage!</string>
     <string name="ai_on">On</string>
     <string name="ai_off">Off</string>
@@ -465,6 +491,15 @@
         <item>Group chats: emails with multiple recipients are collected in one chat</item>
         <item>New emails can be sent to multiple recipients (comma separated)</item>
         <item>Replies in a group chat are sent to all members</item>
+    </string-array>
+    <string-array name="version_2_5_changes">
+        <item>New: Polls in chat – create and answer polls (single or multiple choice) with a bar chart, auto-close after the last vote and a result email; works with regular email clients (e.g. Thunderbird) and in group chats</item>
+        <item>New: Link confirmation – the address is shown before a link is opened; the "Phishing" option blocks all links in the email and adds the sender to the phishing blacklist</item>
+        <item>New: Undo and redo in the message field</item>
+        <item>New: The AI creates display names for new senders automatically (optional in settings, e.g. "max.mustermann@firma.de" → "Max Mustermann")</item>
+        <item>New: Multiple appointments detected in one email – pick which one to add to the calendar</item>
+        <item>Improved: Notifications – multiple new emails now arrive as one summary ("N new emails") instead of one per email</item>
+        <item>Improved: Phishing emails now have their external images and links blocked</item>
     </string-array>
     <string-array name="version_2_4_changes">
         <item>New: Field background color — with no text selected the message field background is colored, with a selection the text is highlighted</item>
@@ -1036,6 +1071,7 @@
     <string name="mark_done">Mark as done</string>
     <string name="more_options">More options</string>
     <string name="images_blocked_hint">External images blocked - load via the image icon at top</string>
+    <string name="images_links_blocked_phishing">External images and links blocked due to phishing</string>
     <string name="raw_source_title">Source</string>
     <string name="copy">Copy</string>
     <string name="secure_connection">Secure Connection</string>
@@ -1086,7 +1122,7 @@
     <string name="help_ai_summarize_menu_title">AI Summarize (Edit Menu)</string>
     <string name="help_ai_summarize_menu_text">Select one or more chats, then use Edit → AI Summarize to generate summaries, categorize spam, and assign custom tags to all messages in the selected chats. Note: This takes approx. 30 seconds per email and may drain the battery.</string>
     <string name="help_backup_title">Backup &amp; Restore</string>
-    <string name="help_backup_text">Export all your data (accounts, chats, messages, settings) to a password-protected file. Import a backup to restore on a new device. The backup includes all local data but not server-side emails.</string>
+    <string name="help_backup_text">Export all your data (accounts, chats, messages, settings) to a password-protected file. Import a backup to restore on a new device. The backup includes all local data but not server-side emails.\n\nNote: The OpenPGP key passphrase is protected by this device\'s secure hardware (Android Keystore) and cannot be transferred to another device. After restoring on a different device, your OpenPGP secret key may not be usable. Workaround: export your private key with your own passphrase (Settings → Encryption → Export private key) and import it on the new device.</string>
     <string name="help_recipient_title">Select Recipient</string>
     <string name="help_recipient_text">Choose who to reply to in a group chat. Your own address is hidden. Select "Send to all" to reply to everyone, or pick a specific person.\n\nAuto-reply \"Where are you?\" (1:1 chats only): when enabled, the app automatically replies to this contact with your current location when they ask \"Where are you?\" (recognized: \"wo bist du\", \"wo bist ihr\", \"wo seid ihr\", \"where are you\"). Notes and limitations: only incoming emails are checked; the location permission must be granted; the last known position is used, and if none is available a fresh GPS/network fix is requested (up to ~20 s, otherwise the reply is skipped and logged); the reply is sent only once per message; if the weather option is enabled, your location is sent to open-meteo.com to fetch the forecast for the next 4 hours.</string>
     <string name="help_assistant_title">Chat with Your Data</string>

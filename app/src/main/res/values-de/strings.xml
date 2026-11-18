@@ -80,6 +80,13 @@
     <string name="delete">Löschen</string>
     <string name="full_email">Ganze E-Mail</string>
     <string name="create_event">Termin erstellen</string>
+    <string name="select_appointment">Termin auswählen</string>
+    <string name="undo">Rückgängig</string>
+    <string name="redo">Wiederholen</string>
+    <string name="link_open_confirm_title">Wirklich öffnen?</string>
+    <string name="link_open_confirm_text">Folgender Link wird geöffnet:</string>
+    <string name="link_help_title">Links öffnen</string>
+    <string name="link_help_text">Links in E-Mails können gefährlich sein (Phishing). Prüfe die Adresse immer, bevor du einen Link öffnest.\n\n• OK: öffnet den Link in deinem Browser.\n• Phishing: markiert diese E-Mail als Phishing — alle Links darin werden dann gesperrt und der Absender wird auf die Phishing-Blacklist gesetzt.\n• Abbrechen: schließt das Fenster, ohne den Link zu öffnen.</string>
     <string name="load_images">Bilder laden</string>
     <string name="from">Von</string>
     <string name="date">Datum</string>
@@ -218,6 +225,23 @@
     <string name="sync_30min">Alle 30 Minuten</string>
     <string name="sync_1hour">Stündlich</string>
     <string name="sync_imported_count">%1$d neue E-Mails importiert</string>
+    <string name="new_emails_count">%1$d neue E-Mails</string>
+    <string name="poll_multi">mehrere Antworten möglich</string>
+    <string name="poll_single">nur eine Antwort möglich</string>
+    <string name="poll_answer">Antworten</string>
+    <string name="poll_close">Umfrage abschließen</string>
+    <string name="poll_closed">Umfrage abgeschlossen</string>
+    <string name="poll_votes">%1$d Stimmen</string>
+    <string name="poll_recipients">Empfänger</string>
+    <string name="poll_result">Ergebnis</string>
+    <string name="poll_create">Umfrage</string>
+    <string name="poll_editor_title">Neue Umfrage</string>
+    <string name="poll_title_label">Titel</string>
+    <string name="poll_question_label">Frage</string>
+    <string name="poll_option_label">Option %1$d</string>
+    <string name="poll_add_option">Option hinzufügen</string>
+    <string name="poll_multi_choice">Mehrere Antworten möglich</string>
+    <string name="poll_send">Umfrage senden</string>
     <string name="contacts">Kontakte</string>
     <string name="general">Allgemein</string>
     <string name="ai_local">lokal</string>
@@ -434,6 +458,8 @@
     <string name="assistant_q4">Welche Absender wurden als Spam markiert?</string>
     <string name="ai_auto_process">Automatisch zusammenfassen &amp; klassifizieren</string>
     <string name="ai_auto_process_desc">Eingehende E-Mails werden automatisch zusammengefasst und klassifiziert.</string>
+    <string name="ai_auto_real_names">Klarnamen automatisch erstellen</string>
+    <string name="ai_auto_real_names_desc">Erscheint ein neuer Absender, erstellt die KI automatisch einen Klarnamen (z. B. „max.mustermann@firma.de“ → „Max Mustermann“).</string>
     <string name="ai_auto_process_warning">Erhöhter Energieverbrauch!</string>
     <string name="ai_on">An</string>
     <string name="ai_off">Aus</string>
@@ -465,6 +491,15 @@
         <item>Gruppenchats: E-Mails mit mehreren Empfängern werden in einem Chat gesammelt</item>
         <item>Neue E-Mails können an mehrere Empfänger (kommagetrennt) gesendet werden</item>
         <item>Antworten in einem Gruppenchat gehen an alle Mitglieder</item>
+    </string-array>
+    <string-array name="version_2_5_changes">
+        <item>Neu: Umfragen direkt im Chat erstellen und beantworten (Einzel- oder Mehrfachauswahl) – mit Balkendiagramm, Auto-Abschluss nach der letzten Stimme und Ergebnis per E-Mail; funktioniert auch mit normalen E-Mail-Programmen (z. B. Thunderbird) und in Gruppenchats</item>
+        <item>Neu: Links-Bestätigung – vor dem Öffnen eines Links wird die Adresse angezeigt; mit der Option „Phishing" werden alle Links der E-Mail blockiert und der Absender auf die Phishing-Blacklist gesetzt</item>
+        <item>Neu: Rückgängig und Wiederholen im Nachrichtenfeld</item>
+        <item>Neu: Die KI erstellt automatisch Klarnamen für neue Absender (optional in den Einstellungen, z. B. „max.mustermann@firma.de" → „Max Mustermann")</item>
+        <item>Neu: Mehrere erkannte Termine in einer E-Mail – Auswahl, welcher in den Kalender übernommen wird</item>
+        <item>Verbessert: Benachrichtigungen – mehrere neue E-Mails kommen jetzt als eine Zusammenfassung („N neue E-Mails") statt einer pro E-Mail</item>
+        <item>Verbessert: Bei Phishing-E-Mails werden externe Bilder und Links blockiert</item>
     </string-array>
     <string-array name="version_2_4_changes">
         <item>Neu: Feld-Hintergrundfarbe – ohne Textmarkierung wird der Hintergrund des Nachrichtenfeldes gesetzt, mit Markierung der Text</item>
@@ -1036,6 +1071,7 @@
     <string name="mark_done">Als erledigt markieren</string>
     <string name="more_options">Weitere Optionen</string>
     <string name="images_blocked_hint">Externe Bilder blockiert - laden über das Bild-Icon oben</string>
+    <string name="images_links_blocked_phishing">Externe Bilder und Links wegen Phishing blockiert</string>
     <string name="raw_source_title">Quelltext</string>
     <string name="copy">Kopieren</string>
     <string name="secure_connection">Sichere Verbindung</string>
@@ -1086,7 +1122,7 @@
     <string name="help_ai_summarize_menu_title">KI-Zusammenfassung (Bearbeiten-Menü)</string>
     <string name="help_ai_summarize_menu_text">Wähle einen oder mehrere Chats aus und nutze Bearbeiten → KI-Zusammenfassung, um Zusammenfassungen zu erstellen, Spam zu kategorisieren und eigene Tags zuzuweisen. Hinweis: Dauert ca. 30 Sekunden pro E-Mail und kann den Akku belasten.</string>
     <string name="help_backup_title">Sichern &amp; Wiederherstellen</string>
-    <string name="help_backup_text">Exportiere alle Daten (Konten, Chats, Nachrichten, Einstellungen) in eine passwortgeschützte Datei. Importiere ein Backup zur Wiederherstellung auf einem neuen Gerät. Das Backup enthält alle lokalen Daten, aber keine serverseitigen E-Mails.</string>
+    <string name="help_backup_text">Exportiere alle Daten (Konten, Chats, Nachrichten, Einstellungen) in eine passwortgeschützte Datei. Importiere ein Backup zur Wiederherstellung auf einem neuen Gerät. Das Backup enthält alle lokalen Daten, aber keine serverseitigen E-Mails.\n\nHinweis: Die OpenPGP-Schlüssel-Passphrase ist durch die sichere Hardware (Android Keystore) dieses Geräts geschützt und kann nicht auf ein anderes Gerät übertragen werden. Nach der Wiederherstellung auf einem anderen Gerät ist dein OpenPGP-Privatschlüssel möglicherweise nicht nutzbar. Workaround: Exportiere deinen privaten Schlüssel mit eigener Passphrase (Einstellungen → Verschlüsselung → Privaten Schlüssel exportieren) und importiere ihn auf dem neuen Gerät.</string>
     <string name="help_recipient_title">Empfänger auswählen</string>
     <string name="help_recipient_text">Wähle aus, an wen du in einem Gruppenchat antwortest. Deine eigene Adresse ist ausgeblendet. Wähle "An alle senden" oder eine bestimmte Person.\n\nAuto-Antwort „Wo bist Du?“ (nur 1:1-Chats): Wenn aktiviert, antwortet die App diesem Kontakt automatisch mit deinem aktuellen Standort, wenn er „Wo bist Du?“ fragt (erkannt werden: „wo bist du“, „wo bist ihr“, „wo seid ihr“, „where are you“). Hinweise und Einschränkungen: Es werden nur eingehende Mails geprüft; die Standort-Berechtigung muss erteilt sein; es wird die letzte bekannte Position verwendet, falls keine vorliegt wird eine frische GPS/Netzwerk-Position angefordert (max. ~20 s, sonst wird nicht geantwortet und es wird ins Log geschrieben); pro Nachricht wird nur einmal geantwortet; bei aktiviertem Wetter wird dein Standort an open-meteo.com gesendet, um die Vorhersage für die nächsten 4 Stunden abzurufen.</string>
     <string name="help_assistant_title">Chat mit deinen Daten</string>

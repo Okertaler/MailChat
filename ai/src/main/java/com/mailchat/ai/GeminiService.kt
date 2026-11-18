@@ -396,33 +396,47 @@ $truncated"""
 
     data class Appointment(val title: String, val date: String, val time: String, val durationMin: Int)
 
-    suspend fun extractAppointment(text: String): Appointment? = withContext(Dispatchers.IO) {
+    /**
+     * Extracts ALL dated events from [text]. Returns an empty list if no dated event is found.
+     * The caller decides what to do with the result: a single event is used directly, while
+     * multiple events are presented to the user for selection before anything is created.
+     */
+    suspend fun extractAppointments(text: String): List<Appointment> = withContext(Dispatchers.IO) {
         val truncated = text.stripHtml().take(5000)
-        val prompt = """Extract a dated event from this text. Reply with ONLY a JSON object, no other text.
-Format: {"title":"...","date":"YYYY-MM-DD","time":"HH:mm","duration":60}
+        val prompt = """Extract ALL dated events from this text. Reply with ONLY a JSON array, no other text.
+Format: [{"title":"...","date":"YYYY-MM-DD","time":"HH:mm","duration":60}, ...]
 Rules:
-- ALWAYS extract if the text contains a specific calendar date (day + month, with or without year). This includes appointments, meetings, deadlines, due dates, effective dates, billing dates, and any other dated event.
+- Extract every specific calendar date (day + month, with or without year) that refers to an event: appointments, meetings, deadlines, due dates, effective dates, billing dates, and any other dated event.
+- IGNORE any email header lines (From:, To:, Cc:, Date:, Subject:, Von:, An:, Datum:, Betreff:). In particular the "Date:"/"Datum:" line is the email's received date, NOT an appointment — never extract it.
 - title: short event name (max 50 chars) derived from the context, e.g. "Zahnarzt", "Team Meeting", "Nutzungsbedingungen aktualisiert", "Rechnung fällig"
 - date: the date in YYYY-MM-DD format. Use the current year if only day/month is given.
 - time: start time in HH:mm (24h format) if given. German formats: "14:30 Uhr" = "14:30", "14.30 Uhr" = "14:30", "um 15 Uhr" = "15:00", "von 14 bis 16 Uhr" = start "14:00" duration 120
 - If no time is given, use "09:00" as default time
 - duration: duration in minutes (default 60 if not specified). "2 Stunden" = 120, "90 Minuten" = 90
-- Reply with null ONLY if the text contains NO specific calendar date at all
+- If the same event/date is mentioned multiple times, list it only once.
+- Reply with an empty array [] if the text contains NO specific calendar date at all
 
 Text:
 $truncated"""
-        val result = generate(prompt, maxOutputToken = 200).trim()
-        if (result.equals("null", ignoreCase = true) || result.isBlank()) return@withContext null
+        val result = generate(prompt, maxOutputToken = 600).trim()
+        if (result.equals("null", ignoreCase = true) || result.isBlank() || result.trim() == "[]") return@withContext emptyList()
         try {
             val cleanJson = result.removeSurrounding("```json", "```").removeSurrounding("```", "```").trim()
-            val title = cleanJson.substringAfter("\"title\":\"").substringBefore("\"")
-            val date = cleanJson.substringAfter("\"date\":\"").substringBefore("\"")
-            val time = cleanJson.substringAfter("\"time\":\"").substringBefore("\"")
-            val duration = cleanJson.substringAfter("\"duration\":").split(",", "}").first().trim().toIntOrNull() ?: 60
-            if (title.isBlank() || date.isBlank()) return@withContext null
-            Appointment(title, date, time, duration)
+            // Robust parsing: the model may return a single object or an array, compact or
+            // pretty-printed (with or without spaces after the colons). Find every flat JSON
+            // object and parse its fields with optional whitespace.
+            val objects = Regex("\\{[^{}]*\\}").findAll(cleanJson).map { it.value }.toList()
+            objects.mapNotNull { obj ->
+                val title = Regex("\"title\"\\s*:\\s*\"([^\"]*)\"").find(obj)?.groupValues?.get(1) ?: ""
+                val date = Regex("\"date\"\\s*:\\s*\"([^\"]*)\"").find(obj)?.groupValues?.get(1) ?: ""
+                val time = Regex("\"time\"\\s*:\\s*\"([^\"]*)\"").find(obj)?.groupValues?.get(1) ?: ""
+                val duration = Regex("\"duration\"\\s*:\\s*(\\d+)").find(obj)?.groupValues?.get(1)?.toIntOrNull() ?: 60
+                // Validate the date format (YYYY-MM-DD) so a malformed entry is rejected.
+                if (title.isBlank() || !Regex("\\d{4}-\\d{2}-\\d{2}").matches(date)) return@mapNotNull null
+                Appointment(title, date, time.ifBlank { "09:00" }, duration)
+            }.distinct().take(5)
         } catch (_: Exception) {
-            null
+            emptyList()
         }
     }
 
