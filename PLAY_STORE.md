@@ -16,14 +16,14 @@ MailChat
 
 In der Play Console unter **Release → What's new** eintragen.
 
-### Englisch (451 Zeichen)
+### Englisch (398 Zeichen)
 ```
-New: sync button in the chat view (spins during sync). Image mosaic in the chat bubble (up to 4 images) and a full-screen zoom viewer with pinch-to-zoom. Improved: poll result view – recipients see the same result as the creator, contact names instead of email addresses. The edit menu now appears immediately in multi-select mode. Fixed: images and attachments not showing in the chat after a restore – missing files are re-linked or re-fetched automatically.
+New: polls with number mode (a number per option, result = sum) and person-related polls (result as a table). Recipients now see the same result as the creator, with contact names. Image mosaic in the chat bubble (up to 4) with full-screen zoom. Sync button in the chat view (spins while syncing). Edit menu opens multi-select immediately. Fixed: images and attachments not showing after a restore.
 ```
 
-### Deutsch (463 Zeichen)
+### Deutsch (422 Zeichen)
 ```
-Neu: Sync-Button in der Chatansicht (dreht sich beim Sync). Bild-Mosaik in der Chatblase (bis zu 4 Bilder) und Vollbild-Zoom-Viewer mit Pinch-to-Zoom. Verbessert: Umfrage-Ergebnisansicht – Empfänger sehen dasselbe Ergebnis wie der Ersteller, Kontaktnamen statt E-Mail-Adressen. Bearbeiten-Menü erscheint sofort in der Mehrfachauswahl. Behoben: Bilder und Anhänge wurden nach einem Restore nicht im Chat angezeigt – fehlende Dateien werden automatisch neu verlinkt oder neu geladen.
+Neu: Umfragen mit Zahlen-Modus (eine Zahl pro Option, Ergebnis = Summe) und Personen-Umfragen (Ergebnis als Tabelle). Empfänger sehen jetzt dasselbe Ergebnis wie der Ersteller, mit Kontaktnamen. Bild-Mosaik in der Chatblase (bis zu 4) mit Vollbild-Zoom. Sync-Button in der Chatansicht (dreht sich beim Sync). Bearbeiten-Menü öffnet sofort die Mehrfachauswahl. Behoben: Bilder und Anhänge nach einem Restore nicht sichtbar.
 ```
 
 > Hinweis: In der Play Console unter **Release → What's new** wird der Text **ohne** die `<de-DE>`/`<en-GB>`-Tags eingetragen (die Tags sind nur für `version.md` im Repo). Pro Sprache ein eigener Eintrag, jeweils ≤ 500 Zeichen.
@@ -81,13 +81,15 @@ MailChat turns your email into private, chat-style conversations — with encryp
 • Reply suggestions (formal / informal).
 • Real-name & appointment extraction.
 • AI assistant (chat with your data).
-• Polls in chat (single or multiple choice) with a bar chart and a result email; works with regular email clients.
+• Polls in chat (single/multiple choice, number mode, person-related) with a bar chart or table and a result email; works with regular email clients.
 • Image mosaic in the chat bubble (up to 4 images) with a full-screen zoom viewer (pinch-to-zoom).
 • Home-screen widget showing your latest or unread emails (adjustable font size).
 • Image blocking for spam (anti tracking pixels).
 • Compress attachments (optional password-protected ZIP).
 
 MailChat is a private, non-commercial app. Free to use.
+Documents: https://okertaler.github.io/MailChat/docs/
+Source code: https://github.com/Okertaler/MailChat/
 ```
 
 ### Deutsch
@@ -127,13 +129,15 @@ MailChat verwandelt deine E-Mails in private, chatartige Gespräche — mit Vers
 • Antwortvorschläge (formell / locker).
 • Name- & Termin-Erkennung.
 • KI-Assistent (Chat mit deinen Daten).
-• Umfragen im Chat (Einzel- oder Mehrfachauswahl) mit Balkendiagramm und Ergebnis per E-Mail; funktioniert auch mit normalen E-Mail-Programmen.
+• Umfragen im Chat (Einzel-/Mehrfachauswahl, Zahlen-Modus, personenbezogen) mit Balkendiagramm oder Tabelle und Ergebnis per E-Mail; funktioniert auch mit normalen E-Mail-Programmen.
 • Bild-Mosaik in der Chatblase (bis zu 4 Bilder) mit Vollbild-Zoom-Viewer (Pinch-to-Zoom).
 • Startbildschirm-Widget mit deinen letzten oder ungelesenen E-Mails (Schriftgröße einstellbar).
 • Bild-Blockierung für Spam (Anti-Tracking-Pixel).
 • Anhänge komprimieren (optional passwortgeschütztes ZIP).
 
 MailChat ist eine private, nicht-gewerbliche App. Kostenlos in der Nutzung.
+Dokumente: https://okertaler.github.io/MailChat/docs/
+Quellcode: https://github.com/Okertaler/MailChat/
 ```
 
 ---
@@ -281,7 +285,7 @@ Die App teilt auf Wunsch des Nutzers dessen genauen Standort als Karten-Link an 
 
 ### 10.3 App-Qualität (Frist: Februar 2027)
 Grenzwerte für Arbeitsspeicher- und Code-Optimierung einhalten. Aktuelles AAB:
-19,0 MB (R8-Minification + Resource-Shrinking aktiv) — im grünen Bereich.
+19,3 MB (R8-Minification + Resource-Shrinking aktiv) — im grünen Bereich.
 Kein sofortiges Handeln, aber beobachten.
 
 ### 10.4 Japan (Frist: 01.12.2026) — nicht relevant
