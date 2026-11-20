@@ -10,6 +10,14 @@ import androidx.room.Index
  * The poll is stored as a plain-text email (see [com.mailchat.util.PollFormat]) so it also works
  * with regular email programs. The [options] field is a JSON array of the option texts.
  *
+ * [multi] marks a multiple-choice poll (several options can be selected). [numberMode] marks a
+ * numeric poll: instead of selecting options, each respondent enters a NUMBER per option and the
+ * result is the SUM of those numbers per option (see [com.mailchat.data.model.PollVote.values]).
+ *
+ * [personMode] marks a person-related poll: the result is a TABLE where the persons (voters) form
+ * the rows and the options form the columns, and the bottom row is the sum of the columns. The
+ * answer format is unchanged (checkbox or number per option) — only the result view differs.
+ *
  * The creator sends ONE poll email per recipient, each with its own [id] (poll-ID). All of those
  * per-recipient poll-IDs belong to the same logical poll, linked by [groupId]. [recipientEmail]
  * records who a per-recipient poll-ID was sent to (only set in the creator's records). The
@@ -31,6 +39,8 @@ data class Poll(
     val question: String = "",
     val options: String = "[]",
     val multi: Boolean = false,
+    val numberMode: Boolean = false,
+    val personMode: Boolean = false,
     val creatorEmail: String = "",
     val pollMessageId: String = "",
     val status: String = STATUS_OPEN,

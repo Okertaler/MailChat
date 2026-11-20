@@ -146,6 +146,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.filter
+import kotlin.math.abs
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -161,10 +162,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -178,8 +181,10 @@ import com.mailchat.R
 import com.mailchat.data.model.Attachment
 import com.mailchat.data.model.Message
 import com.mailchat.ui.component.ChatBubble
+import com.mailchat.ui.component.ZoomableImage
 import com.mailchat.ui.component.AccountAvatar
 import com.mailchat.ui.component.GroupAvatar
+import com.mailchat.ui.component.SpinningRefreshButton
 import com.mailchat.ui.viewmodel.ChatDetailViewModel
 import com.mailchat.util.DateUtils
 import com.mailchat.util.EmailGrouping
@@ -222,6 +227,20 @@ fun ChatDetailScreen(
             archiveFile = java.io.File(att.uri)
         } else {
             com.mailchat.util.AttachmentUtils.openAttachment(context, att)
+        }
+    }
+    // Full-screen (zoomable) image viewer for images tapped in the chat.
+    var fullScreenImage by remember { mutableStateOf<java.io.File?>(null) }
+    val openImageFullScreen: (Attachment) -> Unit = { att ->
+        val file = com.mailchat.util.AttachmentUtils.resolveFile(context, att)
+        if (file == null) {
+            android.widget.Toast.makeText(
+                context,
+                context.getString(com.mailchat.R.string.attachment_not_found),
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            fullScreenImage = file
         }
     }
 
@@ -307,15 +326,18 @@ fun ChatDetailScreen(
 
 
     val filteredMessages = remember(uiState.messages, searchQuery) {
-        // Poll answers are suppressed in the chat (they are aggregated in the poll itself).
-        var visible = uiState.messages.filter { !it.isPollAnswer }
+        // Poll answers and result emails are suppressed in the chat: the poll shows its own
+        // result, so there is only ONE entry per poll.
+        var visible = uiState.messages.filter { msg ->
+            !msg.isPollAnswer &&
+                PollFormat.parseResultMarker(msg.bodyFull.ifBlank { msg.body }) == null
+        }
         // The creator sends one poll email per recipient (each with its own poll-ID, all linked by
         // a shared groupId). Show only ONE poll message per group (the first one) so the chat
         // doesn't show the same poll N times.
         val seenGroups = mutableSetOf<String>()
         visible = visible.filter { msg ->
-            val isPollMsg = msg.pollId.isNotBlank() && !msg.isPollAnswer &&
-                PollFormat.parseResultMarker(msg.bodyFull.ifBlank { msg.body }) == null
+            val isPollMsg = msg.pollId.isNotBlank() && !msg.isPollAnswer
             if (!isPollMsg) return@filter true
             if (msg.pollId in seenGroups) return@filter false
             seenGroups.add(msg.pollId)
@@ -578,7 +600,9 @@ fun ChatDetailScreen(
                                 contentDescription = stringResource(R.string.done)
                             )
                         }
-                        if (selectedMessageIds.isNotEmpty()) {
+                        // The edit menu is shown immediately when multi-select mode is enabled
+                        // (not only after the first message is checked).
+                        run {
                             val allSelected = filteredMessages.isNotEmpty() && selectedMessageIds.size >= filteredMessages.size
                             val selectedMsgs = filteredMessages.filter { it.id in selectedMessageIds }
                             val isSingle = selectedMsgs.size == 1
@@ -654,10 +678,14 @@ fun ChatDetailScreen(
                                                 if (uiState.isAiProcessing) {
                                                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                                                 } else {
-                                                    Icon(Icons.Outlined.Summarize, null)
+                                                    Icon(
+                                                        Icons.Outlined.Summarize,
+                                                        null,
+                                                        tint = if (selectedMsgs.isEmpty()) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onSurface
+                                                    )
                                                 }
                                             },
-                                            enabled = !uiState.isAiProcessing,
+                                            enabled = !uiState.isAiProcessing && selectedMsgs.isNotEmpty(),
                                             onClick = {
                                                 viewModel.summarizeMessages(selectedMsgs)
                                             }
@@ -698,21 +726,42 @@ fun ChatDetailScreen(
                                     )
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.ai_custom_tags)) },
-                                        leadingIcon = { Icon(Icons.Default.Label, null) },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.Label,
+                                                null,
+                                                tint = if (isSingle) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                            )
+                                        },
+                                        enabled = isSingle,
                                         onClick = {
                                             customTagMessage = singleMsg
                                         }
                                     )
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.to_processed)) },
-                                        leadingIcon = { Icon(Icons.Default.Flag, null, tint = Color(0xFFF44336)) },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.Flag,
+                                                null,
+                                                tint = if (selectedMsgs.isEmpty()) Color(0xFFF44336).copy(alpha = 0.3f) else Color(0xFFF44336)
+                                            )
+                                        },
+                                        enabled = selectedMsgs.isNotEmpty(),
                                         onClick = {
                                             viewModel.setTodoForMessages(selectedMsgs, true)
                                         }
                                     )
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.mark_processed)) },
-                                        leadingIcon = { Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF4CAF50)) },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.CheckCircle,
+                                                null,
+                                                tint = if (selectedMsgs.isEmpty()) Color(0xFF4CAF50).copy(alpha = 0.3f) else Color(0xFF4CAF50)
+                                            )
+                                        },
+                                        enabled = selectedMsgs.isNotEmpty(),
                                         onClick = {
                                             viewModel.setProcessedForMessages(selectedMsgs, true)
                                         }
@@ -720,7 +769,14 @@ fun ChatDetailScreen(
                                     androidx.compose.material3.HorizontalDivider()
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.delete)) },
-                                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.Delete,
+                                                null,
+                                                tint = if (selectedMsgs.isEmpty()) MaterialTheme.colorScheme.error.copy(alpha = 0.3f) else MaterialTheme.colorScheme.error
+                                            )
+                                        },
+                                        enabled = selectedMsgs.isNotEmpty(),
                                         onClick = {
                                             viewModel.deleteMessages(selectedMessageIds.toList())
                                             selectedMessageIds = emptySet()
@@ -730,6 +786,8 @@ fun ChatDetailScreen(
                             }
                         }
                     } else {
+                        // Manual sync for this chat (spins while running).
+                        SpinningRefreshButton(isSpinning = uiState.isSyncing, onClick = { viewModel.syncChat() })
                         if (uiState.messages.any { it.body.isBlank() && it.bodyFull.isBlank() }) {
                             IconButton(onClick = { viewModel.refetchEmptyMessages() }) {
                                 Icon(Icons.Default.Refresh, contentDescription = "Re-fetch empty")
@@ -759,10 +817,6 @@ fun ChatDetailScreen(
                                 Icons.Default.Report,
                                 contentDescription = stringResource(R.string.spam_category)
                             )
-                        }
-                        // Create a poll (Umfrage) in this chat.
-                        IconButton(onClick = { showPollEditor = true }) {
-                            Icon(Icons.Default.Poll, contentDescription = stringResource(R.string.poll_create))
                         }
                     }
                 }
@@ -1023,6 +1077,17 @@ fun ChatDetailScreen(
                                     showAddMenu = false
                                     selectedEmailIds = emptySet()
                                     showEmailAttachDialog = true
+                                }
+                            )
+                            // Create a poll (Umfrage) in this chat.
+                            androidx.compose.material3.DropdownMenuItem(
+                                leadingIcon = {
+                                    Icon(Icons.Default.Poll, contentDescription = null)
+                                },
+                                text = { Text(stringResource(R.string.poll_create)) },
+                                onClick = {
+                                    showAddMenu = false
+                                    showPollEditor = true
                                 }
                             )
                             androidx.compose.material3.DropdownMenuItem(
@@ -1429,6 +1494,13 @@ fun ChatDetailScreen(
                                                 android.widget.Toast.makeText(context, "Anhänge aus Phishing-E-mails können nicht geöffnet werden", android.widget.Toast.LENGTH_SHORT).show()
                                             } else {
                                                 openAttachmentSmart(attachment)
+                                            }
+                                        },
+                                        onImageClick = { attachment ->
+                                            if (message.spamCategory == "phishing") {
+                                                android.widget.Toast.makeText(context, "Anhänge aus Phishing-E-mails können nicht geöffnet werden", android.widget.Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                openImageFullScreen(attachment)
                                             }
                                         },
                                         senderEmail = if (!message.isIncoming) message.from else null,
@@ -2012,6 +2084,29 @@ fun ChatDetailScreen(
         )
     }
 
+    // Full-screen zoomable image viewer (tapped image in the chat).
+    fullScreenImage?.let { file ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        ) {
+            ZoomableImage(file.absolutePath, Modifier.fillMaxSize())
+            IconButton(
+                onClick = { fullScreenImage = null },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = stringResource(R.string.close),
+                    tint = Color.White
+                )
+            }
+        }
+    }
+
     if (uiState.fullComposeOpen && selectedMessage == null) {
         FullComposeOverlay(
             fromAddress = uiState.accountEmail ?: "",
@@ -2084,9 +2179,9 @@ fun ChatDetailScreen(
         PollEditor(
             isSending = uiState.isSending,
             onDismiss = { showPollEditor = false },
-            onCreate = { title, question, options, multi ->
+            onCreate = { title, question, options, multi, numberMode, personMode ->
                 showPollEditor = false
-                viewModel.createPoll(title, question, options, multi)
+                viewModel.createPoll(title, question, options, multi, numberMode, personMode)
                 // The poll is a standalone email — close the compose overlay for a clean flow.
                 viewModel.closeFullCompose()
             }
@@ -3359,7 +3454,7 @@ private fun launchCalendarEventInsert(
 private fun PollEditor(
     isSending: Boolean,
     onDismiss: () -> Unit,
-    onCreate: (title: String, question: String, options: List<String>, multi: Boolean) -> Unit
+    onCreate: (title: String, question: String, options: List<String>, multi: Boolean, numberMode: Boolean, personMode: Boolean) -> Unit
 ) {
     val context = LocalContext.current
     // Pre-fill the title with "Umfrage: " / "Poll: " (editable) so the poll start email
@@ -3372,6 +3467,13 @@ private fun PollEditor(
     // observed → text fields wouldn't update and deleting an option would crash).
     var options by remember { mutableStateOf(listOf("", "")) }
     var multi by remember { mutableStateOf(false) }
+    // Numeric poll: respondents enter a number per option (summed up). Outside person mode it is
+    // mutually exclusive with the multiple-choice toggle (a poll is either a checkbox poll or a
+    // numeric poll). In person mode, numbers FORCE multiple choice (a person can fill in several
+    // options), so the multi toggle is locked on while numbers is on.
+    var numberMode by remember { mutableStateOf(false) }
+    // Person-related poll: the result is a table (persons × options, bottom row = column sums).
+    var personMode by remember { mutableStateOf(false) }
     val validOptions = options.map { it.trim() }.filter { it.isNotBlank() }
     val canSend = title.isNotBlank() && validOptions.size >= 2 && !isSending
 
@@ -3453,15 +3555,54 @@ private fun PollEditor(
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = multi, onCheckedChange = { multi = it })
+                        Checkbox(
+                            checked = multi,
+                            // Locked on while a person poll uses numbers (numbers force multiple choice).
+                            enabled = !(personMode && numberMode),
+                            onCheckedChange = { newMulti ->
+                                multi = newMulti
+                                // Outside person mode, multi and numbers are mutually exclusive.
+                                if (newMulti && !personMode) numberMode = false
+                            }
+                        )
                         Text(stringResource(R.string.poll_multi_choice), style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = personMode,
+                            onCheckedChange = { newPerson ->
+                                personMode = newPerson
+                                if (newPerson) {
+                                    if (numberMode) multi = true  // numbers force multi in person mode
+                                } else {
+                                    // Turning off person mode: restore mutual exclusivity (multi XOR numbers).
+                                    if (multi && numberMode) numberMode = false
+                                }
+                            }
+                        )
+                        Text(stringResource(R.string.poll_person_mode), style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = numberMode,
+                            onCheckedChange = { newNumber ->
+                                numberMode = newNumber
+                                if (newNumber) {
+                                    if (personMode) multi = true   // numbers force multi in person mode
+                                    else multi = false             // mutual exclusivity outside person mode
+                                }
+                            }
+                        )
+                        Text(stringResource(R.string.poll_number_mode), style = MaterialTheme.typography.bodyMedium)
                     }
                     // The send button lives INSIDE the scrollable area so it is always fully
                     // visible (a fixed button at the bottom edge gets clipped when the keyboard
                     // or the screen height is small).
                     Spacer(Modifier.height(16.dp))
                     Button(
-                        onClick = { onCreate(title.trim(), question.trim(), validOptions, multi) },
+                        onClick = { onCreate(title.trim(), question.trim(), validOptions, multi, numberMode, personMode) },
                         enabled = canSend,
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -3486,11 +3627,27 @@ private fun PollEditor(
 private fun PollView(message: Message, viewModel: ChatDetailViewModel) {
     val pollId = message.pollId
     var results by remember { mutableStateOf<ChatDetailViewModel.PollResults?>(null) }
+    // Fetch incoming emails ONCE when the poll view is opened (while the poll is still open),
+    // so new votes and the result email are processed immediately (results show up right away).
+    var pollSyncTriggered by remember(pollId) { mutableStateOf(false) }
     LaunchedEffect(pollId) {
-        viewModel.observePollResults(pollId).collect { results = it }
+        viewModel.observePollResults(pollId).collect { res ->
+            results = res
+            if (!pollSyncTriggered && res != null &&
+                res.poll.status == com.mailchat.data.model.Poll.STATUS_OPEN
+            ) {
+                pollSyncTriggered = true
+                // Start the fetch window at the poll message (minus 1h for clock skew), so all
+                // poll answers — which are replies after the poll email — are covered.
+                val periodStart = if (message.timestamp > 0) message.timestamp - 3_600_000 else null
+                viewModel.syncChat(periodStartOverride = periodStart)
+            }
+        }
     }
     val accountEmail = viewModel.uiState.value.accountEmail?.let { it.trim().lowercase() } ?: ""
     var selected by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    // Numeric polls: the number entered per option (aligned to the options, "" = not entered).
+    var numberValues by remember { mutableStateOf<List<String>>(emptyList()) }
     var initialized by remember { mutableStateOf(false) }
 
     val r = results
@@ -3500,17 +3657,47 @@ private fun PollView(message: Message, viewModel: ChatDetailViewModel) {
         }
         return
     }
+    val poll = r.poll
+    val options = PollFormat.optionsFromJson(poll.options)
     // Pre-select the user's existing vote (once, so live updates don't clobber the selection).
     if (!initialized) {
         val myVote = r.votes.firstOrNull { it.voterEmail.trim().lowercase() == accountEmail }
         selected = myVote?.let { PollFormat.indicesFromJson(it.optionIndices).toSet() } ?: emptySet()
+        numberValues = if (myVote != null) {
+            val vals = PollFormat.valuesFromJson(myVote.values)
+            options.indices.map { i ->
+                val v = vals.getOrElse(i) { 0.0 }
+                if (v == 0.0) "" else fmtPollNum(v)
+            }
+        } else {
+            options.indices.map { "" }
+        }
         initialized = true
     }
-    val poll = r.poll
-    val options = PollFormat.optionsFromJson(poll.options)
     val isOpen = poll.status == com.mailchat.data.model.Poll.STATUS_OPEN
     // The poll message is outgoing in the creator's account and incoming in a recipient's.
     val isCreator = !message.isIncoming
+
+    // Who has answered: the creator sees it live (per-recipient polls); a recipient sees the
+    // same list from the structured result in the result email (once the poll is closed).
+    val displayRecipients: List<Pair<String, Boolean>> = when {
+        r.resultData?.recipients?.isNotEmpty() == true -> r.resultData.recipients
+        r.recipients.isNotEmpty() -> r.recipients.map { p ->
+            p.recipientEmail.trim().lowercase() to r.votes.any {
+                it.voterEmail.trim().lowercase() == p.recipientEmail.trim().lowercase()
+            }
+        }
+        else -> emptyList()
+    }
+    // Contact names for the participant list and the person table (fallback: the email).
+    val nameEmails = remember(displayRecipients, r.votes) {
+        (displayRecipients.map { it.first } + r.votes.map { it.voterEmail })
+            .filter { it.isNotBlank() }.distinct()
+    }
+    var contactNames by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    LaunchedEffect(nameEmails) {
+        contactNames = viewModel.resolveContactNames(nameEmails)
+    }
 
     Column(
         Modifier
@@ -3519,74 +3706,127 @@ private fun PollView(message: Message, viewModel: ChatDetailViewModel) {
             .padding(16.dp)
     ) {
         Text("📊 ${poll.title}", style = MaterialTheme.typography.titleLarge)
-        // When the poll is closed, show the RESULT (bar chart) instead of the poll (question +
-        // options). The options are still visible in the bar chart (with their counts).
-        if (isOpen) {
-            if (poll.question.isNotBlank()) {
-                Text(
-                    poll.question,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
+        // Always show the question (also in the result view, so the result stays understandable).
+        if (poll.question.isNotBlank()) {
             Text(
-                if (poll.multi) stringResource(R.string.poll_multi) else stringResource(R.string.poll_single),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        } else {
-            Text(
-                stringResource(R.string.poll_result),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
+                poll.question,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(top = 8.dp)
             )
         }
+        Text(
+            if (isOpen) {
+                when {
+                    poll.personMode -> stringResource(R.string.poll_person_mode)
+                    poll.numberMode -> stringResource(R.string.poll_number_mode)
+                    poll.multi -> stringResource(R.string.poll_multi)
+                    else -> stringResource(R.string.poll_single)
+                }
+            } else {
+                stringResource(R.string.poll_result)
+            },
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp)
+        )
         Spacer(Modifier.height(16.dp))
 
         if (isOpen) {
-            for (i in options.indices) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+            if (poll.numberMode) {
+                // Numeric poll: a number input per option (the numbers are summed up in the result).
+                for (i in options.indices) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            options[i],
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = numberValues.getOrElse(i) { "" },
+                            onValueChange = { newValue ->
+                                // Digits, an optional leading minus and at most one decimal point.
+                                if (newValue.isEmpty() || newValue.matches(NUMBER_INPUT_REGEX)) {
+                                    val updated = numberValues.toMutableList()
+                                    while (updated.size < options.size) updated.add("")
+                                    updated[i] = newValue
+                                    numberValues = updated
+                                }
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            modifier = Modifier.width(90.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+                val parsedValues = numberValues.map { it.toDoubleOrNull() ?: 0.0 }
+                Button(
+                    onClick = { viewModel.answerPoll(pollId, emptyList(), parsedValues) },
+                    enabled = numberValues.any { it.isNotBlank() }
                 ) {
-                    Checkbox(
-                        checked = i in selected,
-                        onCheckedChange = {
-                            if (poll.multi) {
-                                val mutable = selected.toMutableSet()
-                                if (i in mutable) mutable.remove(i) else mutable.add(i)
-                                selected = mutable
-                            } else {
-                                selected = if (i in selected) emptySet() else setOf(i)
+                    Text(stringResource(R.string.poll_answer))
+                }
+            } else {
+                for (i in options.indices) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = i in selected,
+                            onCheckedChange = {
+                                if (poll.multi) {
+                                    val mutable = selected.toMutableSet()
+                                    if (i in mutable) mutable.remove(i) else mutable.add(i)
+                                    selected = mutable
+                                } else {
+                                    selected = if (i in selected) emptySet() else setOf(i)
+                                }
                             }
-                        }
-                    )
-                    Text(options[i], style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        )
+                        Text(options[i], style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = { viewModel.answerPoll(pollId, selected.toList()) },
+                    enabled = selected.isNotEmpty()
+                ) {
+                    Text(stringResource(R.string.poll_answer))
                 }
             }
-            Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = { viewModel.answerPoll(pollId, selected.toList()) },
-                enabled = selected.isNotEmpty()
-            ) {
-                Text(stringResource(R.string.poll_answer))
-            }
         }
 
         Spacer(Modifier.height(16.dp))
-        PollBarChart(options = options, counts = r.counts, totalVotes = r.totalVotes)
+        // The result: a recipient uses the structured result from the result email (the same
+        // aggregated data the creator sees); the creator computes it live from the votes.
+        val rd = r.resultData
+        if (poll.personMode) {
+            // Person-related poll: a table (persons × options, bottom row = column sums), shown
+            // live while open and after closing.
+            val rows = rd?.rows?.takeIf { it.isNotEmpty() }
+                ?: PollFormat.personTableRows(options, r.votes, poll.numberMode)
+            val sums = rd?.sums?.takeIf { it.isNotEmpty() }
+                ?: PollFormat.personColumnSums(options, r.votes, poll.numberMode)
+            PollPersonTable(options = options, rows = rows, sums = sums, contactNames = contactNames)
+        } else {
+            PollBarChart(
+                options = options,
+                counts = rd?.counts?.takeIf { it.isNotEmpty() } ?: r.counts,
+                totalVotes = rd?.total ?: r.totalVotes,
+                numberMode = poll.numberMode
+            )
+        }
 
-        // The creator sees who has answered (per recipient).
-        if (isCreator && r.recipients.isNotEmpty()) {
+        // Who has answered (creator: live per recipient; recipient: from the result email).
+        if (displayRecipients.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
             Text(stringResource(R.string.poll_recipients), style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.height(4.dp))
-            for (recipient in r.recipients) {
-                val hasVoted = r.votes.any {
-                    it.voterEmail.trim().lowercase() == recipient.recipientEmail.trim().lowercase()
-                }
+            for ((email, hasVoted) in displayRecipients) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         if (hasVoted) "✓" else "○",
@@ -3594,7 +3834,7 @@ private fun PollView(message: Message, viewModel: ChatDetailViewModel) {
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text(recipient.recipientEmail, style = MaterialTheme.typography.bodyMedium)
+                    Text(contactNames[email.lowercase()] ?: email, style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
@@ -3619,12 +3859,14 @@ private fun PollView(message: Message, viewModel: ChatDetailViewModel) {
 
 /** A simple horizontal bar chart for the poll results. */
 @Composable
-private fun PollBarChart(options: List<String>, counts: List<Int>, totalVotes: Int) {
+private fun PollBarChart(options: List<String>, counts: List<Int>, totalVotes: Int, numberMode: Boolean = false) {
     val maxCount = counts.maxOrNull() ?: 0
+    // Numeric polls can have negative values: scale by the largest absolute value and draw a
+    // diverging bar (zero line in the middle, positive → right, negative → left in red).
+    val maxAbs = counts.maxOfOrNull { abs(it) } ?: 0
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         for (i in options.indices) {
             val count = counts.getOrElse(i) { 0 }
-            val fraction = if (maxCount > 0) count.toFloat() / maxCount else 0f
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     options[i],
@@ -3634,35 +3876,149 @@ private fun PollBarChart(options: List<String>, counts: List<Int>, totalVotes: I
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.width(8.dp))
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .height(18.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    if (fraction > 0f) {
+                if (numberMode) {
+                    val fraction = if (maxAbs > 0) abs(count).toFloat() / maxAbs else 0f
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(18.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        // Zero line in the middle of the track.
                         Box(
                             Modifier
+                                .align(Alignment.Center)
+                                .width(1.dp)
                                 .fillMaxHeight()
-                                .fillMaxWidth(fraction)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(MaterialTheme.colorScheme.primary)
+                                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
                         )
+                        if (count > 0) {
+                            // Positive: bar grows to the right from the zero line.
+                            Box(Modifier.align(Alignment.CenterEnd).fillMaxHeight().fillMaxWidth(0.5f)) {
+                                Box(
+                                    Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(fraction)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(MaterialTheme.colorScheme.primary)
+                                )
+                            }
+                        } else if (count < 0) {
+                            // Negative: red bar grows to the left from the zero line.
+                            Box(Modifier.align(Alignment.CenterStart).fillMaxHeight().fillMaxWidth(0.5f)) {
+                                Box(
+                                    Modifier
+                                        .align(Alignment.CenterEnd)
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(fraction)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(MaterialTheme.colorScheme.error)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    val fraction = if (maxCount > 0) count.toFloat() / maxCount else 0f
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(18.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        if (fraction > 0f) {
+                            Box(
+                                Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(fraction)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(MaterialTheme.colorScheme.primary)
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.width(8.dp))
-                Text("$count", style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(28.dp))
+                Text(
+                    "$count",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.width(if (numberMode) 44.dp else 28.dp)
+                )
             }
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            stringResource(R.string.poll_votes, totalVotes),
+            stringResource(if (numberMode) R.string.poll_total else R.string.poll_votes, totalVotes),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
+
+/**
+ * A table for a person-related poll: rows = persons (voters, already deduped — one row per
+ * person), columns = options, and a bottom row with the column sums. For a checkbox poll a cell
+ * is "✓" when the option was selected; for a numeric poll it is the entered number. The person
+ * column shows the contact name when known (else the email).
+ */
+@Composable
+private fun PollPersonTable(
+    options: List<String>,
+    rows: List<List<String>>,
+    sums: List<Int>,
+    contactNames: Map<String, String>
+) {
+    val personWidth = 140.dp
+    val optWidth = 84.dp
+
+    Column(Modifier.horizontalScroll(rememberScrollState())) {
+        // Header row
+        Row {
+            PollTableCell(stringResource(R.string.poll_person), personWidth, bold = true)
+            for (opt in options) PollTableCell(opt, optWidth, bold = true, centered = true)
+        }
+        // One row per person (contact name when known, else the email)
+        for (row in rows) {
+            Row {
+                PollTableCell(contactNames[row.first().lowercase()] ?: row.first(), personWidth)
+                for (i in options.indices) PollTableCell(row.getOrElse(i + 1) { "" }, optWidth, centered = true)
+            }
+        }
+        // Bottom row: the sum of each column
+        Row {
+            PollTableCell(stringResource(R.string.poll_sum), personWidth, bold = true)
+            for (i in options.indices) PollTableCell(sums.getOrElse(i) { 0 }.toString(), optWidth, bold = true, centered = true)
+        }
+    }
+}
+
+/** A single bordered cell of the person-poll table. */
+@Composable
+private fun PollTableCell(text: String, width: Dp, bold: Boolean = false, centered: Boolean = false) {
+    Box(
+        modifier = Modifier
+            .width(width)
+            .heightIn(min = 34.dp)
+            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+        contentAlignment = if (centered) Alignment.Center else Alignment.CenterStart
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+        )
+    }
+}
+
+// Numeric poll input: an optional leading minus, digits and at most one decimal point.
+private val NUMBER_INPUT_REGEX = Regex("^-?\\d*\\.?\\d*$")
+
+/** Formats a number without a trailing ".0" for whole values (5.0 → "5", 3.5 → "3.5"). */
+private fun fmtPollNum(v: Double): String =
+    if (v == v.toLong().toDouble()) v.toLong().toString() else v.toString()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

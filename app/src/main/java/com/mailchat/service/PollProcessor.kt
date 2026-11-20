@@ -86,19 +86,25 @@ class PollProcessor @Inject constructor(
             return updateMessageForPoll(message, resultId, isAnswer = false)
         }
 
+        // 1a. MailChat numeric answer (explicit numeric answer marker). Checked FIRST: the literal
+        // "poll-answer:" is a prefix of "poll-answer-num:", so the numeric marker must win.
+        PollFormat.parseAnswerNumMarker(body)?.let { answer ->
+            return recordVote(message, chat, answer.pollId, answer.optionIndices, answer.values)
+        }
+
         // 1. MailChat answer (explicit answer marker).
         PollFormat.parseAnswerMarker(body)?.let { answer ->
             return recordVote(message, chat, answer.pollId, answer.optionIndices)
         }
 
         // 2. Poll marker present.
-        PollFormat.parsePollMarker(body)?.let { (pollId, multi) ->
+        PollFormat.parsePollMarker(body)?.let { marker ->
             // Try the current account first, then all accounts (Thunderbird replies carry the
             // recipient's per-recipient poll ID, which only exists in the recipient's account).
-            val existing = pollRepository.getPoll(pollId, message.accountId)
-                ?: pollRepository.getPollAnyAccount(pollId)
+            val existing = pollRepository.getPoll(marker.pollId, message.accountId)
+                ?: pollRepository.getPollAnyAccount(marker.pollId)
             return if (existing == null) {
-                createPoll(message, chat, pollId, multi, body)
+                createPoll(message, chat, marker.pollId, marker.multi, marker.numberMode, marker.personMode, body)
             } else {
                 // A reference to an existing poll: a regular-email answer when it has X marks.
                 handleExistingPollReference(message, chat, existing, body)
@@ -116,6 +122,8 @@ class PollProcessor @Inject constructor(
         chat: Chat,
         pollId: String,
         multi: Boolean,
+        numberMode: Boolean,
+        personMode: Boolean,
         body: String
     ): Message {
         val data = PollFormat.parsePollBody(body)
@@ -128,6 +136,8 @@ class PollProcessor @Inject constructor(
             question = data?.question ?: "",
             options = optionsToJson(options),
             multi = multi,
+            numberMode = numberMode,
+            personMode = personMode,
             creatorEmail = if (message.isIncoming) message.from else accountEmailFor(message.accountId),
             pollMessageId = message.messageId,
             status = Poll.STATUS_OPEN,
@@ -143,16 +153,18 @@ class PollProcessor @Inject constructor(
         message: Message,
         chat: Chat,
         pollId: String,
-        optionIndices: List<Int>
+        optionIndices: List<Int>,
+        values: List<Double> = emptyList()
     ): Message {
         val poll = pollRepository.getPoll(pollId, message.accountId) ?: return message
-        if (optionIndices.isEmpty()) return message
+        if (optionIndices.isEmpty() && values.isEmpty()) return message
         val votePollId = resolveVotePollId(poll, chat)
         val vote = PollVote(
             pollId = votePollId,
             accountId = message.accountId,
             voterEmail = message.from.trim().lowercase(),
             optionIndices = indicesToJson(optionIndices),
+            values = valuesToJson(values),
             messageId = message.messageId,
             answeredAt = message.timestamp
         )
@@ -175,13 +187,20 @@ class PollProcessor @Inject constructor(
             ?.id ?: poll.id
     }
 
-    /** A body that references an existing poll (quoted marker). An answer when it has X marks. */
+    /**
+     * A body that references an existing poll (quoted marker). An answer when it has X marks
+     * (checkbox poll) or numbers next to the options (numeric poll).
+     */
     private suspend fun handleExistingPollReference(
         message: Message,
         chat: Chat,
         poll: Poll,
         body: String
     ): Message {
+        // Numeric poll: parse the numbers from the reply (e.g. "Option = 5", "Option (5)", "Option 5").
+        if (poll.numberMode) {
+            return recordNumberVoteFromBody(message, chat, poll, body) ?: message
+        }
         val marked = PollFormat.parseXMarkedOptions(body)
         if (marked.isEmpty()) return message // just a reference (e.g. a forwarded poll), no vote
         val options = parseOptions(poll.options)
@@ -202,15 +221,22 @@ class PollProcessor @Inject constructor(
         return updated
     }
 
-    /** No markers at all: match X marks against the chat's single open poll. */
+    /**
+     * No markers at all: match the reply against the chat's single open poll — X marks (checkbox
+     * poll) or numbers next to the options (numeric poll).
+     */
     private suspend fun handleMarkerlessAnswer(message: Message, chat: Chat, body: String): Message {
         if (!message.isIncoming) return message
-        val marked = PollFormat.parseXMarkedOptions(body)
-        if (marked.isEmpty()) return message
         val openPolls = pollRepository.getPollsByChatSync(chat.id, message.accountId)
             .filter { it.status == Poll.STATUS_OPEN }
         if (openPolls.size != 1) return message
         val poll = openPolls[0]
+        // Numeric poll: parse the numbers from the reply.
+        if (poll.numberMode) {
+            return recordNumberVoteFromBody(message, chat, poll, body) ?: message
+        }
+        val marked = PollFormat.parseXMarkedOptions(body)
+        if (marked.isEmpty()) return message
         val options = parseOptions(poll.options)
         val indices = PollFormat.matchOptionsToIndices(marked, options)
         if (indices.isEmpty()) return message
@@ -219,6 +245,35 @@ class PollProcessor @Inject constructor(
             accountId = message.accountId,
             voterEmail = message.from.trim().lowercase(),
             optionIndices = indicesToJson(indices),
+            messageId = message.messageId,
+            answeredAt = message.timestamp
+        )
+        pollRepository.insertVote(vote)
+        val updated = updateMessageForPoll(message, poll.id, isAnswer = true)
+        checkAutoClose(poll, chat)
+        return updated
+    }
+
+    /**
+     * Records a numeric vote parsed from a regular email reply body (numbers next to the options).
+     * Returns the updated message when a vote was recorded, or null when no numbers were found
+     * (the body is then just a reference to the poll, not an answer).
+     */
+    private suspend fun recordNumberVoteFromBody(
+        message: Message,
+        chat: Chat,
+        poll: Poll,
+        body: String
+    ): Message? {
+        val options = parseOptions(poll.options)
+        val values = PollFormat.parseNumberAnswer(body, options)
+        if (values.all { it == 0.0 }) return null
+        val vote = PollVote(
+            pollId = resolveVotePollId(poll, chat),
+            accountId = message.accountId,
+            voterEmail = message.from.trim().lowercase(),
+            optionIndices = "[]",
+            values = valuesToJson(values),
             messageId = message.messageId,
             answeredAt = message.timestamp
         )
@@ -336,30 +391,18 @@ class PollProcessor @Inject constructor(
 
     private suspend fun sendResultEmail(poll: Poll, chat: Chat) {
         val account = accountRepository.getAccountById(poll.accountId) ?: return
-        val options = parseOptions(poll.options)
         val votes = pollRepository.getVotesSync(poll.id, poll.accountId)
-        val counts = IntArray(options.size)
-        var totalVotes = 0
-        for (vote in votes) {
-            val indices = parseIndices(vote.optionIndices)
-            for (i in indices) if (i in options.indices) counts[i]++
-            totalVotes += indices.size
-        }
         val isGerman = SettingsUtils.isGermanUi(context)
-        val body = PollFormat.buildAsciiResult(
-            title = poll.title,
-            options = options,
-            counts = counts.toList(),
-            totalVotes = totalVotes,
-            resultLabel = if (isGerman) "Ergebnis" else "Result",
-            votesLabel = if (isGerman) "Stimmen" else "votes"
-        )
+        val body = buildResultBody(poll, votes, isGerman)
         // Update the poll message in the chat to show the result (the bubble then displays it).
         // The poll message carries pollId = poll.id.
         updatePollMessageBody(poll.id, body)
         // The result marker keeps the email part of the poll flow (no AI tagging/spam) in
-        // MailChat; regular email programs just see a short line at the end.
-        val bodyWithMarker = body + "\n[[poll-result:" + poll.id + "]]"
+        // MailChat; regular email programs just see a short line at the end. The marker also
+        // carries the structured result so the recipient's result view matches the creator's.
+        val data = buildResultData(poll, votes, requiredVoters(chat, poll.creatorEmail).toList())
+        // The "do not reply" hint is added to the EMAIL only (not the in-app chat bubble).
+        val bodyWithMarker = body + "\n" + noReplyHint(isGerman) + "\n" + PollFormat.buildResultMarker(poll.id, data)
         val subject = "📊 ${poll.title} — " + (if (isGerman) "Ergebnis" else "Result")
         val recipient = if (EmailGrouping.isGroupKey(chat.participantEmail)) {
             chat.participantEmail.split(";")
@@ -403,31 +446,19 @@ class PollProcessor @Inject constructor(
      */
     private suspend fun sendGroupResultEmails(polls: List<Poll>, chat: Chat) {
         val account = accountRepository.getAccountById(polls.first().accountId) ?: return
-        val options = parseOptions(polls.first().options)
         // Aggregate votes across all accounts for all per-recipient poll-IDs.
-        // Counts: sum ALL votes from all respondents (not deduped).
-        // Display: deduped votes show the last answer per voter.
+        // Bar chart: sum ALL votes from all respondents (not deduped).
+        // Person table: deduped votes show the last answer per voter (one row per person).
         val allVotes = pollRepository.getVotesForPollsAllAccounts(polls.map { it.id })
-        val counts = IntArray(options.size)
-        var totalVotes = 0
-        for (vote in allVotes) {
-            val indices = parseIndices(vote.optionIndices)
-            for (i in indices) if (i in options.indices) counts[i]++
-            totalVotes += indices.size
-        }
         val isGerman = SettingsUtils.isGermanUi(context)
-        val body = PollFormat.buildAsciiResult(
-            title = polls.first().title,
-            options = options,
-            counts = counts.toList(),
-            totalVotes = totalVotes,
-            resultLabel = if (isGerman) "Ergebnis" else "Result",
-            votesLabel = if (isGerman) "Stimmen" else "votes"
-        )
+        val body = buildResultBody(polls.first(), allVotes, isGerman)
         val subject = "📊 ${polls.first().title} — " + (if (isGerman) "Ergebnis" else "Result")
         // Update the poll message(s) in the chat to show the result (the bubble then displays it).
         // The creator's poll messages carry pollId = groupId.
         updatePollMessageBody(polls.first().groupId, body)
+        // Structured result for the recipients' result view (the same aggregated data the
+        // creator sees), carried in each result email's marker.
+        val data = buildResultData(polls.first(), allVotes, polls.map { it.recipientEmail })
         for (poll in polls) {
             val recipient = poll.recipientEmail
             if (recipient.isBlank()) continue
@@ -438,8 +469,10 @@ class PollProcessor @Inject constructor(
             if (poll.creatorEmail.isNotBlank() &&
                 recipient.trim().lowercase() == poll.creatorEmail.trim().lowercase()
             ) continue
-            // The result marker carries the per-recipient poll-ID (closes the recipient's copy).
-            val bodyWithMarker = body + "\n[[poll-result:" + poll.id + "]]"
+            // The result marker carries the per-recipient poll-ID (closes the recipient's copy)
+            // plus the structured result (so the recipient's result view matches the creator's).
+            // The "do not reply" hint is added to the EMAIL only (not the in-app chat bubble).
+            val bodyWithMarker = body + "\n" + noReplyHint(isGerman) + "\n" + PollFormat.buildResultMarker(poll.id, data)
             try {
                 val isGroupChat = EmailGrouping.isGroupKey(chat.participantEmail)
                 val enc = com.mailchat.crypto.EncryptionHelper.encryptForRecipients(
@@ -517,7 +550,107 @@ class PollProcessor @Inject constructor(
 
     private fun parseIndices(indicesJson: String): List<Int> = PollFormat.indicesFromJson(indicesJson)
 
+    private fun parseValues(valuesJson: String): List<Double> = PollFormat.valuesFromJson(valuesJson)
+
     private fun optionsToJson(options: List<String>): String = PollFormat.optionsToJson(options)
 
     private fun indicesToJson(indices: List<Int>): String = PollFormat.indicesToJson(indices)
+
+    private fun valuesToJson(values: List<Double>): String = PollFormat.valuesToJson(values)
+
+    /**
+     * Builds the result body for a closed poll:
+     *  - Person-related poll: an ASCII TABLE (persons × options, bottom row = column sums), using
+     *    the DEDUPED votes (one row per person, last answer wins).
+     *  - Otherwise: the ASCII bar chart (counts sum ALL votes, not deduped).
+     */
+    /**
+     * The "do not reply" hint appended to result emails (for foreign email systems such as
+     * Thunderbird, where a recipient could otherwise accidentally reply to the result).
+     */
+    private fun noReplyHint(isGerman: Boolean): String =
+        if (isGerman) "⚠️ Nicht antworten!" else "⚠️ Do not reply!"
+
+    private fun buildResultBody(poll: Poll, votes: List<PollVote>, isGerman: Boolean): String {
+        val options = parseOptions(poll.options)
+        val resultLabel = if (isGerman) "Ergebnis" else "Result"
+        if (poll.personMode) {
+            val deduped = dedupeVotesByVoter(votes)
+            val header = listOf(if (isGerman) "Person" else "Person") + options
+            val rows = PollFormat.personTableRows(options, deduped, poll.numberMode)
+            val sums = PollFormat.personColumnSums(options, deduped, poll.numberMode)
+            val footer = listOf(if (isGerman) "Summe" else "Sum") + sums.map { it.toString() }
+            return PollFormat.buildAsciiTable(poll.title, poll.question, header, rows, footer, resultLabel)
+        }
+        val (counts, totalVotes) = computeCounts(options, votes, poll.numberMode)
+        return PollFormat.buildAsciiResult(
+            title = poll.title,
+            question = poll.question,
+            options = options,
+            counts = counts,
+            totalVotes = totalVotes,
+            resultLabel = resultLabel,
+            votesLabel = if (poll.numberMode) (if (isGerman) "Summe" else "Total")
+                else (if (isGerman) "Stimmen" else "votes")
+        )
+    }
+
+    /**
+     * Builds the structured result carried in the result email's marker, so a recipient can
+     * render the same result view as the creator (aggregated counts or person-table rows, plus
+     * who has voted).
+     */
+    private fun buildResultData(poll: Poll, votes: List<PollVote>, recipientEmails: List<String>): PollFormat.PollResultData {
+        val options = parseOptions(poll.options)
+        val recipients = recipientEmails
+            .map { it.trim().lowercase() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .map { email -> email to votes.any { it.voterEmail.trim().lowercase() == email } }
+        return if (poll.personMode) {
+            val deduped = dedupeVotesByVoter(votes)
+            PollFormat.PollResultData(
+                recipients = recipients,
+                rows = PollFormat.personTableRows(options, deduped, poll.numberMode),
+                sums = PollFormat.personColumnSums(options, deduped, poll.numberMode)
+            )
+        } else {
+            val (counts, total) = computeCounts(options, votes, poll.numberMode)
+            PollFormat.PollResultData(counts = counts, total = total, recipients = recipients)
+        }
+    }
+
+    /** Dedupes votes by voter (last answer wins, by answeredAt) — one entry per person. */
+    private fun dedupeVotesByVoter(votes: List<PollVote>): List<PollVote> =
+        votes.groupBy { it.voterEmail.trim().lowercase() }
+            .values
+            .mapNotNull { it.maxByOrNull { v -> v.answeredAt } }
+            .toList()
+
+    /**
+     * Computes the per-option result and the total for a poll.
+     *  - Checkbox poll: [counts][Int] = number of voters who selected each option; total = total
+     *    selections (sum of the counts).
+     *  - Numeric poll: [counts][Int] = SUM of the numbers entered per option; total = grand total
+     *    of all numbers (so the percentage is each option's share of the total).
+     * Returns (counts, total).
+     */
+    private fun computeCounts(options: List<String>, votes: List<PollVote>, numberMode: Boolean): Pair<List<Int>, Int> {
+        val counts = IntArray(options.size)
+        var total = 0
+        for (vote in votes) {
+            if (numberMode) {
+                val values = parseValues(vote.values)
+                for (i in options.indices) {
+                    counts[i] += values.getOrElse(i) { 0.0 }.toInt()
+                }
+                total += values.sum().toInt()
+            } else {
+                val indices = parseIndices(vote.optionIndices)
+                for (i in indices) if (i in options.indices) counts[i]++
+                total += indices.size
+            }
+        }
+        return counts.toList() to total
+    }
 }

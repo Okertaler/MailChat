@@ -49,6 +49,7 @@ data class ChatDetailUiState(
     val composeText: String = "",
     val composeAttachments: List<File> = emptyList(),
     val isSending: Boolean = false,
+    val isSyncing: Boolean = false,
     val isAiProcessing: Boolean = false,
     val currentSummarizingMessageId: Long? = null,
     val sendError: String? = null,
@@ -181,6 +182,134 @@ class ChatDetailViewModel @Inject constructor(
                 android.util.Log.w("MailchatChat", "fetch-on-open failed", e)
             }
         }
+    }
+
+    /**
+     * Manually sync this chat: fetch new messages from the server and store them. Triggered by
+     * the sync button in the chat detail top bar (which spins while this runs) and by the poll
+     * view (so new votes / the result email show up immediately). Reuses the same fetch window
+     * as the fetch-on-open logic; dedupe by Message-ID makes a re-fetch a no-op.
+     *
+     * [periodStartOverride] starts the fetch window at a specific point in time (the poll view
+     * uses the poll message's timestamp, so poll answers are covered even when the chat has
+     * newer messages).
+     */
+    fun syncChat(periodStartOverride: Long? = null) {
+        if (_uiState.value.isSyncing) return
+        viewModelScope.launch {
+            val chat = chatRepository.getChatById(chatId) ?: return@launch
+            val account = accountRepository.getAccountById(chat.accountId) ?: return@launch
+            _uiState.update { it.copy(isSyncing = true) }
+            try {
+                val periodStart = periodStartOverride
+                    ?: if (chat.lastMessageTimestamp > 0) {
+                        chat.lastMessageTimestamp - 60_000
+                    } else {
+                        System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+                    }
+                val incoming = imapService.fetchNewMessages(account, periodStart)
+                for (fetchedMsg in incoming.messages) {
+                    syncEngine.processFetchedMessage(account, fetchedMsg)
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("MailchatChat", "manual sync fetch failed", e)
+            }
+            // Also repair this chat's attachments whose file is missing on disk (e.g. after a
+            // restore that did not include the attachment files). Runs even if the fetch above
+            // failed, because the local re-link step needs no network.
+            try {
+                repairChatAttachments(chat, account)
+            } catch (e: Exception) {
+                android.util.Log.w("MailchatChat", "manual sync attach repair failed", e)
+            } finally {
+                _uiState.update { it.copy(isSyncing = false) }
+            }
+        }
+    }
+
+    /**
+     * Repairs this chat's attachment rows whose file is missing on disk. First tries a local
+     * re-link (a previous sync may have already downloaded the file as an orphan), then re-fetches
+     * the message by its Message-ID for the rest (this is what recovers inline/CID images, which
+     * have no orphan file). Capped to keep the IMAP load reasonable.
+     */
+    private suspend fun repairChatAttachments(
+        chat: Chat,
+        account: com.mailchat.data.model.EmailAccount
+    ) {
+        val attachments = messageRepository.getAttachmentsByChatSync(chatId)
+        if (attachments.isEmpty()) return
+        val attDir = File(appContext.filesDir, "attachments")
+        val orphanFiles = if (attDir.exists()) attDir.listFiles()?.toList() ?: emptyList() else emptyList()
+
+        val refetchMessageIds = linkedSetOf<Long>()
+        var localRelinked = 0
+        for (att in attachments) {
+            if (File(att.uri).exists()) continue
+            val matched = findOrphanFile(att, orphanFiles)
+            if (matched != null) {
+                messageRepository.updateAttachmentUri(att.id, matched.absolutePath)
+                localRelinked++
+            } else {
+                refetchMessageIds.add(att.messageId)
+            }
+        }
+        if (localRelinked > 0) {
+            com.mailchat.ai.AppLogger.log(appContext, "ATTACH repair (chat): $localRelinked re-linked locally")
+        }
+        if (refetchMessageIds.isEmpty()) return
+
+        var refetched = 0
+        for (messageId in refetchMessageIds.take(20)) {
+            val message = messageRepository.getMessageById(messageId) ?: continue
+            if (message.messageId.isBlank()) continue
+            try {
+                val fetched = imapService.fetchMessageByMessageId(account, message.messageId) ?: continue
+                if (fetched.attachments.isEmpty()) continue
+                val storedAtts = messageRepository.getAttachmentsByMessageSync(message.id)
+                val storedCids = storedAtts.map { it.contentId }.filter { it.isNotBlank() }.toSet()
+                val storedNames = storedAtts.map { it.fileName.lowercase() }.toSet()
+                for (stored in storedAtts) {
+                    if (File(stored.uri).exists()) continue
+                    val match = fetched.attachments.firstOrNull { f ->
+                        (f.contentId.isNotBlank() && f.contentId == stored.contentId) ||
+                            f.fileName.equals(stored.fileName, ignoreCase = true)
+                    }
+                    if (match != null) {
+                        messageRepository.updateAttachmentUri(stored.id, match.uri)
+                    }
+                }
+                // Insert fetched attachments that have no stored counterpart yet.
+                for (f in fetched.attachments) {
+                    val dup = (f.contentId.isNotBlank() && f.contentId in storedCids) ||
+                        (f.fileName.lowercase() in storedNames)
+                    if (!dup) {
+                        messageRepository.insertAttachment(f.copy(messageId = message.id))
+                    }
+                }
+                refetched++
+            } catch (e: Exception) {
+                android.util.Log.w("MailchatChat", "attach refetch failed for ${message.messageId}", e)
+            }
+        }
+        if (refetched > 0) {
+            com.mailchat.ai.AppLogger.log(appContext, "ATTACH repair (chat): $refetched messages re-fetched")
+        }
+    }
+
+    /**
+     * Finds an orphan file in the attachments directory that matches [att] by file name (or
+     * content ID as a last resort). Prefers a size match, then the most recently modified file.
+     */
+    private fun findOrphanFile(att: Attachment, orphanFiles: List<File>): File? {
+        val searchName = att.fileName.ifBlank { att.contentId }
+        if (searchName.isBlank()) return null
+        val matches = orphanFiles.filter { it.name.endsWith(searchName, ignoreCase = true) }
+        if (matches.isEmpty()) return null
+        return matches.sortedWith(
+            compareByDescending<File> { it.length() == att.sizeBytes }
+                .thenByDescending { it.lastModified() }
+        ).first()
     }
 
     /** Global eingestelltes Absender-Konto verwenden, sonst Konto des Chats. */
@@ -1815,7 +1944,10 @@ class ChatDetailViewModel @Inject constructor(
         val totalVotes: Int,
         // The group's per-recipient polls (for the creator's "who has answered" list). Empty for
         // single polls (recipient's view / legacy polls).
-        val recipients: List<Poll> = emptyList()
+        val recipients: List<Poll> = emptyList(),
+        // The structured result from the result email (recipient's view: the same aggregated
+        // data the creator sees). Null while the poll is open or for legacy result emails.
+        val resultData: PollFormat.PollResultData? = null
     )
 
     /**
@@ -1844,16 +1976,10 @@ class ChatDetailViewModel @Inject constructor(
                             pollRepository.getVotesForPollsAllAccountsFlow(pollIds).map { votes ->
                                 val deduped = dedupeVotesByVoter(votes)
                                 val options = PollFormat.optionsFromJson(polls.first().options)
-                                val counts = IntArray(options.size)
-                                var total = 0
-                                for (v in votes) {
-                                    val idx = PollFormat.indicesFromJson(v.optionIndices)
-                                    for (i in idx) if (i in options.indices) counts[i]++
-                                    total += idx.size
-                                }
+                                val (counts, total) = computePollCounts(options, votes, polls.first().numberMode)
                                 // The group is open while ANY per-recipient poll is still open.
                                 val status = if (polls.any { it.status == Poll.STATUS_OPEN }) Poll.STATUS_OPEN else Poll.STATUS_CLOSED
-                                PollResults(polls.first().copy(status = status), deduped, counts.toList(), total, recipients = polls)
+                                PollResults(polls.first().copy(status = status), deduped, counts, total, recipients = polls)
                             }
                         }
                     }.collect { emit(it) }
@@ -1866,14 +1992,19 @@ class ChatDetailViewModel @Inject constructor(
                     if (poll == null) null
                     else {
                         val options = PollFormat.optionsFromJson(poll.options)
-                        val counts = IntArray(options.size)
-                        var total = 0
-                        for (v in votes) {
-                            val idx = PollFormat.indicesFromJson(v.optionIndices)
-                            for (i in idx) if (i in options.indices) counts[i]++
-                            total += idx.size
-                        }
-                        PollResults(poll, votes, counts.toList(), total)
+                        val (counts, total) = computePollCounts(options, votes, poll.numberMode)
+                        // Dedupe for display (one row per person in the person-table; the
+                        // bar-chart counts above already sum ALL votes).
+                        val deduped = dedupeVotesByVoter(votes)
+                        // Closed poll: load the structured result from the result email, so the
+                        // recipient sees the SAME aggregated result as the creator. The result
+                        // email is inserted before the local poll is closed, so it is in the DB.
+                        val resultData = if (poll.status == Poll.STATUS_CLOSED) {
+                            messageRepository.getMessagesByPollId(poll.id)
+                                .mapNotNull { msg -> PollFormat.parseResultData(msg.bodyFull.ifBlank { msg.body }) }
+                                .firstOrNull()
+                        } else null
+                        PollResults(poll, deduped, counts, total, resultData = resultData)
                     }
                 }.collect { emit(it) }
             }
@@ -1891,6 +2022,39 @@ class ChatDetailViewModel @Inject constructor(
             .toList()
 
     /**
+     * Resolves contact display names for the given emails (lowercase email → name). Emails
+     * without a known contact are simply not in the map (the UI falls back to the email).
+     */
+    suspend fun resolveContactNames(emails: List<String>): Map<String, String> =
+        contactService.getNamesByEmails(emails)
+
+    /**
+     * Computes the per-option result and the total for display.
+     *  - Checkbox poll: counts = number of voters who selected each option; total = total selections.
+     *  - Numeric poll: counts = SUM of the numbers entered per option; total = grand total of all
+     *    numbers (so the percentage is each option's share of the total).
+     * Returns (counts, total).
+     */
+    private fun computePollCounts(options: List<String>, votes: List<PollVote>, numberMode: Boolean): Pair<List<Int>, Int> {
+        val counts = IntArray(options.size)
+        var total = 0
+        for (v in votes) {
+            if (numberMode) {
+                val values = PollFormat.valuesFromJson(v.values)
+                for (i in options.indices) {
+                    counts[i] += values.getOrElse(i) { 0.0 }.toInt()
+                }
+                total += values.sum().toInt()
+            } else {
+                val idx = PollFormat.indicesFromJson(v.optionIndices)
+                for (i in idx) if (i in options.indices) counts[i]++
+                total += idx.size
+            }
+        }
+        return counts.toList() to total
+    }
+
+    /**
      * Creates and sends a poll to the current chat (1:1 or group). The creator sends ONE poll
      * email per recipient, each with its own poll-ID. All per-recipient poll-IDs are linked by a
      * shared [groupId] (the logical poll) and managed together until the poll is closed.
@@ -1900,6 +2064,8 @@ class ChatDetailViewModel @Inject constructor(
         question: String,
         options: List<String>,
         multi: Boolean,
+        numberMode: Boolean = false,
+        personMode: Boolean = false,
         forceUnencrypted: Boolean = false
     ) {
         viewModelScope.launch {
@@ -1911,17 +2077,26 @@ class ChatDetailViewModel @Inject constructor(
                 return@launch
             }
             val isGerman = SettingsUtils.isGermanUi(appContext)
-            val choiceLabel = if (multi) {
-                if (isGerman) "mehrere Antworten möglich" else "multiple answers possible"
-            } else {
-                if (isGerman) "nur eine Antwort möglich" else "only one answer possible"
+            val choiceLabel = when {
+                numberMode -> if (isGerman) "Zahl pro Option eingeben (wird aufsummiert)" else "Enter a number per option (summed up)"
+                multi -> if (isGerman) "mehrere Antworten möglich" else "multiple answers possible"
+                else -> if (isGerman) "nur eine Antwort möglich" else "only one answer possible"
             }
-            val instruction = if (isGerman) {
-                "Antwort: X in die Box(en) setzen und diese E-Mail beantworten. " +
-                    "Kommentare werden nicht angezeigt und verfallen."
-            } else {
-                "Answer: put an X in the box(es) and reply to this email. " +
-                    "Comments are not displayed and will be discarded."
+            val instruction = when {
+                numberMode -> if (isGerman) {
+                    "Antwort: Zahl in die eckige Klammer schreiben, z. B. [5] Option 1, und " +
+                        "diese E-Mail beantworten. Kommentare werden nicht angezeigt und verfallen."
+                } else {
+                    "Answer: write the number in the square brackets, e.g. [5] Option 1, and " +
+                        "reply to this email. Comments are not displayed and will be discarded."
+                }
+                else -> if (isGerman) {
+                    "Antwort: X in die Box(en) setzen und diese E-Mail beantworten. " +
+                        "Kommentare werden nicht angezeigt und verfallen."
+                } else {
+                    "Answer: put an X in the box(es) and reply to this email. " +
+                        "Comments are not displayed and will be discarded."
+                }
             }
             val subject = "📊 $title"
             val groupId = PollFormat.newPollId()
@@ -1934,7 +2109,7 @@ class ChatDetailViewModel @Inject constructor(
                 val prepared = mutableListOf<Prepared>()
                 for (recipient in recipients) {
                     val pollId = PollFormat.newPollId()
-                    val body = PollFormat.buildPollBody(title, question, options, multi, pollId, choiceLabel, instruction)
+                    val body = PollFormat.buildPollBody(title, question, options, multi, pollId, choiceLabel, instruction, numberMode, personMode)
                     val enc = com.mailchat.crypto.EncryptionHelper.encryptForRecipients(
                         appContext, body, listOf(recipient.trim().lowercase()), isGroupChat, chat.isEncrypted, forceUnencrypted
                     )
@@ -1967,6 +2142,8 @@ class ChatDetailViewModel @Inject constructor(
                         question = question,
                         options = PollFormat.optionsToJson(options),
                         multi = multi,
+                        numberMode = numberMode,
+                        personMode = personMode,
                         creatorEmail = account.emailAddress,
                         pollMessageId = sentMessageId,
                         status = Poll.STATUS_OPEN,
@@ -2005,6 +2182,8 @@ class ChatDetailViewModel @Inject constructor(
                         question = question,
                         options = PollFormat.optionsToJson(options),
                         multi = multi,
+                        numberMode = numberMode,
+                        personMode = personMode,
                         creatorEmail = account.emailAddress,
                         pollMessageId = "",
                         status = Poll.STATUS_OPEN,
@@ -2020,7 +2199,7 @@ class ChatDetailViewModel @Inject constructor(
                 )
                 _uiState.update { it.copy(isSending = false) }
             } catch (e: com.mailchat.crypto.EncryptionHelper.EncryptionFailed) {
-                encryptionErrorRetry = { createPoll(title, question, options, multi, forceUnencrypted = true) }
+                encryptionErrorRetry = { createPoll(title, question, options, multi, numberMode, personMode, forceUnencrypted = true) }
                 _uiState.update { it.copy(isSending = false, encryptionErrorDialog = e.message) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isSending = false, sendError = e.message) }
@@ -2028,8 +2207,16 @@ class ChatDetailViewModel @Inject constructor(
         }
     }
 
-    /** Answers a poll: sends the selected options as a reply to the chat. */
-    fun answerPoll(pollId: String, selectedIndices: List<Int>, forceUnencrypted: Boolean = false) {
+    /**
+     * Answers a poll: sends the selected options (checkbox poll) or the entered numbers (numeric
+     * poll) as a reply to the chat.
+     */
+    fun answerPoll(
+        pollId: String,
+        selectedIndices: List<Int>,
+        values: List<Double> = emptyList(),
+        forceUnencrypted: Boolean = false
+    ) {
         viewModelScope.launch {
             val chat = _uiState.value.chat ?: return@launch
             val account = senderAccountFor(chat) ?: return@launch
@@ -2063,7 +2250,14 @@ class ChatDetailViewModel @Inject constructor(
                 }
             }
             val options = PollFormat.optionsFromJson(poll.options)
-            val body = PollFormat.buildAnswerBody(options, selectedIndices, actualPollId)
+            // "Do not reply" hint in the answer email (for foreign email systems, so a reader of
+            // this individual answer doesn't reply to it).
+            val noReply = if (SettingsUtils.isGermanUi(appContext)) "⚠️ Nicht antworten!" else "⚠️ Do not reply!"
+            val body = if (poll.numberMode) {
+                PollFormat.buildNumberAnswerBody(options, values, actualPollId, noReply)
+            } else {
+                PollFormat.buildAnswerBody(options, selectedIndices, actualPollId, noReply)
+            }
             val subject = if (EmailGrouping.isGroupKey(chat.participantEmail)) {
                 chat.participantName
             } else {
@@ -2118,7 +2312,7 @@ class ChatDetailViewModel @Inject constructor(
                 )
                 _uiState.update { it.copy(isSending = false) }
             } catch (e: com.mailchat.crypto.EncryptionHelper.EncryptionFailed) {
-                encryptionErrorRetry = { answerPoll(pollId, selectedIndices, forceUnencrypted = true) }
+                encryptionErrorRetry = { answerPoll(pollId, selectedIndices, values, forceUnencrypted = true) }
                 _uiState.update { it.copy(isSending = false, encryptionErrorDialog = e.message) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isSending = false, sendError = e.message) }

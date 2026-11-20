@@ -43,12 +43,18 @@ class SyncWorker @AssistedInject constructor(
         val accounts = accountRepository.getAllAccounts().first()
         if (accounts.isEmpty()) return Result.success()
         val result = syncEngine.syncAll()
-        // Periodic-sync-only maintenance passes (CID image repair, embeddings).
+        // Periodic-sync-only maintenance passes (CID image repair, missing-attachment repair,
+        // embeddings).
         for (account in accounts) {
             try {
                 repairCidImages(account)
             } catch (e: Exception) {
                 android.util.Log.w("MailchatSync", "cid repair pass failed", e)
+            }
+            try {
+                repairMissingAttachments(account)
+            } catch (e: Exception) {
+                android.util.Log.w("MailchatSync", "attach repair pass failed", e)
             }
         }
         embedPendingMessages()
@@ -90,6 +96,97 @@ class SyncWorker @AssistedInject constructor(
         } catch (e: Exception) {
             android.util.Log.w("MailchatSync", "cid repair pass failed", e)
         }
+    }
+
+    /**
+     * Repairs attachment rows whose file is missing on disk. This happens after a backup restore
+     * that did not include the attachment files (the DB rows survive, the files do not).
+     *
+     * Two strategies, in order:
+     *  1. Local re-link: a previous sync already downloaded the file (orphan file in the
+     *     attachments directory). Point the row at it — no network needed.
+     *  2. Re-fetch: for the rest, fetch the message by its Message-ID and re-link the rows to
+     *     the freshly downloaded files (this is what recovers inline/CID images, which have no
+     *     orphan file). Capped per run to keep the IMAP load reasonable.
+     */
+    private suspend fun repairMissingAttachments(account: EmailAccount) {
+        try {
+            val attachments = messageRepository.getAttachmentsByAccount(account.id)
+            if (attachments.isEmpty()) return
+            val attDir = java.io.File(applicationContext.filesDir, "attachments")
+            val orphanFiles = if (attDir.exists()) attDir.listFiles()?.toList() ?: emptyList() else emptyList()
+
+            val refetchMessageIds = linkedSetOf<Long>()
+            var localRelinked = 0
+            for (att in attachments) {
+                if (java.io.File(att.uri).exists()) continue
+                val matched = findOrphanFile(att, orphanFiles)
+                if (matched != null) {
+                    messageRepository.updateAttachmentUri(att.id, matched.absolutePath)
+                    localRelinked++
+                } else {
+                    refetchMessageIds.add(att.messageId)
+                }
+            }
+            if (localRelinked > 0) {
+                com.mailchat.ai.AppLogger.log(applicationContext, "ATTACH repair: $localRelinked re-linked locally")
+            }
+            if (refetchMessageIds.isEmpty()) return
+
+            var refetched = 0
+            for (messageId in refetchMessageIds.take(20)) {
+                val message = messageRepository.getMessageById(messageId) ?: continue
+                if (message.messageId.isBlank()) continue
+                try {
+                    val fetched = imapService.fetchMessageByMessageId(account, message.messageId) ?: continue
+                    if (fetched.attachments.isEmpty()) continue
+                    val storedAtts = messageRepository.getAttachmentsByMessageSync(message.id)
+                    val storedCids = storedAtts.map { it.contentId }.filter { it.isNotBlank() }.toSet()
+                    val storedNames = storedAtts.map { it.fileName.lowercase() }.toSet()
+                    for (stored in storedAtts) {
+                        if (java.io.File(stored.uri).exists()) continue
+                        val match = fetched.attachments.firstOrNull { f ->
+                            (f.contentId.isNotBlank() && f.contentId == stored.contentId) ||
+                                f.fileName.equals(stored.fileName, ignoreCase = true)
+                        }
+                        if (match != null) {
+                            messageRepository.updateAttachmentUri(stored.id, match.uri)
+                        }
+                    }
+                    // Insert fetched attachments that have no stored counterpart yet.
+                    for (f in fetched.attachments) {
+                        val dup = (f.contentId.isNotBlank() && f.contentId in storedCids) ||
+                            (f.fileName.lowercase() in storedNames)
+                        if (!dup) {
+                            messageRepository.insertAttachment(f.copy(messageId = message.id))
+                        }
+                    }
+                    refetched++
+                } catch (e: Exception) {
+                    android.util.Log.w("MailchatSync", "attach refetch failed for ${message.messageId}", e)
+                }
+            }
+            if (refetched > 0) {
+                com.mailchat.ai.AppLogger.log(applicationContext, "ATTACH repair: $refetched messages re-fetched")
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("MailchatSync", "attach repair pass failed", e)
+        }
+    }
+
+    /**
+     * Finds an orphan file in the attachments directory that matches [att] by file name (or
+     * content ID as a last resort). Prefers a size match, then the most recently modified file.
+     */
+    private fun findOrphanFile(att: com.mailchat.data.model.Attachment, orphanFiles: List<java.io.File>): java.io.File? {
+        val searchName = att.fileName.ifBlank { att.contentId }
+        if (searchName.isBlank()) return null
+        val matches = orphanFiles.filter { it.name.endsWith(searchName, ignoreCase = true) }
+        if (matches.isEmpty()) return null
+        return matches.sortedWith(
+            compareByDescending<java.io.File> { it.length() == att.sizeBytes }
+                .thenByDescending { it.lastModified() }
+        ).first()
     }
 
     private suspend fun embedPendingMessages() {

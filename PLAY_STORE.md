@@ -16,14 +16,14 @@ MailChat
 
 In der Play Console unter **Release → What's new** eintragen.
 
-### Englisch (484 Zeichen)
+### Englisch (451 Zeichen)
 ```
-New: polls in chat – create and answer polls (single or multiple choice) with a bar chart, auto-close after the last vote, result by email; works with regular email clients. Link confirmation before opening (with a "Phishing" option that blocks all links in the email). Undo/redo in the message field. AI creates display names for new senders (optional). Multiple detected appointments: pick which one to add to the calendar. Notifications: multiple new emails arrive as one summary.
+New: sync button in the chat view (spins during sync). Image mosaic in the chat bubble (up to 4 images) and a full-screen zoom viewer with pinch-to-zoom. Improved: poll result view – recipients see the same result as the creator, contact names instead of email addresses. The edit menu now appears immediately in multi-select mode. Fixed: images and attachments not showing in the chat after a restore – missing files are re-linked or re-fetched automatically.
 ```
 
-### Deutsch (493 Zeichen)
+### Deutsch (463 Zeichen)
 ```
-Neu: Umfragen im Chat erstellen und beantworten (Einzel- oder Mehrfachauswahl) – Balkendiagramm, Auto-Abschluss nach der letzten Stimme, Ergebnis per E-Mail, auch mit normalen E-Mail-Programmen. Links-Bestätigung vor dem Öffnen (mit „Phishing"-Option). Rückgängig/Wiederholen im Nachrichtenfeld. KI erstellt automatisch Klarnamen für neue Absender (optional). Mehrere erkannte Termine: Auswahl, welcher in den Kalender. Benachrichtigungen: mehrere neue E-Mails kommen als eine Zusammenfassung.
+Neu: Sync-Button in der Chatansicht (dreht sich beim Sync). Bild-Mosaik in der Chatblase (bis zu 4 Bilder) und Vollbild-Zoom-Viewer mit Pinch-to-Zoom. Verbessert: Umfrage-Ergebnisansicht – Empfänger sehen dasselbe Ergebnis wie der Ersteller, Kontaktnamen statt E-Mail-Adressen. Bearbeiten-Menü erscheint sofort in der Mehrfachauswahl. Behoben: Bilder und Anhänge wurden nach einem Restore nicht im Chat angezeigt – fehlende Dateien werden automatisch neu verlinkt oder neu geladen.
 ```
 
 > Hinweis: In der Play Console unter **Release → What's new** wird der Text **ohne** die `<de-DE>`/`<en-GB>`-Tags eingetragen (die Tags sind nur für `version.md` im Repo). Pro Sprache ein eigener Eintrag, jeweils ≤ 500 Zeichen.
@@ -81,6 +81,8 @@ MailChat turns your email into private, chat-style conversations — with encryp
 • Reply suggestions (formal / informal).
 • Real-name & appointment extraction.
 • AI assistant (chat with your data).
+• Polls in chat (single or multiple choice) with a bar chart and a result email; works with regular email clients.
+• Image mosaic in the chat bubble (up to 4 images) with a full-screen zoom viewer (pinch-to-zoom).
 • Home-screen widget showing your latest or unread emails (adjustable font size).
 • Image blocking for spam (anti tracking pixels).
 • Compress attachments (optional password-protected ZIP).
@@ -125,6 +127,8 @@ MailChat verwandelt deine E-Mails in private, chatartige Gespräche — mit Vers
 • Antwortvorschläge (formell / locker).
 • Name- & Termin-Erkennung.
 • KI-Assistent (Chat mit deinen Daten).
+• Umfragen im Chat (Einzel- oder Mehrfachauswahl) mit Balkendiagramm und Ergebnis per E-Mail; funktioniert auch mit normalen E-Mail-Programmen.
+• Bild-Mosaik in der Chatblase (bis zu 4 Bilder) mit Vollbild-Zoom-Viewer (Pinch-to-Zoom).
 • Startbildschirm-Widget mit deinen letzten oder ungelesenen E-Mails (Schriftgröße einstellbar).
 • Bild-Blockierung für Spam (Anti-Tracking-Pixel).
 • Anhänge komprimieren (optional passwortgeschütztes ZIP).
@@ -248,7 +252,7 @@ Die Play Console verlangt eine **öffentliche Privacy-Policy-URL**.
 - ✅ Release-AAB: `app/build/outputs/bundle/release/app-release.aab` (signiert)
 - ✅ Source: `https://github.com/Okertaler/MailChat`
 - ✅ Legal-Dokumente: in der App + `legal/`-Ordner
-- ✅ Version: 2.5 (versionCode 88, targetSdk 36 / Android 16)
+- ✅ Version: 2.6 (versionCode 89, targetSdk 36 / Android 16)
 
 ---
 

@@ -104,7 +104,9 @@
     <string name="help_smtp_title">SMTP server</string>
     <string name="help_smtp_text">The SMTP server is configured per account. If no SMTP host is set for an account, sending is disabled and "No sending" is shown in red in the settings.</string>
     <string name="help_sync_title">Sync</string>
-    <string name="help_sync_text">New emails are fetched automatically when you open the app. You can also pull the refresh icon to sync manually.</string>
+    <string name="help_sync_text">New emails are fetched automatically when you open the app. You can also sync manually: pull the refresh icon in the chat overview, or tap the sync button in a chat (it spins while the sync is running and also repairs any missing images or attachments).</string>
+    <string name="help_poll_title">Polls</string>
+    <string name="help_poll_text">Create a poll in a chat with the poll icon in the top bar. Choose single or multiple choice and add the options. The poll is sent as a normal email, so it also works with regular email clients (e.g. Thunderbird). Answers are collected as a bar chart; after the last vote the poll closes automatically and a result email is sent. After closing, everyone sees the same result view (bar chart and who has answered, with contact names). In group chats each recipient gets their own poll.</string>
     <string name="help_language_title">Language</string>
     <string name="help_language_text">The app follows your device language. German and English are supported.</string>
     <string name="help_dark_mode_title">Dark mode</string>
@@ -241,6 +243,11 @@
     <string name="poll_option_label">Option %1$d</string>
     <string name="poll_add_option">Add option</string>
     <string name="poll_multi_choice">Multiple answers allowed</string>
+    <string name="poll_number_mode">Numbers (summed up)</string>
+    <string name="poll_person_mode">Person-related poll</string>
+    <string name="poll_person">Person</string>
+    <string name="poll_sum">Sum</string>
+    <string name="poll_total">Total: %1$d</string>
     <string name="poll_send">Send poll</string>
     <string name="contacts">Contacts</string>
     <string name="general">General</string>
@@ -390,6 +397,7 @@
     <string name="archive_extract_error">Extraction failed – wrong password?</string>
     <string name="archive_open_with_app">Open with app</string>
     <string name="close">Close</string>
+    <string name="attachment_not_found">File not found</string>
     <string name="message">Message</string>
     <string name="help_ai_summary_title">AI Summary</string>
     <string name="help_ai_summary_text">Use the AI Summarize action in the chat (long-press a message, or select several messages) to summarize emails to 5 lines. It also runs spam classification and custom tag assignment, identical to the overview. The original email remains available in the detail view. The summary is written in your selected language.</string>
@@ -413,6 +421,8 @@
     <string name="help_two_pane_text">In landscape mode and on tablets the screen is split: the chat list is shown on the left and the selected chat on the right. In portrait mode on a phone the usual single-screen navigation is used.</string>
     <string name="help_embedded_images_title">Embedded images</string>
     <string name="help_embedded_images_text">Emails with embedded images (e.g. from Deutsche Post) show the text in the chat bubble. Open the email (tap the bubble) and use the "Load images" button to display the embedded images on the detail page.</string>
+    <string name="help_image_mosaic_title">Images in the chat</string>
+    <string name="help_image_mosaic_text">Images attached to a message are shown directly in the chat bubble as a mosaic (up to 4 images at chat-bubble width). Tap an image to open it in a full-screen viewer where you can pinch to zoom (1x–8x) and pan. Other attachments are listed below the bubble.</string>
     <string name="help_ai_spam_title">AI Spam Detection</string>
     <string name="help_ai_spam_text">Incoming emails are automatically analyzed by AI for spam, phishing, and unwanted ads. A combination of heuristic rules (domain mismatch, urgency phrases, suspicious links) and AI classification determines the category. The result is shown as a colored tag on the email in the chat.</string>
     <string name="help_ai_phishing_title">Phishing Probability</string>
@@ -491,6 +501,16 @@
         <item>Group chats: emails with multiple recipients are collected in one chat</item>
         <item>New emails can be sent to multiple recipients (comma separated)</item>
         <item>Replies in a group chat are sent to all members</item>
+    </string-array>
+    <string-array name="version_2_6_changes">
+        <item>New: Number mode for polls – respondents enter a number per option (e.g. [5] Option 1) and the result is the sum of the numbers; negative numbers are shown as red bars pointing left</item>
+        <item>New: Person-related polls – the result is a table with the persons as rows and the options as columns, plus a bottom row with the column sums</item>
+        <item>New: Sync button in the chat view – manually sync a chat; the button spins while the sync is running</item>
+        <item>New: Image mosaic in the chat bubble – up to 4 images are shown at chat-bubble width</item>
+        <item>New: Full-screen zoom viewer – tap an image to view it full-screen with pinch-to-zoom</item>
+        <item>Improved: Poll result view – recipients now see the same result as the creator, and contact names are shown instead of email addresses</item>
+        <item>Improved: The edit menu now appears immediately when multi-select mode is enabled (not only after the first selection)</item>
+        <item>Fixed: Images and attachments not showing in the chat after a restore – missing files are re-linked or re-fetched automatically</item>
     </string-array>
     <string-array name="version_2_5_changes">
         <item>New: Polls in chat – create and answer polls (single or multiple choice) with a bar chart, auto-close after the last vote and a result email; works with regular email clients (e.g. Thunderbird) and in group chats</item>

@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,6 +70,10 @@ fun AttachmentIcon(
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // Only show a thumbnail when the local file actually exists — otherwise Coil fails
+    // silently and the circle would be empty. Fall back to the text label (e.g. "JPEG").
+    val localFile = remember(attachment) { AttachmentUtils.resolveFile(context, attachment) }
     Box(
         modifier = modifier
             .size(32.dp)
@@ -77,11 +82,9 @@ fun AttachmentIcon(
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         contentAlignment = Alignment.Center
     ) {
-        if (attachment.isImage && !attachment.uri.lowercase().startsWith("http://") &&
-            !attachment.uri.lowercase().startsWith("https://")
-        ) {
+        if (localFile != null) {
             AsyncImage(
-                model = attachment.uri,
+                model = localFile.absolutePath,
                 contentDescription = attachment.fileName,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier

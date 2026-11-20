@@ -7,10 +7,36 @@ import com.mailchat.data.model.Attachment
 import java.io.File
 
 object AttachmentUtils {
+    /**
+     * Resolves the local file for an attachment. The stored [Attachment.uri] can be stale
+     * (e.g. after a restore or a rename), so fall back to searching the attachments directory
+     * by file name / content ID. Returns null when no local file can be found.
+     */
+    fun resolveFile(context: Context, attachment: Attachment): File? {
+        val original = File(attachment.uri)
+        if (original.exists()) return original
+        val attDir = File(context.filesDir, "attachments")
+        if (attDir.exists()) {
+            val searchName = attachment.fileName.ifBlank { attachment.contentId }
+            if (searchName.isNotBlank()) {
+                val found = attDir.listFiles()?.firstOrNull { it.name.endsWith(searchName) }
+                if (found != null) return found
+            }
+        }
+        return null
+    }
+
     fun openAttachment(context: Context, attachment: Attachment) {
         try {
-            val originalFile = File(attachment.uri)
-            if (!originalFile.exists()) return
+            val originalFile = resolveFile(context, attachment)
+            if (originalFile == null) {
+                android.widget.Toast.makeText(
+                    context,
+                    context.getString(com.mailchat.R.string.attachment_not_found),
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                return
+            }
             var mime = normalizeMime(attachment.mimeType)
             if (mime == "*/*" || mime == "application/octet-stream") {
                 mime = detectMimeFromFile(originalFile)

@@ -104,7 +104,9 @@
     <string name="help_smtp_title">SMTP-Server</string>
     <string name="help_smtp_text">Der SMTP-Server wird pro Konto konfiguriert. Wenn kein SMTP-Host für ein Konto eingetragen ist, ist das Senden deaktiviert und in den Einstellungen wird „Kein Senden" in rot angezeigt.</string>
     <string name="help_sync_title">Synchronisation</string>
-    <string name="help_sync_text">Neue E-Mails werden automatisch abgerufen, wenn du die App öffnest. Mit dem Aktualisieren-Symbol kannst du auch manuell synchronisieren.</string>
+    <string name="help_sync_text">Neue E-Mails werden automatisch abgerufen, wenn du die App öffnest. Du kannst auch manuell synchronisieren: das Aktualisieren-Symbol in der Chat-Übersicht ziehen oder den Sync-Button in einem Chat antippen (er dreht sich während des Syncs und repariert dabei fehlende Bilder oder Anhänge).</string>
+    <string name="help_poll_title">Umfragen</string>
+    <string name="help_poll_text">Lege in einem Chat über das Umfrage-Icon in der Top-Bar eine Umfrage an. Wähle Einzel- oder Mehrfachauswahl und füge die Optionen hinzu. Die Umfrage wird als normale E-Mail gesendet, funktioniert also auch mit normalen E-Mail-Programmen (z. B. Thunderbird). Die Antworten werden als Balkendiagramm gesammelt; nach der letzten Stimme schließt sich die Umfrage automatisch und es wird eine Ergebnis-E-Mail gesendet. Nach dem Abschluss sehen alle dieselbe Ergebnisansicht (Balkendiagramm und wer geantwortet hat, mit Kontaktnamen). In Gruppenchats erhält jeder Empfänger seine eigene Umfrage.</string>
     <string name="help_language_title">Sprache</string>
     <string name="help_language_text">Die App folgt der Sprache deines Geräts. Deutsch und Englisch werden unterstützt.</string>
     <string name="help_dark_mode_title">Dark Mode</string>
@@ -241,6 +243,11 @@
     <string name="poll_option_label">Option %1$d</string>
     <string name="poll_add_option">Option hinzufügen</string>
     <string name="poll_multi_choice">Mehrere Antworten möglich</string>
+    <string name="poll_number_mode">Zahlen (aufsummiert)</string>
+    <string name="poll_person_mode">Personenbezogene Umfrage</string>
+    <string name="poll_person">Person</string>
+    <string name="poll_sum">Summe</string>
+    <string name="poll_total">Summe: %1$d</string>
     <string name="poll_send">Umfrage senden</string>
     <string name="contacts">Kontakte</string>
     <string name="general">Allgemein</string>
@@ -390,6 +397,7 @@
     <string name="archive_extract_error">Entpacken fehlgeschlagen – falsches Passwort?</string>
     <string name="archive_open_with_app">Öffnen mit App</string>
     <string name="close">Schließen</string>
+    <string name="attachment_not_found">Datei nicht gefunden</string>
     <string name="message">Nachricht</string>
     <string name="help_ai_summary_title">KI-Zusammenfassung</string>
     <string name="help_ai_summary_text">Nutze die KI-Zusammenfassung im Chat (Nachricht lang drücken oder mehrere auswählen), um E-Mails auf 5 Zeilen zusammenzufassen. Dabei werden auch die Spam-Klassifizierung und die Tag-Zuordnung durchgeführt, identisch zur Übersicht. Die Original-E-Mail bleibt in der Detailansicht verfügbar. Die Zusammenfassung wird in deiner gewählten Sprache verfasst.</string>
@@ -413,6 +421,8 @@
     <string name="help_two_pane_text">Im Querformat und auf Tablets wird der Bildschirm geteilt: links die Chatübersicht und rechts der ausgewählte Chat. Im Hochformat auf dem Handy wird die übliche Einzelbildschirm-Navigation verwendet.</string>
     <string name="help_embedded_images_title">Eingebettete Bilder</string>
     <string name="help_embedded_images_text">E-Mails mit eingebetteten Bildern (z. B. von der Deutschen Post) zeigen in der Chatblase den Text. Öffne die E-Mail (Tippen auf die Blase) und nutze den Button „Bilder laden", um die eingebetteten Bilder auf der Detailseite anzuzeigen.</string>
+    <string name="help_image_mosaic_title">Bilder im Chat</string>
+    <string name="help_image_mosaic_text">Bilder, die an eine Nachricht angehängt sind, werden direkt in der Chatblase als Mosaik angezeigt (bis zu 4 Bilder, chatblasenbreit). Tippe auf ein Bild, um es im Vollbild-Viewer zu öffnen, wo du mit Pinch zoomen (1x–8x) und verschieben kannst. Weitere Anhänge werden unter der Blase aufgelistet.</string>
     <string name="help_ai_spam_title">KI-Spam-Erkennung</string>
     <string name="help_ai_spam_text">Eingehende E-Mails werden automatisch per KI auf Spam, Phishing und ungewollte Werbung analysiert. Eine Kombination aus Heuristik-Regeln (Domain-Mismatch, Dringlichkeitsformulierungen, verdächtige Links) und KI-Klassifikation bestimmt die Kategorie. Das Ergebnis wird als farbiger Tag an der E-Mail im Chat angezeigt.</string>
     <string name="help_ai_phishing_title">Phishing-Wahrscheinlichkeit</string>
@@ -491,6 +501,16 @@
         <item>Gruppenchats: E-Mails mit mehreren Empfängern werden in einem Chat gesammelt</item>
         <item>Neue E-Mails können an mehrere Empfänger (kommagetrennt) gesendet werden</item>
         <item>Antworten in einem Gruppenchat gehen an alle Mitglieder</item>
+    </string-array>
+    <string-array name="version_2_6_changes">
+        <item>Neu: Zahlen-Modus für Umfragen – pro Option eine Zahl eingeben (z. B. [5] Option 1), das Ergebnis ist die Summe der Zahlen; negative Zahlen werden als rote Balken nach links angezeigt</item>
+        <item>Neu: Personenbezogene Umfragen – das Ergebnis ist eine Tabelle mit den Personen als Zeilen und den Optionen als Spalten, plus eine Summenzeile</item>
+        <item>Neu: Sync-Button in der Chatansicht – einen Chat manuell synchronisieren; der Button dreht sich während des Syncs</item>
+        <item>Neu: Bild-Mosaik in der Chatblase – bis zu 4 Bilder werden chatblasenbreit angezeigt</item>
+        <item>Neu: Vollbild-Zoom-Viewer – Bild antippen, um es im Vollbild mit Pinch-to-Zoom anzuzeigen</item>
+        <item>Verbessert: Umfrage-Ergebnisansicht – Empfänger sehen jetzt dasselbe Ergebnis wie der Ersteller, und es werden Kontaktnamen statt E-Mail-Adressen angezeigt</item>
+        <item>Verbessert: Das Bearbeiten-Menü erscheint jetzt sofort, wenn der Mehrfachauswahl-Modus aktiviert ist (nicht erst nach der ersten Auswahl)</item>
+        <item>Behoben: Bilder und Anhänge wurden nach einem Restore nicht im Chat angezeigt – fehlende Dateien werden automatisch neu verlinkt oder neu geladen</item>
     </string-array>
     <string-array name="version_2_5_changes">
         <item>Neu: Umfragen direkt im Chat erstellen und beantworten (Einzel- oder Mehrfachauswahl) – mit Balkendiagramm, Auto-Abschluss nach der letzten Stimme und Ergebnis per E-Mail; funktioniert auch mit normalen E-Mail-Programmen (z. B. Thunderbird) und in Gruppenchats</item>

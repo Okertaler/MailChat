@@ -2,6 +2,7 @@ package com.mailchat.ui.component
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,8 +55,8 @@ import com.mailchat.ui.theme.WhatsAppBubbleOut
 import com.mailchat.ui.theme.WhatsAppDarkBubbleIn
 import com.mailchat.ui.theme.WhatsAppDarkBubbleOut
 import com.mailchat.ui.theme.WhatsAppDarkTextSecondary
-import java.io.File
 import com.mailchat.ui.theme.WhatsAppTextSecondary
+import com.mailchat.util.AttachmentUtils
 import com.mailchat.util.DateUtils
 import com.mailchat.util.normalizeWhitespace
 import com.mailchat.util.stripHtml
@@ -68,6 +69,7 @@ fun ChatBubble(
     onClick: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     onAttachmentClick: ((Attachment) -> Unit)? = null,
+    onImageClick: ((Attachment) -> Unit)? = null,
     senderEmail: String? = null,
     senderName: String? = null,
     senderPhotoUri: String? = null,
@@ -104,15 +106,19 @@ fun ChatBubble(
         RoundedCornerShape(12.dp, 12.dp, 12.dp, 4.dp)
     }
 
-    // Nur lokal vorliegende Anhänge/Einbettungen anzeigen - niemals Remote-URLs laden
-    val firstImage = attachments.firstOrNull { isImageFile(it) && resolveLocalFile(it, context) != null }
-    val firstImageUri = firstImage?.let { resolveLocalFile(it, context)?.absolutePath }
+    // Nur lokal vorliegende Anhänge/Einbettungen anzeigen - niemals Remote-URLs laden.
+    // Up to 4 images are shown as a mosaic at the top of the bubble (WhatsApp-style);
+    // the rest fall back to the attachment bar below.
+    val mosaicImages = attachments.filter { isImageFile(it) }
+        .mapNotNull { att -> AttachmentUtils.resolveFile(context, att)?.let { att to it } }
+        .take(4)
+    val singleImageUri = if (mosaicImages.size == 1) mosaicImages[0].second.absolutePath else null
 
-    // Aspect ratio (height/width) of the first image, decoded cheaply (bounds only) so the
-    // bubble image keeps its natural proportions instead of a fixed 200.dp height.
-    var imageAspectRatio by remember(firstImageUri) { mutableStateOf(1f) }
-    LaunchedEffect(firstImageUri) {
-        firstImageUri?.let { uri ->
+    // Aspect ratio (height/width) of the single image, decoded cheaply (bounds only) so the
+    // bubble image keeps its natural proportions instead of a fixed height.
+    var imageAspectRatio by remember(singleImageUri) { mutableStateOf(1f) }
+    LaunchedEffect(singleImageUri) {
+        singleImageUri?.let { uri ->
             imageAspectRatio = withContext(Dispatchers.IO) {
                 runCatching {
                     val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -307,23 +313,59 @@ fun ChatBubble(
                             } else Modifier
                         )
                 ) {
-                if (firstImageUri != null) {
+                if (mosaicImages.isNotEmpty()) {
                     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                         val bubbleWidth = maxWidth
-                        // Keep the natural aspect ratio, but cap the height so the image can't
-                        // be more than 2x taller than wide (crop top/bottom beyond that).
-                        val maxRatio = 2f
-                        val targetHeight = (bubbleWidth * imageAspectRatio)
-                            .coerceAtMost(bubbleWidth * maxRatio)
-                        AsyncImage(
-                            model = firstImageUri,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(targetHeight)
-                                .clip(shape)
-                        )
+                        if (mosaicImages.size == 1) {
+                            val (att, file) = mosaicImages[0]
+                            // Keep the natural aspect ratio, but cap the height so the image
+                            // can't be more than 2x taller than wide (crop beyond that).
+                            val maxRatio = 2f
+                            val targetHeight = (bubbleWidth * imageAspectRatio)
+                                .coerceAtMost(bubbleWidth * maxRatio)
+                            AsyncImage(
+                                model = file.absolutePath,
+                                contentDescription = att.fileName,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(targetHeight)
+                                    .clip(shape)
+                                    .clickable { onImageClick?.invoke(att) }
+                            )
+                        } else {
+                            // 2-4 images: square tiles in a grid (2 / 2+1 / 2x2), never wider
+                            // than the bubble.
+                            val gap = 4.dp
+                            val tile = (bubbleWidth - gap) / 2
+                            val rows = if (mosaicImages.size == 2) {
+                                listOf(mosaicImages)
+                            } else {
+                                mosaicImages.chunked(2)
+                            }
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)),
+                                verticalArrangement = Arrangement.spacedBy(gap)
+                            ) {
+                                rows.forEach { row ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                                        row.forEach { (att, file) ->
+                                            AsyncImage(
+                                                model = file.absolutePath,
+                                                contentDescription = att.fileName,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier
+                                                    .size(tile)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .clickable { onImageClick?.invoke(att) }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -384,7 +426,11 @@ fun ChatBubble(
                     }
 
                     val audioAttachments = attachments.filter { isAudioFile(it) }
-                    val otherAttachments = attachments.filter { !isAudioFile(it) && it.contentId.isEmpty() }
+                    // Images already shown in the mosaic above must not appear again in the bar.
+                    val mosaicIds = mosaicImages.map { it.first.id }.toSet()
+                    val otherAttachments = attachments.filter {
+                        !isAudioFile(it) && it.contentId.isEmpty() && it.id !in mosaicIds
+                    }
                     if (audioAttachments.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(8.dp))
                         audioAttachments.forEach { audio ->
@@ -453,17 +499,3 @@ private fun isImageFile(attachment: Attachment): Boolean {
         name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".webp")
 }
 
-private fun resolveLocalFile(attachment: Attachment, context: android.content.Context): File? {
-    val original = File(attachment.uri)
-    if (original.exists()) return original
-    // Fallback: im attachments-Verzeichnis suchen
-    val attDir = File(context.filesDir, "attachments")
-    if (attDir.exists()) {
-        val searchName = attachment.fileName.ifBlank { attachment.contentId }
-        if (searchName.isNotBlank()) {
-            val found = attDir.listFiles()?.firstOrNull { it.name.endsWith(searchName) }
-            if (found != null) return found
-        }
-    }
-    return null
-}

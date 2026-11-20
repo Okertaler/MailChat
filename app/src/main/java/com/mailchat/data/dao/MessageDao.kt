@@ -59,6 +59,9 @@ interface MessageDao {
     @Query("SELECT COUNT(*) FROM messages WHERE messageId = :messageId AND messageId != ''")
     suspend fun countByMessageId(messageId: String): Int
 
+    @Query("SELECT * FROM messages WHERE messageId = :messageId AND messageId != '' LIMIT 1")
+    suspend fun findByMessageId(messageId: String): Message?
+
     @Query(
         "SELECT * FROM messages WHERE accountId = :accountId AND isIncoming = 1 AND messageId != '' " +
             "AND bodyFull LIKE '%cid:%' " +

@@ -120,6 +120,10 @@ fun HelpScreen(
                 title = stringResource(R.string.help_embedded_images_title),
                 text = stringResource(R.string.help_embedded_images_text)
             )
+            HelpSection(
+                title = stringResource(R.string.help_poll_title),
+                text = stringResource(R.string.help_poll_text)
+            )
 
             // ── Encryption ─────────────────────────────────────────────────
             HelpCategory(stringResource(R.string.help_category_encryption))
@@ -204,6 +208,10 @@ fun HelpScreen(
             HelpSection(
                 title = stringResource(R.string.help_pinch_zoom_title),
                 text = stringResource(R.string.help_pinch_zoom_text)
+            )
+            HelpSection(
+                title = stringResource(R.string.help_image_mosaic_title),
+                text = stringResource(R.string.help_image_mosaic_text)
             )
             HelpSection(
                 title = stringResource(R.string.help_permissions_title),

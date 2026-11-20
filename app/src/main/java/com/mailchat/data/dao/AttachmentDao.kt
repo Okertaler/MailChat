@@ -28,12 +28,19 @@ interface AttachmentDao {
     )
     suspend fun getAttachmentsByChatSync(chatId: Long): List<Attachment>
 
+    @Query(
+        "SELECT a.* FROM attachments a " +
+            "INNER JOIN messages m ON a.messageId = m.id " +
+            "WHERE m.accountId = :accountId ORDER BY a.sortOrder ASC"
+    )
+    suspend fun getAttachmentsByAccount(accountId: Long): List<Attachment>
+
+    @Query("SELECT uri FROM attachments")
+    suspend fun getAllUris(): List<String>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAttachment(attachment: Attachment): Long
 
     @Query("DELETE FROM attachments WHERE messageId = :messageId")
     suspend fun deleteAttachmentsByMessage(messageId: Long)
-
-    @Query("SELECT * FROM attachments WHERE messageId IN (SELECT id FROM messages WHERE accountId = :accountId)")
-    suspend fun getAttachmentsByAccount(accountId: Long): List<Attachment>
 }

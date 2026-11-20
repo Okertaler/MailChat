@@ -110,6 +110,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.mailchat.R
 import com.mailchat.ui.component.ChatListItem
+import com.mailchat.ui.component.SpinningRefreshButton
 import com.mailchat.ui.viewmodel.ChatListViewModel
 import com.mailchat.util.EmailGrouping
 import com.mailchat.util.SettingsUtils
@@ -1886,30 +1887,5 @@ fun EmptyState(
         ) {
             Text(stringResource(R.string.backup_import))
         }
-    }
-}
-
-@Composable
-private fun SpinningRefreshButton(isSpinning: Boolean, onClick: () -> Unit) {
-    val rotation = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(isSpinning) {
-        if (isSpinning) {
-            rotation.animateTo(
-                targetValue = 360f,
-                animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                    androidx.compose.animation.core.tween(1000),
-                    androidx.compose.animation.core.RepeatMode.Restart
-                )
-            )
-        } else {
-            rotation.snapTo(0f)
-        }
-    }
-    IconButton(onClick = onClick, enabled = !isSpinning) {
-        Icon(
-            Icons.Default.Refresh,
-            contentDescription = stringResource(R.string.sync),
-            modifier = Modifier.rotate(rotation.value)
-        )
     }
 }
