@@ -29,6 +29,8 @@ class MessageRepository @Inject constructor(
 
     suspend fun getMessagesByPollId(pollId: String): List<Message> = messageDao.getMessagesByPollId(pollId)
 
+    fun getMessagesByPollIdFlow(pollId: String): Flow<List<Message>> = messageDao.getMessagesByPollIdFlow(pollId)
+
     suspend fun markAllRead(chatId: Long) = messageDao.markAllRead(chatId)
 
     suspend fun getChatIdsWithSummary(): List<Long> = messageDao.getChatIdsWithSummary()

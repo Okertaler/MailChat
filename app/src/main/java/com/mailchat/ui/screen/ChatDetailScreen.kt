@@ -49,6 +49,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Block
@@ -77,6 +78,7 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Poll
 import androidx.compose.material.icons.filled.Refresh
@@ -122,6 +124,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -186,6 +189,7 @@ import com.mailchat.ui.component.AccountAvatar
 import com.mailchat.ui.component.GroupAvatar
 import com.mailchat.ui.component.SpinningRefreshButton
 import com.mailchat.ui.viewmodel.ChatDetailViewModel
+import com.mailchat.util.AppointmentFormat
 import com.mailchat.util.DateUtils
 import com.mailchat.util.EmailGrouping
 import com.mailchat.util.PollFormat
@@ -212,6 +216,25 @@ fun ChatDetailScreen(
     var replyToneMessage by remember { mutableStateOf<Message?>(null) }
     var showComposeAiTone by remember { mutableStateOf(false) }
     var showPollEditor by remember { mutableStateOf(false) }
+    var showAppointmentEditor by remember { mutableStateOf(false) }
+    // When set (an AI-detected appointment), the appointment editor is pre-filled with it.
+    var appointmentEditorInitial by remember { mutableStateOf<com.mailchat.ai.GeminiService.Appointment?>(null) }
+    // An AI appointment was detected: (appointment, subject) pending the user's choice
+    // ("send as appointment poll" vs. "add to my calendar"). Null = none.
+    var pendingApptAction by remember { mutableStateOf<Pair<com.mailchat.ai.GeminiService.Appointment, String>?>(null) }
+    // When starting an appointment poll from an AI-detected appointment, the user first picks the
+    // recipient/group (chat). Null = use the current chat.
+    var apptTargetChat by remember { mutableStateOf<com.mailchat.data.model.Chat?>(null) }
+    var showApptChatPicker by remember { mutableStateOf(false) }
+    var apptPickerChats by remember { mutableStateOf<List<com.mailchat.data.model.Chat>>(emptyList()) }
+    var apptPickerQuery by remember { mutableStateOf("") }
+    // Load the chat list for the recipient/group picker when the dialog opens.
+    LaunchedEffect(showApptChatPicker) {
+        if (showApptChatPicker) {
+            apptPickerQuery = ""
+            apptPickerChats = viewModel.chatsForPicker()
+        }
+    }
     var showMembersDialog by remember { mutableStateOf(false) }
     var showSizeWarning by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
@@ -330,7 +353,8 @@ fun ChatDetailScreen(
         // result, so there is only ONE entry per poll.
         var visible = uiState.messages.filter { msg ->
             !msg.isPollAnswer &&
-                PollFormat.parseResultMarker(msg.bodyFull.ifBlank { msg.body }) == null
+                PollFormat.parseResultMarker(msg.bodyFull.ifBlank { msg.body }) == null &&
+                AppointmentFormat.parseApptResultMarker(msg.bodyFull.ifBlank { msg.body }) == null
         }
         // The creator sends one poll email per recipient (each with its own poll-ID, all linked by
         // a shared groupId). Show only ONE poll message per group (the first one) so the chat
@@ -1088,6 +1112,18 @@ fun ChatDetailScreen(
                                 onClick = {
                                     showAddMenu = false
                                     showPollEditor = true
+                                }
+                            )
+                            // Create a TERMIN (appointment) in this chat: Ja/Nein/Vielleicht + comment.
+                            androidx.compose.material3.DropdownMenuItem(
+                                leadingIcon = {
+                                    Icon(Icons.Default.Event, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                },
+                                text = { Text(stringResource(R.string.appt_create)) },
+                                onClick = {
+                                    showAddMenu = false
+                                    appointmentEditorInitial = null
+                                    showAppointmentEditor = true
                                 }
                             )
                             androidx.compose.material3.DropdownMenuItem(
@@ -2023,7 +2059,6 @@ fun ChatDetailScreen(
             },
             onReply = { msg ->
                 viewModel.replyWithQuote(msg)
-                viewModel.toggleQuote()
                 val subj = msg.subject
                 val reSubject = if (subj.startsWith("Re:", ignoreCase = true)) subj else "Re: $subj"
                 selectedSubject = reSubject
@@ -2033,7 +2068,6 @@ fun ChatDetailScreen(
             },
             onReplyAll = { msg ->
                 viewModel.replyAll(msg)
-                viewModel.toggleQuote()
                 val subj = msg.subject
                 val reSubject = if (subj.startsWith("Re:", ignoreCase = true)) subj else "Re: $subj"
                 selectedSubject = reSubject
@@ -2080,7 +2114,10 @@ fun ChatDetailScreen(
                     selectedMessage = uiState.messages[msgIndex + 1]
                 }
             },
-            viewModel = viewModel
+            viewModel = viewModel,
+            onApptAction = { appt, subject ->
+                pendingApptAction = appt to subject
+            }
         )
     }
 
@@ -2115,7 +2152,8 @@ fun ChatDetailScreen(
             ccValue = uiState.composeCc,
             bccValue = uiState.composeBcc,
             body = uiState.composeText,
-            quote = uiState.pendingQuote,
+            hasQuote = uiState.replyQuote != null,
+            quoteEnabled = uiState.quoteEnabled,
             isSending = uiState.isSending,
             attachments = uiState.composeAttachments,
             isRecording = isRecording,
@@ -2134,6 +2172,7 @@ fun ChatDetailScreen(
             onCcChange = { viewModel.setComposeCc(it) },
             onBccChange = { viewModel.setComposeBcc(it) },
             onBodyChange = { viewModel.onComposeTextChange(it) },
+            onToggleQuote = { viewModel.toggleQuote() },
             onRemoveAttachment = { viewModel.removeComposeAttachment(it) },
             onPickFile = { filePicker.launch(arrayOf("*/*")) },
             onCompress = { viewModel.createCompressedAttachment(it) },
@@ -2184,6 +2223,151 @@ fun ChatDetailScreen(
                 viewModel.createPoll(title, question, options, multi, numberMode, personMode)
                 // The poll is a standalone email — close the compose overlay for a clean flow.
                 viewModel.closeFullCompose()
+            }
+        )
+    }
+
+    if (showAppointmentEditor) {
+        AppointmentEditor(
+            isSending = uiState.isSending,
+            initial = appointmentEditorInitial,
+            onDismiss = {
+                showAppointmentEditor = false
+                appointmentEditorInitial = null
+            },
+            onCreate = { title, question, startDate, startTime, endDate, endTime, allDay, location ->
+                showAppointmentEditor = false
+                appointmentEditorInitial = null
+                // apptTargetChat is set only in the AI flow (recipient/group picked first);
+                // null in the "+"-menu flow means "use the current chat". A contact that is not
+                // in the chats has id = 0: pass its email so the poll is sent to that contact.
+                val targetChatId = apptTargetChat?.takeIf { it.id != 0L }?.id
+                val targetEmail = apptTargetChat?.takeIf { it.id == 0L }?.participantEmail
+                apptTargetChat = null
+                viewModel.createAppointment(title, question, startDate, startTime, endDate, endTime, allDay, location, targetChatId, targetEmail)
+                // The appointment is a standalone email — close the compose overlay for a clean flow.
+                viewModel.closeFullCompose()
+            }
+        )
+    }
+
+    // AI appointment detected: let the user choose between sending it as an appointment poll
+    // (Termin-Umfrage) or adding it to their own calendar.
+    val pendingApptActionValue = pendingApptAction
+    if (pendingApptActionValue != null) {
+        val (appt, subject) = pendingApptActionValue
+        // Captured here (composable context) because the onClick lambdas below are not composable.
+        val apptContext = LocalContext.current
+        val apptCreateEventLabel = stringResource(R.string.create_event)
+        AlertDialog(
+            onDismissRequest = { pendingApptAction = null },
+            title = { Text(stringResource(R.string.appt_ai_title)) },
+            text = {
+                Column {
+                    Text(appt.title)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "${appt.date} · ${appt.time} (${appt.durationMin} min)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingApptAction = null
+                    // Remember the appointment for the editor, then let the user choose the
+                    // recipient/group before the editor opens.
+                    appointmentEditorInitial = appt
+                    apptTargetChat = null
+                    showApptChatPicker = true
+                }) {
+                    Text(stringResource(R.string.appt_ai_send))
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        pendingApptAction = null
+                        launchCalendarEventInsert(apptContext, appt, subject, apptCreateEventLabel)
+                    }) {
+                        Text(stringResource(R.string.appt_ai_calendar))
+                    }
+                    TextButton(onClick = { pendingApptAction = null }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            }
+        )
+    }
+
+    // Recipient/group picker shown before starting an appointment poll from an AI-detected
+    // appointment. The chosen chat is stored in apptTargetChat and used by createAppointment.
+    if (showApptChatPicker) {
+        AlertDialog(
+            onDismissRequest = { showApptChatPicker = false },
+            title = { Text(stringResource(R.string.appt_pick_recipient)) },
+            text = {
+                val filteredApptChats = apptPickerChats
+                    .filter { chat ->
+                        apptPickerQuery.isBlank() ||
+                            chat.participantName.contains(apptPickerQuery, ignoreCase = true) ||
+                            chat.participantEmail.contains(apptPickerQuery, ignoreCase = true)
+                    }
+                    .sortedBy { apptPickerDisplayName(it).lowercase() }
+                Column {
+                    OutlinedTextField(
+                        value = apptPickerQuery,
+                        onValueChange = { apptPickerQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(stringResource(R.string.search)) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        singleLine = true
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    if (filteredApptChats.isEmpty()) {
+                        Text(stringResource(R.string.appt_pick_recipient_empty))
+                    } else {
+                        LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
+                            items(filteredApptChats) { chat ->
+                                val isGroup = com.mailchat.util.EmailGrouping.isGroupKey(chat.participantEmail)
+                                val name = apptPickerDisplayName(chat)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            apptTargetChat = chat
+                                            showApptChatPicker = false
+                                            showAppointmentEditor = true
+                                        }
+                                        .padding(vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        if (isGroup) Icons.Default.Group else Icons.Default.Person,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(name, style = MaterialTheme.typography.bodyLarge)
+                                        Text(
+                                            chat.participantEmail,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showApptChatPicker = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
             }
         )
     }
@@ -2914,7 +3098,8 @@ private fun FullComposeOverlay(
     ccValue: String,
     bccValue: String,
     body: String,
-    quote: String?,
+    hasQuote: Boolean,
+    quoteEnabled: Boolean,
     isSending: Boolean,
     attachments: List<File>,
     isRecording: Boolean,
@@ -2928,6 +3113,7 @@ private fun FullComposeOverlay(
     onCcChange: (String) -> Unit,
     onBccChange: (String) -> Unit,
     onBodyChange: (String) -> Unit,
+    onToggleQuote: () -> Unit,
     onRemoveAttachment: (File) -> Unit,
     onPickFile: () -> Unit,
     onCompress: (String) -> Unit,
@@ -2942,7 +3128,6 @@ private fun FullComposeOverlay(
     onFromChange: (Long) -> Unit
 ) {
     var showCcBcc by remember { mutableStateOf(ccValue.isNotBlank() || bccValue.isNotBlank()) }
-    var showQuote by remember { mutableStateOf(true) }
     var contactPickerFor by remember { mutableStateOf<String?>(null) }
     var showCompressDialog by remember { mutableStateOf(false) }
     var showToolbarHelp by remember { mutableStateOf(false) }
@@ -3291,26 +3476,25 @@ private fun FullComposeOverlay(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-                    if (!quote.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TextButton(onClick = { showQuote = !showQuote }) {
-                            Icon(
-                                if (showQuote) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(if (showQuote) stringResource(R.string.hide_quote) else stringResource(R.string.show_quote))
+                        // Quote toggle (reply / reply-all only): the quote is part of the
+                        // message field (editable); toggling removes / re-inserts it.
+                        if (hasQuote) {
+                            Spacer(modifier = Modifier.weight(1f))
+                            TextButton(onClick = onToggleQuote) {
+                                Icon(
+                                    if (quoteEnabled) Icons.Default.Check else Icons.Default.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (quoteEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(R.string.quote_toggle),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (quoteEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
-                        if (showQuote) {
-                            Text(
-                                text = quote,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 if (isRecording) {
                     Row(
@@ -3418,6 +3602,23 @@ private fun stripEmailHeader(text: String): String {
 }
 
 /**
+ * The display name for a chat in the appointment recipient/group picker: the group display name
+ * for groups, otherwise the participant name (or the email local-part as a fallback).
+ */
+private fun apptPickerDisplayName(chat: com.mailchat.data.model.Chat): String {
+    val isGroup = com.mailchat.util.EmailGrouping.isGroupKey(chat.participantEmail)
+    return if (isGroup) {
+        chat.participantName.ifBlank {
+            com.mailchat.util.EmailGrouping.groupDisplayName(
+                chat.participantEmail.split(";").map { it.trim() }
+            )
+        }
+    } else {
+        chat.participantName.ifBlank { chat.participantEmail.substringBefore('@') }
+    }
+}
+
+/**
  * Opens the system calendar's "insert event" screen pre-filled with [appointment]. Used both for
  * a single detected appointment and after the user picked one from the multi-appointment dialog.
  */
@@ -3432,6 +3633,9 @@ private fun launchCalendarEventInsert(
         data = android.net.Uri.parse("content://com.android.calendar/events")
         putExtra("title", title)
         putExtra("description", description)
+        // The context may be the Application context (not an Activity), so starting an activity
+        // from it requires FLAG_ACTIVITY_NEW_TASK.
+        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
         if (dateStr.isNotBlank()) {
             try {
                 val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
@@ -3617,6 +3821,261 @@ private fun PollEditor(
             }
         }
     }
+}
+
+/**
+ * TERMIN (appointment) editor: title, question, start/end date+time, all-day toggle and location.
+ * Shown as a full-screen overlay; [onCreate] is called with the validated appointment data. When
+ * [initial] is set (an AI-detected appointment), the fields are pre-filled with it.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AppointmentEditor(
+    isSending: Boolean,
+    initial: com.mailchat.ai.GeminiService.Appointment?,
+    onDismiss: () -> Unit,
+    onCreate: (title: String, question: String, startDate: String, startTime: String, endDate: String, endTime: String, allDay: Boolean, location: String) -> Unit
+) {
+    val context = LocalContext.current
+    val isGermanUi = com.mailchat.util.SettingsUtils.isGermanUi(context)
+    val today = java.time.LocalDate.now()
+    fun addMinutes(time: String, minutes: Int): String {
+        val parts = time.split(":")
+        val h = parts.getOrNull(0)?.toIntOrNull() ?: 9
+        val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
+        val total = h * 60 + m + minutes
+        return "%02d:%02d".format((total / 60) % 24, total % 60)
+    }
+    var title by remember { mutableStateOf(initial?.title ?: (if (isGermanUi) "Termin: " else "Appointment: ")) }
+    var question by remember { mutableStateOf("") }
+    var startDate by remember { mutableStateOf(initial?.date ?: today.toString()) }
+    var startTime by remember { mutableStateOf(initial?.time ?: "09:00") }
+    var endDate by remember { mutableStateOf(initial?.date ?: today.toString()) }
+    var endTime by remember { mutableStateOf(initial?.let { addMinutes(it.time, it.durationMin) } ?: "10:00") }
+    var allDay by remember { mutableStateOf(false) }
+    var location by remember { mutableStateOf("") }
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
+
+    val validDates = startDate.isNotBlank() && endDate.isNotBlank() &&
+        (allDay || (startTime.isNotBlank() && endTime.isNotBlank())) &&
+        (startDate < endDate || (startDate == endDate && (allDay || startTime <= endTime)))
+    val canSend = title.isNotBlank() && validDates && !isSending
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.appt_editor_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancel))
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text(stringResource(R.string.appt_title_label)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = question,
+                        onValueChange = { question = it },
+                        label = { Text(stringResource(R.string.appt_question_label)) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = allDay, onCheckedChange = { allDay = it })
+                        Text(stringResource(R.string.appt_all_day))
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    ApptDateField(stringResource(R.string.appt_start_date), startDate, { showStartDatePicker = true })
+                    Spacer(Modifier.height(8.dp))
+                    if (!allDay) {
+                        ApptTimeField(stringResource(R.string.appt_start_time), startTime, { showStartTimePicker = true })
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    ApptDateField(stringResource(R.string.appt_end_date), endDate, { showEndDatePicker = true })
+                    Spacer(Modifier.height(8.dp))
+                    if (!allDay) {
+                        ApptTimeField(stringResource(R.string.appt_end_time), endTime, { showEndTimePicker = true })
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    OutlinedTextField(
+                        value = location,
+                        onValueChange = { location = it },
+                        label = { Text(stringResource(R.string.appt_location_label)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (!validDates) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(stringResource(R.string.appt_date_invalid), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = { onCreate(title.trim(), question.trim(), startDate, startTime, endDate, endTime, allDay, location.trim()) },
+                        enabled = canSend,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (isSending) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        } else {
+                            Text(stringResource(R.string.appt_send))
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+        }
+    }
+
+    // Date pickers (Material3). The state is created when the picker branch enters composition
+    // (i.e. when the picker opens) and discarded when it closes, so it always starts from the
+    // current value.
+    if (showStartDatePicker) {
+        val state = androidx.compose.material3.rememberDatePickerState(
+            initialSelectedDateMillis = apptDateToMillis(startDate)
+        )
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = { showStartDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { startDate = apptMillisToDate(it) }
+                    showStartDatePicker = false
+                }) { Text(stringResource(R.string.ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStartDatePicker = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        ) {
+            androidx.compose.material3.DatePicker(state = state)
+        }
+    }
+    if (showEndDatePicker) {
+        val state = androidx.compose.material3.rememberDatePickerState(
+            initialSelectedDateMillis = apptDateToMillis(endDate)
+        )
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = { showEndDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { endDate = apptMillisToDate(it) }
+                    showEndDatePicker = false
+                }) { Text(stringResource(R.string.ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEndDatePicker = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        ) {
+            androidx.compose.material3.DatePicker(state = state)
+        }
+    }
+    if (showStartTimePicker) {
+        ApptTimePickerDialog(
+            initialTime = startTime,
+            onDismiss = { showStartTimePicker = false },
+            onConfirm = { startTime = it; showStartTimePicker = false }
+        )
+    }
+    if (showEndTimePicker) {
+        ApptTimePickerDialog(
+            initialTime = endTime,
+            onDismiss = { showEndTimePicker = false },
+            onConfirm = { endTime = it; showEndTimePicker = false }
+        )
+    }
+}
+
+/**
+ * A time picker dialog (Material3 TimePicker in a plain Dialog with OK/Cancel buttons).
+ * [onConfirm] receives the chosen time as "HH:mm".
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ApptTimePickerDialog(initialTime: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    val (h, m) = apptTimeParts(initialTime)
+    val state = androidx.compose.material3.rememberTimePickerState(initialHour = h, initialMinute = m)
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
+            Column(
+                Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                androidx.compose.material3.TimePicker(state = state)
+                Spacer(Modifier.height(8.dp))
+                Row {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+                    Spacer(Modifier.width(8.dp))
+                    TextButton(onClick = { onConfirm("%02d:%02d".format(state.hour, state.minute)) }) {
+                        Text(stringResource(R.string.ok))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Converts a "YYYY-MM-DD" date to epoch millis (UTC midnight), or null when invalid. */
+private fun apptDateToMillis(date: String): Long? = try {
+    java.time.LocalDate.parse(date).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+} catch (_: Exception) {
+    null
+}
+
+/** Converts epoch millis (UTC) back to a "YYYY-MM-DD" date. */
+private fun apptMillisToDate(millis: Long): String =
+    java.time.Instant.ofEpochMilli(millis).atZone(java.time.ZoneOffset.UTC).toLocalDate().toString()
+
+/** Splits an "HH:mm" time into (hour, minute). */
+private fun apptTimeParts(time: String): Pair<Int, Int> {
+    val parts = time.split(":")
+    return (parts.getOrNull(0)?.toIntOrNull() ?: 0) to (parts.getOrNull(1)?.toIntOrNull() ?: 0)
+}
+
+/** A read-only date field that opens a date picker when tapped (trailing icon). */
+@Composable
+private fun ApptDateField(label: String, value: String, onPick: () -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = {},
+        readOnly = true,
+        label = { Text(label) },
+        singleLine = true,
+        trailingIcon = {
+            IconButton(onClick = onPick) {
+                Icon(Icons.Default.Event, contentDescription = label)
+            }
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+/** A read-only time field that opens a time picker when tapped (trailing icon). */
+@Composable
+private fun ApptTimeField(label: String, value: String, onPick: () -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = {},
+        readOnly = true,
+        label = { Text(label) },
+        singleLine = true,
+        trailingIcon = {
+            IconButton(onClick = onPick) {
+                Icon(Icons.Default.AccessTime, contentDescription = label)
+            }
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 /**
@@ -3857,6 +4316,278 @@ private fun PollView(message: Message, viewModel: ChatDetailViewModel) {
     }
 }
 
+/**
+ * Dispatches a poll message to the right interactive view: an appointment (Termin) poll renders
+ * [AppointmentView], everything else renders [PollView]. The mode is read from the poll record
+ * (observed once), so a message that is an appointment is never shown as a regular poll.
+ */
+@Composable
+private fun PollOrApptView(message: Message, viewModel: ChatDetailViewModel) {
+    var isAppt by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(message.pollId) {
+        viewModel.observePollResults(message.pollId).collect { res ->
+            isAppt = res?.poll?.appointmentMode
+        }
+    }
+    when (isAppt) {
+        null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        true -> AppointmentView(message = message, viewModel = viewModel)
+        false -> PollView(message = message, viewModel = viewModel)
+    }
+}
+
+/**
+ * Interactive TERMIN (appointment) view: shows the date/time/location, the Ja/Nein/Vielleicht
+ * answer (with an optional comment), the responses (creator: live; recipient: the ASCII result
+ * once closed), an "Add to calendar" button (ICS share) and (for the creator) a close button.
+ */
+@Composable
+private fun AppointmentView(message: Message, viewModel: ChatDetailViewModel) {
+    val context = LocalContext.current
+    val pollId = message.pollId
+    var results by remember { mutableStateOf<ChatDetailViewModel.PollResults?>(null) }
+    var apptSyncTriggered by remember(pollId) { mutableStateOf(false) }
+    LaunchedEffect(pollId) {
+        viewModel.observePollResults(pollId).collect { res ->
+            results = res
+            if (!apptSyncTriggered && res != null &&
+                res.poll.status == com.mailchat.data.model.Poll.STATUS_OPEN
+            ) {
+                apptSyncTriggered = true
+                val periodStart = if (message.timestamp > 0) message.timestamp - 3_600_000 else null
+                viewModel.syncChat(periodStartOverride = periodStart)
+            }
+        }
+    }
+    val accountEmail = viewModel.uiState.value.accountEmail?.let { it.trim().lowercase() } ?: ""
+    var selectedChoice by remember { mutableStateOf<Int?>(null) }
+    var comment by remember { mutableStateOf("") }
+    var initialized by remember { mutableStateOf(false) }
+    val isGerman = com.mailchat.util.SettingsUtils.isGermanUi(context)
+
+    val r = results
+    if (r == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+    val poll = r.poll
+    // Pre-select the user's existing answer (once, so live updates don't clobber the selection).
+    if (!initialized) {
+        val myVote = r.votes.firstOrNull { it.voterEmail.trim().lowercase() == accountEmail }
+        selectedChoice = myVote?.let { PollFormat.indicesFromJson(it.optionIndices).firstOrNull() }
+        comment = myVote?.comment ?: ""
+        initialized = true
+    }
+    val isOpen = poll.status == com.mailchat.data.model.Poll.STATUS_OPEN
+    val isCreator = !message.isIncoming
+    val choiceLabels = listOf(
+        stringResource(R.string.appt_answer_yes),
+        stringResource(R.string.appt_answer_no),
+        stringResource(R.string.appt_answer_maybe)
+    )
+    val dateLabel = AppointmentFormat.dateLabel(
+        poll.startDate, poll.startTime, poll.endDate, poll.endTime, poll.allDay, isGerman
+    )
+    // Contact names for the response list (fallback: the email). For a closed appointment the
+    // recipient sees the structured responses from the result email (not the local votes).
+    val responseEmails = remember(r.votes, r.apptResultData) {
+        (r.votes.map { it.voterEmail } + (r.apptResultData?.responses?.map { it.email } ?: emptyList()))
+            .filter { it.isNotBlank() }.distinct()
+    }
+    var contactNames by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    LaunchedEffect(responseEmails) {
+        contactNames = viewModel.resolveContactNames(responseEmails)
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Text("📅 ${poll.title}", style = MaterialTheme.typography.titleLarge)
+        if (poll.question.isNotBlank()) {
+            Text(poll.question, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 8.dp))
+        }
+        Spacer(Modifier.height(12.dp))
+        // Date + location.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Event, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(dateLabel, style = MaterialTheme.typography.bodyLarge)
+        }
+        if (poll.location.isNotBlank()) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(poll.location, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+
+        if (isOpen) {
+            Spacer(Modifier.height(16.dp))
+            // Ja / Nein / Vielleicht (single choice).
+            for (i in choiceLabels.indices) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = selectedChoice == i,
+                        onClick = { selectedChoice = i }
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(choiceLabels[i], style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = comment,
+                onValueChange = { comment = it },
+                label = { Text(stringResource(R.string.appt_comment_label)) },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = {
+                    val choice = selectedChoice ?: return@Button
+                    viewModel.answerAppointment(pollId, choice, comment.trim())
+                },
+                enabled = selectedChoice != null && !uiStateIsSending(viewModel)
+            ) {
+                Text(stringResource(R.string.appt_send_answer))
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        // Responses. Creator: live (from the votes). Recipient (closed): the ASCII result body.
+        if (isCreator) {
+            val deduped = r.votes
+            if (deduped.isNotEmpty()) {
+                Text(stringResource(R.string.appt_recipients), style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(4.dp))
+                for (vote in deduped) {
+                    val choice = PollFormat.indicesFromJson(vote.optionIndices).firstOrNull()
+                    val label = choice?.let { choiceLabels.getOrNull(it) } ?: "—"
+                    Row(verticalAlignment = Alignment.Top) {
+                        Text(
+                            if (choice != null) "✓" else "○",
+                            color = if (choice != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(contactNames[vote.voterEmail.lowercase()] ?: vote.voterEmail, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                buildString {
+                                    append(label)
+                                    if (vote.comment.isNotBlank()) append(" — ").append(vote.comment)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
+            } else {
+                Text(
+                    stringResource(R.string.appt_no_response),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else if (!isOpen) {
+            // Recipient, closed: show the structured result (the same responses the creator
+            // sees), rendered like the creator's list. Fallback: the ASCII result body (legacy
+            // result emails without the structured payload).
+            val responses = r.apptResultData?.responses
+            if (!responses.isNullOrEmpty()) {
+                Text(stringResource(R.string.appt_recipients), style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(4.dp))
+                for (resp in responses) {
+                    val label = choiceLabels.getOrElse(resp.choice) { "—" }
+                    Row(verticalAlignment = Alignment.Top) {
+                        Text(
+                            "✓",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(contactNames[resp.email.lowercase()] ?: resp.email, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                buildString {
+                                    append(label)
+                                    if (resp.comment.isNotBlank()) append(" — ").append(resp.comment)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
+                // Summary line (Ja/Nein/Vielleicht counts).
+                val counts = IntArray(3)
+                for (resp in responses) if (resp.choice in 0..2) counts[resp.choice]++
+                Text(
+                    buildString {
+                        append(choiceLabels.getOrElse(0) { "Ja" }).append(": ").append(counts[0]).append(" · ")
+                        append(choiceLabels.getOrElse(1) { "Nein" }).append(": ").append(counts[1]).append(" · ")
+                        append(choiceLabels.getOrElse(2) { "Vielleicht" }).append(": ").append(counts[2])
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            } else {
+                val body = message.bodyFull.ifBlank { message.body }
+                if (body.isNotBlank()) {
+                    Text(
+                        body,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        // "Add to calendar" (ICS share) — available to everyone, open or closed.
+        OutlinedButton(onClick = { viewModel.shareAppointmentToCalendar(pollId) }, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.appt_calendar))
+        }
+
+        if (isOpen) {
+            if (isCreator) {
+                Spacer(Modifier.height(12.dp))
+                TextButton(onClick = { viewModel.closePoll(pollId) }) {
+                    Text(stringResource(R.string.appt_close))
+                }
+            }
+        } else {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                stringResource(R.string.poll_closed),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/** Reads the current isSending flag from the ViewModel (for the answer button's enabled state). */
+private fun uiStateIsSending(viewModel: ChatDetailViewModel): Boolean = viewModel.uiState.value.isSending
+
 /** A simple horizontal bar chart for the poll results. */
 @Composable
 private fun PollBarChart(options: List<String>, counts: List<Int>, totalVotes: Int, numberMode: Boolean = false) {
@@ -4048,14 +4779,18 @@ private fun FullEmailView(
     onOpenAttachment: (Attachment) -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
-    viewModel: ChatDetailViewModel
+    viewModel: ChatDetailViewModel,
+    // An AI appointment was detected (single result, or one picked from several): the parent
+    // shows the choice "send as appointment poll" vs. "add to my calendar".
+    onApptAction: (com.mailchat.ai.GeminiService.Appointment, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val isHtml = message.bodyFull.contains("<", ignoreCase = true)
     // A poll message (not a poll answer, not a result email) is rendered as an interactive poll
     // instead of the raw body. Result emails show the ASCII bars as a regular email.
     val isPoll = message.pollId.isNotBlank() && !message.isPollAnswer &&
-        PollFormat.parseResultMarker(message.bodyFull.ifBlank { message.body }) == null
+        PollFormat.parseResultMarker(message.bodyFull.ifBlank { message.body }) == null &&
+        AppointmentFormat.parseApptResultMarker(message.bodyFull.ifBlank { message.body }) == null
     val isPhishingEmail = spamCategory == "phishing"
     // The WebView's client is created once (in the AndroidView factory), so it would capture a
     // stale phishing state. rememberUpdatedState keeps a reference that always reads the current
@@ -4251,7 +4986,8 @@ private fun FullEmailView(
                                             com.mailchat.ai.AppLogger.log(context, "Termin: AI could not extract appointment")
                                         }
                                         aiResults.size == 1 -> {
-                                            launchCalendarEventInsert(context, aiResults[0], message.subject, createEventLabel)
+                                            // Let the user choose: send as appointment poll or add to own calendar.
+                                            onApptAction(aiResults[0], message.subject)
                                         }
                                         else -> {
                                             // Multiple appointments: let the user choose before anything
@@ -4384,7 +5120,7 @@ private fun FullEmailView(
                 HeaderRow(stringResource(R.string.date), DateUtils.formatFull(message.timestamp))
             }
             if (isPoll) {
-                PollView(message = message, viewModel = viewModel)
+                PollOrApptView(message = message, viewModel = viewModel)
             } else if (isHtml) {
                 AndroidView(
                     factory = { ctx ->
@@ -4596,8 +5332,6 @@ private fun FullEmailView(
     // lambdas and would leave the composable context.)
     val pendingAppointmentsList = pendingAppointments
     if (pendingAppointmentsList != null) {
-        // Captured here (composable context) because the clickable lambda below is not composable.
-        val createEventLabel = stringResource(R.string.create_event)
         AlertDialog(
             onDismissRequest = { pendingAppointments = null },
             title = { Text(stringResource(R.string.select_appointment)) },
@@ -4615,7 +5349,8 @@ private fun FullEmailView(
                             supportingContent = { Text("$dateLabel · ${appt.time}") },
                             modifier = Modifier.clickable {
                                 pendingAppointments = null
-                                launchCalendarEventInsert(context, appt, message.subject, createEventLabel)
+                                // Same choice as for a single detection: send as poll or own calendar.
+                                onApptAction(appt, message.subject)
                             }
                         )
                     }

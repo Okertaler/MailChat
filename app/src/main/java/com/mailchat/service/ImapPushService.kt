@@ -67,7 +67,6 @@ class ImapPushService : Service() {
             return START_NOT_STICKY
         }
         running = true
-        acquireWakeLock()
         serviceScope?.cancel()
         serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         startIdleLoops()
@@ -83,19 +82,20 @@ class ImapPushService : Service() {
     }
 
     /**
-     * Hold a partial wake lock while push is active so the CPU stays awake and the IMAP IDLE
-     * loop can re-issue IDLE on time (the server caps IDLE at ~29 minutes). Without it the CPU
-     * may sleep and the connection goes stale, delaying incoming mail. Combined with the
-     * battery-optimization exemption this keeps push reliable in the background.
+     * Hold a partial wake lock for the duration of a single sync (with a safety timeout), so the
+     * CPU doesn't sleep in the middle of a fetch. It is NOT held continuously: between syncs the
+     * CPU can go to deep sleep, and the open IMAP IDLE connection still wakes it when mail
+     * arrives (incoming network data is a hardware wake source). Holding this lock 24/7 was the
+     * main cause of the high battery drain.
      */
     private fun acquireWakeLock() {
         if (wakeLock != null) return
         try {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             val wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Mailchat:ImapPush")
-            wl.acquire()
+            wl.acquire(WAKE_LOCK_TIMEOUT_MS)
             wakeLock = wl
-            com.mailchat.ai.AppLogger.log(this, "IMAP Push: wake lock acquired")
+            com.mailchat.ai.AppLogger.log(this, "IMAP Push: wake lock acquired (sync)")
         } catch (e: Exception) {
             com.mailchat.ai.AppLogger.log(this, "IMAP Push: failed to acquire wake lock: ${e.message}")
         }
@@ -195,6 +195,9 @@ class ImapPushService : Service() {
         if (!::syncEngine.isInitialized) return
         val scope = serviceScope ?: return
         isSyncing = true
+        // Hold a wake lock only while the sync runs (released in the finally block), so the CPU
+        // doesn't sleep mid-fetch. Between syncs the CPU can sleep (see acquireWakeLock).
+        acquireWakeLock()
         scope.launch {
             try {
                 com.mailchat.ai.AppLogger.log(this@ImapPushService, "IMAP Push: running direct sync")
@@ -208,6 +211,7 @@ class ImapPushService : Service() {
             } catch (e: Exception) {
                 com.mailchat.ai.AppLogger.log(this@ImapPushService, "IMAP Push: direct sync failed: ${e.message}")
             } finally {
+                releaseWakeLock()
                 isSyncing = false
             }
         }
@@ -255,8 +259,13 @@ class ImapPushService : Service() {
         private const val CHANNEL_ID = "imap_push"
         private const val NOTIFICATION_ID = 2001
         const val ACTION_STOP = "com.mailchat.service.IMAP_PUSH_STOP"
-        /** Fallback poll interval in case IDLE misses incoming mail. */
-        private const val PERIODIC_SYNC_INTERVAL_MS = 2 * 60 * 1000L
+        /** Fallback poll interval in case IDLE misses incoming mail. Some providers (e.g. GMX)
+         *  do not deliver EXISTS updates during IDLE, so this poll is the real-time mechanism.
+         *  60s keeps the delay low; the sync is cheap because the wake lock is only held during
+         *  the fetch (see acquireWakeLock). */
+        private const val PERIODIC_SYNC_INTERVAL_MS = 60 * 1000L
+        /** Safety timeout for the sync wake lock (released early when the sync completes). */
+        private const val WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000L
 
         fun start(context: android.content.Context) {
             val intent = Intent(context, ImapPushService::class.java)

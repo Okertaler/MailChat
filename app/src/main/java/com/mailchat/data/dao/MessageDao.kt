@@ -30,6 +30,10 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE pollId = :pollId")
     suspend fun getMessagesByPollId(pollId: String): List<Message>
 
+    /** Reactive version: re-emits when a message's pollId changes (e.g. the result email is linked). */
+    @Query("SELECT * FROM messages WHERE pollId = :pollId")
+    fun getMessagesByPollIdFlow(pollId: String): Flow<List<Message>>
+
     @Query("UPDATE messages SET isRead = 1 WHERE chatId = :chatId AND isRead = 0")
     suspend fun markAllRead(chatId: Long)
 

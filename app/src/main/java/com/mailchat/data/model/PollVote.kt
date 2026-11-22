@@ -8,6 +8,9 @@ import androidx.room.Index
  * so the primary key is (pollId, accountId, voterEmail). [optionIndices] is a JSON array of the
  * selected option indices (0-based) — used for checkbox polls. [values] is a JSON array of numbers
  * aligned to the options (values[i] = the number entered for option i) — used for numeric polls.
+ *
+ * [comment] is the optional free-text comment of the answer (used by appointment/Termin polls,
+ * e.g. "Ja, aber erst ab 15 Uhr"). Empty for regular polls.
  */
 @Entity(
     tableName = "poll_votes",
@@ -20,6 +23,7 @@ data class PollVote(
     val voterEmail: String,
     val optionIndices: String = "[]",
     val values: String = "[]",
+    val comment: String = "",
     val messageId: String = "",
     val answeredAt: Long = 0
 )

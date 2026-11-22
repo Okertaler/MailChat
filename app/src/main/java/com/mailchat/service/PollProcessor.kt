@@ -11,6 +11,7 @@ import com.mailchat.data.repository.ChatRepository
 import com.mailchat.data.repository.MessageRepository
 import com.mailchat.data.repository.PollRepository
 import com.mailchat.network.SmtpService
+import com.mailchat.util.AppointmentFormat
 import com.mailchat.util.EmailGrouping
 import com.mailchat.util.PollFormat
 import com.mailchat.util.SettingsUtils
@@ -86,10 +87,36 @@ class PollProcessor @Inject constructor(
             return updateMessageForPoll(message, resultId, isAnswer = false)
         }
 
+        // 0a. Appointment result email (sent when an appointment closes): same handling as the poll
+        // result — close the local copy and show the result in the chat bubble.
+        AppointmentFormat.parseApptResultMarker(body)?.let { resultId ->
+            val poll = pollRepository.getPoll(resultId, message.accountId)
+            if (poll != null && poll.status == Poll.STATUS_OPEN) {
+                pollRepository.updatePoll(
+                    poll.copy(
+                        status = Poll.STATUS_CLOSED,
+                        closedBy = Poll.CLOSED_BY_ALL_ANSWERED,
+                        closedAt = System.currentTimeMillis()
+                    )
+                )
+            }
+            val asciiResult = body.lineSequence()
+                .filter { !it.trim().startsWith("[[appt-result:") }
+                .joinToString("\n")
+                .trim()
+            if (asciiResult.isNotBlank()) updatePollMessageBody(resultId, asciiResult)
+            return updateMessageForPoll(message, resultId, isAnswer = false)
+        }
+
         // 1a. MailChat numeric answer (explicit numeric answer marker). Checked FIRST: the literal
         // "poll-answer:" is a prefix of "poll-answer-num:", so the numeric marker must win.
         PollFormat.parseAnswerNumMarker(body)?.let { answer ->
             return recordVote(message, chat, answer.pollId, answer.optionIndices, answer.values)
+        }
+
+        // 1b. MailChat appointment answer (explicit appointment answer marker, with comment).
+        AppointmentFormat.parseApptAnswerMarker(body)?.let { answer ->
+            return recordApptVote(message, chat, answer.apptId, answer.choice, answer.comment)
         }
 
         // 1. MailChat answer (explicit answer marker).
@@ -108,6 +135,18 @@ class PollProcessor @Inject constructor(
             } else {
                 // A reference to an existing poll: a regular-email answer when it has X marks.
                 handleExistingPollReference(message, chat, existing, body)
+            }
+        }
+
+        // 2a. Appointment marker present.
+        AppointmentFormat.parseApptMarker(body)?.let { marker ->
+            val existing = pollRepository.getPoll(marker.apptId, message.accountId)
+                ?: pollRepository.getPollAnyAccount(marker.apptId)
+            return if (existing == null) {
+                createAppointment(message, chat, marker, body)
+            } else {
+                // A reference to an existing appointment: a regular-email answer when it has X marks.
+                handleExistingApptReference(message, chat, existing, body)
             }
         }
 
@@ -145,6 +184,109 @@ class PollProcessor @Inject constructor(
         )
         pollRepository.insertPoll(poll)
         return updateMessageForPoll(message, pollId, isAnswer = false)
+    }
+
+    // --- Appointment (Termin) creation ---
+
+    /**
+     * Creates the local appointment poll record when the original appointment email is received.
+     * The dates come from the marker; the title/question/location/options from the body.
+     */
+    private suspend fun createAppointment(
+        message: Message,
+        chat: Chat,
+        marker: AppointmentFormat.ApptMarker,
+        body: String
+    ): Message {
+        val data = AppointmentFormat.parseApptBody(body)
+        val options = PollFormat.parseAllCheckboxOptions(body)
+        val poll = Poll(
+            id = marker.apptId,
+            accountId = message.accountId,
+            chatId = chat.id,
+            title = data?.title ?: message.subject,
+            question = data?.question ?: "",
+            options = optionsToJson(options),
+            multi = false,
+            numberMode = false,
+            personMode = false,
+            appointmentMode = true,
+            startDate = data?.startDate ?: "",
+            startTime = data?.startTime ?: "",
+            endDate = data?.endDate ?: "",
+            endTime = data?.endTime ?: "",
+            allDay = data?.allDay ?: marker.allDay,
+            location = data?.location ?: "",
+            creatorEmail = if (message.isIncoming) message.from else accountEmailFor(message.accountId),
+            pollMessageId = message.messageId,
+            status = Poll.STATUS_OPEN,
+            createdAt = message.timestamp
+        )
+        pollRepository.insertPoll(poll)
+        return updateMessageForPoll(message, marker.apptId, isAnswer = false)
+    }
+
+    /**
+     * Records an appointment answer (choice 0/1/2 + optional comment). [choice] is the 0-based
+     * index of the selected option (Ja/Nein/Vielleicht).
+     */
+    private suspend fun recordApptVote(
+        message: Message,
+        chat: Chat,
+        apptId: String,
+        choice: Int,
+        comment: String
+    ): Message {
+        val poll = pollRepository.getPoll(apptId, message.accountId) ?: return message
+        if (choice !in 0..2) return message
+        val votePollId = resolveVotePollId(poll, chat)
+        val vote = PollVote(
+            pollId = votePollId,
+            accountId = message.accountId,
+            voterEmail = message.from.trim().lowercase(),
+            optionIndices = indicesToJson(listOf(choice)),
+            values = "[]",
+            comment = comment,
+            messageId = message.messageId,
+            answeredAt = message.timestamp
+        )
+        pollRepository.insertVote(vote)
+        val updated = updateMessageForPoll(message, apptId, isAnswer = true)
+        checkAutoClose(poll, chat)
+        return updated
+    }
+
+    /**
+     * A body that references an existing appointment (quoted marker). An answer when it has an X
+     * mark on one of the Ja/Nein/Vielleicht options; the optional comment is read from a
+     * "Kommentar:" line.
+     */
+    private suspend fun handleExistingApptReference(
+        message: Message,
+        chat: Chat,
+        poll: Poll,
+        body: String
+    ): Message {
+        val marked = PollFormat.parseXMarkedOptions(body)
+        if (marked.isEmpty()) return message // just a reference (e.g. a forwarded appointment)
+        val options = parseOptions(poll.options)
+        val choice = PollFormat.matchOptionsToIndices(marked, options).firstOrNull() ?: return message
+        val comment = AppointmentFormat.parseApptComment(body)
+        val votePollId = resolveVotePollId(poll, chat)
+        val vote = PollVote(
+            pollId = votePollId,
+            accountId = message.accountId,
+            voterEmail = message.from.trim().lowercase(),
+            optionIndices = indicesToJson(listOf(choice)),
+            values = "[]",
+            comment = comment,
+            messageId = message.messageId,
+            answeredAt = message.timestamp
+        )
+        pollRepository.insertVote(vote)
+        val updated = updateMessageForPoll(message, poll.id, isAnswer = true)
+        checkAutoClose(poll, chat)
+        return updated
     }
 
     // --- Vote recording ---
@@ -231,6 +373,10 @@ class PollProcessor @Inject constructor(
             .filter { it.status == Poll.STATUS_OPEN }
         if (openPolls.size != 1) return message
         val poll = openPolls[0]
+        // Appointment (Termin): X mark on Ja/Nein/Vielleicht + optional "Kommentar:" line.
+        if (poll.appointmentMode) {
+            return handleMarkerlessApptAnswer(message, chat, poll, body)
+        }
         // Numeric poll: parse the numbers from the reply.
         if (poll.numberMode) {
             return recordNumberVoteFromBody(message, chat, poll, body) ?: message
@@ -274,6 +420,37 @@ class PollProcessor @Inject constructor(
             voterEmail = message.from.trim().lowercase(),
             optionIndices = "[]",
             values = valuesToJson(values),
+            messageId = message.messageId,
+            answeredAt = message.timestamp
+        )
+        pollRepository.insertVote(vote)
+        val updated = updateMessageForPoll(message, poll.id, isAnswer = true)
+        checkAutoClose(poll, chat)
+        return updated
+    }
+
+    /**
+     * No markers at all: match the reply against the chat's single open APPOINTMENT — an X mark on
+     * one of the Ja/Nein/Vielleicht options + an optional "Kommentar:" line.
+     */
+    private suspend fun handleMarkerlessApptAnswer(
+        message: Message,
+        chat: Chat,
+        poll: Poll,
+        body: String
+    ): Message {
+        val marked = PollFormat.parseXMarkedOptions(body)
+        if (marked.isEmpty()) return message
+        val options = parseOptions(poll.options)
+        val choice = PollFormat.matchOptionsToIndices(marked, options).firstOrNull() ?: return message
+        val comment = AppointmentFormat.parseApptComment(body)
+        val vote = PollVote(
+            pollId = resolveVotePollId(poll, chat),
+            accountId = message.accountId,
+            voterEmail = message.from.trim().lowercase(),
+            optionIndices = indicesToJson(listOf(choice)),
+            values = "[]",
+            comment = comment,
             messageId = message.messageId,
             answeredAt = message.timestamp
         )
@@ -400,10 +577,10 @@ class PollProcessor @Inject constructor(
         // The result marker keeps the email part of the poll flow (no AI tagging/spam) in
         // MailChat; regular email programs just see a short line at the end. The marker also
         // carries the structured result so the recipient's result view matches the creator's.
-        val data = buildResultData(poll, votes, requiredVoters(chat, poll.creatorEmail).toList())
+        val marker = buildResultMarkerFor(poll, votes, requiredVoters(chat, poll.creatorEmail).toList(), isGerman)
         // The "do not reply" hint is added to the EMAIL only (not the in-app chat bubble).
-        val bodyWithMarker = body + "\n" + noReplyHint(isGerman) + "\n" + PollFormat.buildResultMarker(poll.id, data)
-        val subject = "📊 ${poll.title} — " + (if (isGerman) "Ergebnis" else "Result")
+        val bodyWithMarker = body + "\n" + noReplyHint(isGerman) + "\n" + marker
+        val subject = (if (poll.appointmentMode) "📅" else "📊") + " ${poll.title} — " + (if (isGerman) "Ergebnis" else "Result")
         val recipient = if (EmailGrouping.isGroupKey(chat.participantEmail)) {
             chat.participantEmail.split(";")
                 .map { it.trim() }
@@ -452,13 +629,10 @@ class PollProcessor @Inject constructor(
         val allVotes = pollRepository.getVotesForPollsAllAccounts(polls.map { it.id })
         val isGerman = SettingsUtils.isGermanUi(context)
         val body = buildResultBody(polls.first(), allVotes, isGerman)
-        val subject = "📊 ${polls.first().title} — " + (if (isGerman) "Ergebnis" else "Result")
+        val subject = (if (polls.first().appointmentMode) "📅" else "📊") + " ${polls.first().title} — " + (if (isGerman) "Ergebnis" else "Result")
         // Update the poll message(s) in the chat to show the result (the bubble then displays it).
         // The creator's poll messages carry pollId = groupId.
         updatePollMessageBody(polls.first().groupId, body)
-        // Structured result for the recipients' result view (the same aggregated data the
-        // creator sees), carried in each result email's marker.
-        val data = buildResultData(polls.first(), allVotes, polls.map { it.recipientEmail })
         for (poll in polls) {
             val recipient = poll.recipientEmail
             if (recipient.isBlank()) continue
@@ -472,7 +646,8 @@ class PollProcessor @Inject constructor(
             // The result marker carries the per-recipient poll-ID (closes the recipient's copy)
             // plus the structured result (so the recipient's result view matches the creator's).
             // The "do not reply" hint is added to the EMAIL only (not the in-app chat bubble).
-            val bodyWithMarker = body + "\n" + noReplyHint(isGerman) + "\n" + PollFormat.buildResultMarker(poll.id, data)
+            val marker = buildResultMarkerFor(poll, allVotes, polls.map { it.recipientEmail }, isGerman)
+            val bodyWithMarker = body + "\n" + noReplyHint(isGerman) + "\n" + marker
             try {
                 val isGroupChat = EmailGrouping.isGroupKey(chat.participantEmail)
                 val enc = com.mailchat.crypto.EncryptionHelper.encryptForRecipients(
@@ -574,6 +749,25 @@ class PollProcessor @Inject constructor(
     private fun buildResultBody(poll: Poll, votes: List<PollVote>, isGerman: Boolean): String {
         val options = parseOptions(poll.options)
         val resultLabel = if (isGerman) "Ergebnis" else "Result"
+        if (poll.appointmentMode) {
+            val deduped = dedupeVotesByVoter(votes)
+            val responses = deduped.map { vote ->
+                val choice = parseIndices(vote.optionIndices).firstOrNull() ?: -1
+                AppointmentFormat.ApptResponse(vote.voterEmail, choice, vote.comment)
+            }
+            return AppointmentFormat.buildApptAsciiResult(
+                title = poll.title,
+                question = poll.question,
+                dateLabel = apptDateLabel(poll, isGerman),
+                location = poll.location,
+                responses = responses,
+                optionLabels = options,
+                resultLabel = resultLabel,
+                personLabel = "Person",
+                answerLabel = if (isGerman) "Antwort" else "Answer",
+                commentLabel = if (isGerman) "Kommentar" else "Comment"
+            )
+        }
         if (poll.personMode) {
             val deduped = dedupeVotesByVoter(votes)
             val header = listOf(if (isGerman) "Person" else "Person") + options
@@ -593,6 +787,33 @@ class PollProcessor @Inject constructor(
             votesLabel = if (poll.numberMode) (if (isGerman) "Summe" else "Total")
                 else (if (isGerman) "Stimmen" else "votes")
         )
+    }
+
+    /** The human-readable date label for an appointment poll (for the result email). */
+    private fun apptDateLabel(poll: Poll, isGerman: Boolean): String =
+        AppointmentFormat.dateLabel(poll.startDate, poll.startTime, poll.endDate, poll.endTime, poll.allDay, isGerman)
+
+    /**
+     * Builds the result marker for a result email, choosing the appointment or poll format. For
+     * appointments the marker carries the structured per-person responses (choice + comment) so a
+     * recipient renders the same result view as the creator.
+     */
+    private fun buildResultMarkerFor(
+        poll: Poll,
+        votes: List<PollVote>,
+        recipientEmails: List<String>,
+        isGerman: Boolean
+    ): String {
+        if (poll.appointmentMode) {
+            val deduped = dedupeVotesByVoter(votes)
+            val responses = deduped.map { vote ->
+                val choice = parseIndices(vote.optionIndices).firstOrNull() ?: -1
+                AppointmentFormat.ApptResponse(vote.voterEmail, choice, vote.comment)
+            }
+            return AppointmentFormat.buildApptResultMarker(poll.id, AppointmentFormat.ApptResultData(responses))
+        }
+        val data = buildResultData(poll, votes, recipientEmails)
+        return PollFormat.buildResultMarker(poll.id, data)
     }
 
     /**

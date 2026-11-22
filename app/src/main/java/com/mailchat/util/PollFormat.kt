@@ -406,6 +406,18 @@ object PollFormat {
     }
 
     /**
+     * Returns ALL option texts of the checkbox lines in the body (marked or not), in order.
+     * Used to read the options of a poll/appointment body (e.g. when a recipient's app creates
+     * the local poll record from the received email).
+     */
+    fun parseAllCheckboxOptions(body: String): List<String> =
+        body.lineSequence()
+            .mapNotNull { CHECKBOX_LINE.find(it) }
+            .map { it.groupValues[2].trim() }
+            .distinct()
+            .toList()
+
+    /**
      * Returns the option texts that are marked with X in the body (used to parse answers from
      * regular email programs, where the user X's out the options in the quoted poll).
      */

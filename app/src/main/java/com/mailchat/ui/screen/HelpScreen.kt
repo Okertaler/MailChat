@@ -124,6 +124,10 @@ fun HelpScreen(
                 title = stringResource(R.string.help_poll_title),
                 text = stringResource(R.string.help_poll_text)
             )
+            HelpSection(
+                title = stringResource(R.string.help_appt_title),
+                text = stringResource(R.string.help_appt_text)
+            )
 
             // ── Encryption ─────────────────────────────────────────────────
             HelpCategory(stringResource(R.string.help_category_encryption))

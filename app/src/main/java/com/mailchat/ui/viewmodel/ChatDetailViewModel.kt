@@ -15,6 +15,7 @@ import com.mailchat.network.ImapService
 import com.mailchat.network.SmtpService
 import com.mailchat.service.ContactService
 import com.mailchat.service.Contact
+import com.mailchat.util.AppointmentFormat
 import com.mailchat.util.EmailGrouping
 import com.mailchat.util.PollFormat
 import com.mailchat.util.SettingsUtils
@@ -67,7 +68,7 @@ data class ChatDetailUiState(
     val isGeneratingSuggestion: Boolean = false,
     val draftSubject: String? = null,
     val selectedRecipient: String? = null,
-    val pendingQuote: String? = null,
+    val replyQuote: String? = null,
     val composeCc: String = "",
     val composeBcc: String = "",
     val fullComposeOpen: Boolean = false,
@@ -732,10 +733,15 @@ class ChatDetailViewModel @Inject constructor(
             java.util.Locale.getDefault()
         ).format(java.util.Date(message.timestamp))
         val quoted = fiveLines.lineSequence().joinToString("\n") { "> $it" }
+        // The quote goes into the message field (editable) instead of a hidden append on send.
+        // Forward: always included, no toggle (replyQuote stays null).
+        val quoteBlock = "— $dateStr, ${message.from}:\n$quoted"
         _uiState.update {
             it.copy(
-                pendingQuote = "— $dateStr, ${message.from}:\n$quoted",
-                selectedRecipient = null
+                composeText = if (it.composeText.isBlank()) quoteBlock else it.composeText + "\n\n" + quoteBlock,
+                selectedRecipient = null,
+                replyQuote = null,
+                quoteEnabled = false
             )
         }
     }
@@ -747,10 +753,14 @@ class ChatDetailViewModel @Inject constructor(
             java.util.Locale.getDefault()
         ).format(java.util.Date(message.timestamp))
         val quoted = fiveLines.lineSequence().joinToString("\n") { "> $it" }
+        // The quote goes into the message field (editable) and can be toggled off (quoteEnabled).
+        val quoteBlock = "— $dateStr, ${message.from}:\n$quoted"
         _uiState.update {
             it.copy(
-                pendingQuote = "— $dateStr, ${message.from}:\n$quoted",
-                selectedRecipient = if (message.isIncoming) message.from else null
+                composeText = appendQuoteBlock(it.composeText, quoteBlock),
+                selectedRecipient = if (message.isIncoming) message.from else null,
+                replyQuote = quoteBlock,
+                quoteEnabled = true
             )
         }
     }
@@ -766,7 +776,48 @@ class ChatDetailViewModel @Inject constructor(
     }
 
     fun toggleQuote() {
-        _uiState.update { it.copy(quoteEnabled = !it.quoteEnabled) }
+        _uiState.update { state ->
+            val quote = state.replyQuote
+            if (quote == null) {
+                // Manually composed message: the quote is appended at send time.
+                state.copy(quoteEnabled = !state.quoteEnabled)
+            } else if (state.quoteEnabled) {
+                // Turn off: remove the quote from the message field.
+                state.copy(composeText = removeQuoteBlock(state.composeText, quote), quoteEnabled = false)
+            } else {
+                // Turn on: put the quote back into the message field.
+                state.copy(composeText = appendQuoteBlock(state.composeText, quote), quoteEnabled = true)
+            }
+        }
+    }
+
+    /**
+     * Appends the quote block to the compose text in the format matching the text
+     * (plain text stays plain; if the text is already HTML, the quote is converted to HTML).
+     */
+    private fun appendQuoteBlock(text: String, quote: String): String {
+        return if (com.mailchat.network.SmtpService.looksLikeHtml(text)) {
+            text + "<p>${com.mailchat.network.SmtpService.escapeHtml(quote).replace("\n", "<br>")}</p>"
+        } else if (text.isBlank()) {
+            quote
+        } else {
+            text + "\n\n" + quote
+        }
+    }
+
+    /**
+     * Removes the quote block from the compose text (best effort): first an exact match
+     * (plain or HTML form), then a search for the quote's header line.
+     */
+    private fun removeQuoteBlock(text: String, quote: String): String {
+        val trimmed = text.trimEnd()
+        if (trimmed.endsWith(quote)) return trimmed.removeSuffix(quote).trimEnd()
+        val htmlQuote = "<p>${com.mailchat.network.SmtpService.escapeHtml(quote).replace("\n", "<br>")}</p>"
+        if (trimmed.endsWith(htmlQuote)) return trimmed.removeSuffix(htmlQuote).trimEnd()
+        val header = quote.lineSequence().first()
+        val idx = text.indexOf(header)
+        if (idx >= 0) return text.substring(0, idx).trimEnd()
+        return text
     }
 
     fun clearAiSuggestion() {
@@ -1210,13 +1261,18 @@ class ChatDetailViewModel @Inject constructor(
             java.util.Locale.getDefault()
         ).format(java.util.Date(message.timestamp))
         val quote = quotedSource.lineSequence().joinToString("\n") { "> $it" }
+        // The quote goes into the message field (editable) and is on by default; the user can
+        // toggle it off (quoteEnabled). The send flow does not append a second quote for replies.
+        val quoteBlock = if (quotedSource.isBlank()) null else "— $dateStr, ${message.from}:\n$quote"
         // Always set the recipient, even when the body is empty (e.g. image-only or
         // attachment-only mail) — previously an early return left the To field blank.
         _uiState.update {
             it.copy(
-                pendingQuote = if (quotedSource.isBlank()) null else "— $dateStr, ${message.from}:\n$quote",
+                composeText = quoteBlock?.let { q -> appendQuoteBlock(it.composeText, q) } ?: it.composeText,
                 selectedRecipient = if (message.isIncoming) message.from else null,
-                replyTargetMessageId = message.id
+                replyTargetMessageId = message.id,
+                replyQuote = quoteBlock,
+                quoteEnabled = quoteBlock != null
             )
         }
     }
@@ -1233,13 +1289,17 @@ class ChatDetailViewModel @Inject constructor(
         val quote = quotedSource.lineSequence().joinToString("\n") { "> $it" }
         val ownEmail = _uiState.value.accountEmail
         val ccList = message.cc.split(";").filter { it.isNotBlank() && !it.equals(ownEmail, ignoreCase = true) }
+        // The quote goes into the message field (editable), on by default (see replyWithQuote).
+        val quoteBlock = if (quotedSource.isBlank()) null else "— $dateStr, ${message.from}:\n$quote"
         // Always set the recipient, even when the body is empty (see replyWithQuote).
         _uiState.update {
             it.copy(
-                pendingQuote = if (quotedSource.isBlank()) null else "— $dateStr, ${message.from}:\n$quote",
+                composeText = quoteBlock?.let { q -> appendQuoteBlock(it.composeText, q) } ?: it.composeText,
                 selectedRecipient = if (message.isIncoming) message.from else null,
                 composeCc = ccList.joinToString(";"),
-                replyTargetMessageId = message.id
+                replyTargetMessageId = message.id,
+                replyQuote = quoteBlock,
+                quoteEnabled = quoteBlock != null
             )
         }
     }
@@ -1341,10 +1401,6 @@ class ChatDetailViewModel @Inject constructor(
         }
     }
 
-    fun clearPendingQuote() {
-        _uiState.update { it.copy(pendingQuote = null) }
-    }
-
     /**
      * Prepares a forward in the unified full compose overlay (same UI as reply / reply-all).
      * The complete original text (as a "forwarded email" block) and the original attachments
@@ -1384,8 +1440,8 @@ class ChatDetailViewModel @Inject constructor(
                     selectedRecipient = null,
                     composeCc = "",
                     composeBcc = "",
-                    pendingQuote = null,
                     quoteEnabled = false,
+                    replyQuote = null,
                     replyTargetMessageId = null,
                     fullComposeOpen = true,
                     composeFromAccountId = 0L,
@@ -1694,11 +1750,10 @@ class ChatDetailViewModel @Inject constructor(
             val rawBodyIsHtml = com.mailchat.network.SmtpService.looksLikeHtml(rawBody)
             fun plainToHtmlBlock(t: String): String =
                 com.mailchat.network.SmtpService.escapeHtml(t).replace("\n", "<br>")
-            val pendingQuote = _uiState.value.pendingQuote
-            val bodyWithQuote = if (pendingQuote != null && rawBody.isNotBlank()) {
-                if (rawBodyIsHtml) "$rawBody<p>${plainToHtmlBlock(pendingQuote)}</p>"
-                else "$rawBody\n\n$pendingQuote"
-            } else if (_uiState.value.quoteEnabled && rawBody.isNotBlank() && latestIncoming != null) {
+            // The quote for reply / reply-all / forward is part of the compose text itself
+            // (editable in the message field). quoteEnabled only adds the latest incoming
+            // message's quote for manually composed messages (the "Include quote" toggle).
+            val bodyWithQuote = if (_uiState.value.quoteEnabled && _uiState.value.replyQuote == null && rawBody.isNotBlank() && latestIncoming != null) {
                 val quotedSource = latestIncoming.bodyFull.ifBlank { latestIncoming.body }
                     .stripHtml()
                     .normalizeWhitespace()
@@ -1923,7 +1978,8 @@ class ChatDetailViewModel @Inject constructor(
                         composeText = "",
                         composeAttachments = emptyList(),
                         draftSubject = null,
-                        pendingQuote = null,
+                        replyQuote = null,
+                        quoteEnabled = false,
                         composeCc = "",
                         composeBcc = "",
                         fullComposeOpen = false
@@ -1947,7 +2003,10 @@ class ChatDetailViewModel @Inject constructor(
         val recipients: List<Poll> = emptyList(),
         // The structured result from the result email (recipient's view: the same aggregated
         // data the creator sees). Null while the poll is open or for legacy result emails.
-        val resultData: PollFormat.PollResultData? = null
+        val resultData: PollFormat.PollResultData? = null,
+        // The structured appointment result (recipient's view: the same responses the creator
+        // sees). Null while the appointment is open or for legacy result emails.
+        val apptResultData: AppointmentFormat.ApptResultData? = null
     )
 
     /**
@@ -1988,7 +2047,11 @@ class ChatDetailViewModel @Inject constructor(
                 val pollFlow = pollRepository.getPollsByChat(chat.id, accountId)
                     .map { list -> list.firstOrNull { it.id == pollId } }
                 val votesFlow = pollRepository.getVotes(pollId, accountId)
-                combine(pollFlow, votesFlow) { poll, votes ->
+                // Reactive message flow: re-emits when the result email is linked to the poll
+                // (its pollId is set), so the structured result is loaded as soon as it arrives
+                // (no need to reload the view).
+                val messagesFlow = messageRepository.getMessagesByPollIdFlow(pollId)
+                combine(pollFlow, votesFlow, messagesFlow) { poll, votes, messages ->
                     if (poll == null) null
                     else {
                         val options = PollFormat.optionsFromJson(poll.options)
@@ -1997,14 +2060,17 @@ class ChatDetailViewModel @Inject constructor(
                         // bar-chart counts above already sum ALL votes).
                         val deduped = dedupeVotesByVoter(votes)
                         // Closed poll: load the structured result from the result email, so the
-                        // recipient sees the SAME aggregated result as the creator. The result
-                        // email is inserted before the local poll is closed, so it is in the DB.
-                        val resultData = if (poll.status == Poll.STATUS_CLOSED) {
-                            messageRepository.getMessagesByPollId(poll.id)
-                                .mapNotNull { msg -> PollFormat.parseResultData(msg.bodyFull.ifBlank { msg.body }) }
-                                .firstOrNull()
-                        } else null
-                        PollResults(poll, deduped, counts, total, resultData = resultData)
+                        // recipient sees the SAME aggregated result as the creator.
+                        // For appointments the structured data carries the responses, so the
+                        // recipient sees the graphical result (not the ASCII body).
+                        val (resultData, apptResultData) = if (poll.status == Poll.STATUS_CLOSED) {
+                            val bodies = messages.map { msg -> msg.bodyFull.ifBlank { msg.body } }
+                            bodies.mapNotNull { PollFormat.parseResultData(it) }.firstOrNull() to
+                                bodies.mapNotNull { AppointmentFormat.parseApptResultData(it) }.firstOrNull()
+                        } else {
+                            null to null
+                        }
+                        PollResults(poll, deduped, counts, total, resultData = resultData, apptResultData = apptResultData)
                     }
                 }.collect { emit(it) }
             }
@@ -2205,6 +2271,389 @@ class ChatDetailViewModel @Inject constructor(
                 _uiState.update { it.copy(isSending = false, sendError = e.message) }
             }
         }
+    }
+
+    /**
+     * Creates a TERMIN (appointment) poll: sends one appointment email per recipient
+     * (Ja/Nein/Vielleicht + comment) and registers the per-recipient poll (appointmentMode).
+     * Mirrors [createPoll] but with the appointment details (start/end, all-day, location).
+     *
+     * [targetChatId] optionally overrides the chat the poll is sent to (e.g. when starting an
+     * appointment poll from an AI-detected appointment and the user picks a different
+     * recipient/group). When null, the current chat is used.
+     */
+    fun createAppointment(
+        title: String,
+        question: String,
+        startDate: String,
+        startTime: String,
+        endDate: String,
+        endTime: String,
+        allDay: Boolean,
+        location: String,
+        targetChatId: Long? = null,
+        targetEmail: String? = null,
+        forceUnencrypted: Boolean = false
+    ) {
+        viewModelScope.launch {
+            val chat = when {
+                // A contact that is not in the chats (id = 0): use the current account and the
+                // contact's email as the recipient.
+                targetEmail != null -> {
+                    val currentChat = _uiState.value.chat ?: return@launch
+                    com.mailchat.data.model.Chat(
+                        id = 0,
+                        participantEmail = targetEmail,
+                        participantName = targetEmail.substringBefore('@'),
+                        accountId = currentChat.accountId
+                    )
+                }
+                targetChatId != null -> {
+                    chatRepository.getChatById(targetChatId) ?: _uiState.value.chat ?: return@launch
+                }
+                else -> {
+                    _uiState.value.chat ?: return@launch
+                }
+            }
+            val account = senderAccountFor(chat) ?: return@launch
+            val recipients = recipientEmailsForChat(chat, account)
+            if (recipients.isEmpty()) {
+                _uiState.update { it.copy(sendError = "No recipients") }
+                return@launch
+            }
+            val isGerman = SettingsUtils.isGermanUi(appContext)
+            val options = if (isGerman) listOf("Ja", "Nein", "Vielleicht") else listOf("Yes", "No", "Maybe")
+            val instruction = if (isGerman) {
+                "Antwort: X in die Box setzen und diese E-Mail beantworten. " +
+                    "Kommentar (optional): eigene Zeile \"Kommentar: ...\" schreiben."
+            } else {
+                "Answer: put an X in the box and reply to this email. " +
+                    "Comment (optional): write your own line \"Comment: ...\"."
+            }
+            val startISO = if (allDay) startDate else "$startDate T$startTime"
+            val endISO = if (allDay) endDate else "$endDate T$endTime"
+            val dateLabel = AppointmentFormat.dateLabel(startDate, startTime, endDate, endTime, allDay, isGerman)
+            val subject = "📅 $title"
+            val groupId = PollFormat.newPollId()
+            val isGroupChat = EmailGrouping.isGroupKey(chat.participantEmail)
+            _uiState.update { it.copy(isSending = true, sendError = null) }
+            try {
+                // Prepare (build + encrypt) every recipient FIRST, so an encryption failure is
+                // detected before anything is sent (a retry then resends cleanly, no duplicates).
+                data class Prepared(val recipient: String, val apptId: String, val body: String, val enc: com.mailchat.crypto.EncryptionHelper.Result)
+                val prepared = mutableListOf<Prepared>()
+                for (recipient in recipients) {
+                    val apptId = PollFormat.newPollId()
+                    val body = AppointmentFormat.buildApptBody(
+                        title, question, dateLabel, location, options, instruction,
+                        apptId, startISO, endISO, allDay
+                    )
+                    val enc = com.mailchat.crypto.EncryptionHelper.encryptForRecipients(
+                        appContext, body, listOf(recipient.trim().lowercase()), isGroupChat, chat.isEncrypted, forceUnencrypted
+                    )
+                    prepared.add(Prepared(recipient, apptId, body, enc))
+                }
+                // Send one appointment email per recipient and register the per-recipient poll.
+                var firstBody = ""
+                for (p in prepared) {
+                    if (firstBody.isEmpty()) firstBody = p.body
+                    val extraHeaders = mutableMapOf("X-MailChat-Appt" to p.apptId)
+                    extraHeaders.putAll(p.enc.headers)
+                    // PLAIN (text/plain): the appointment format is line-based and must stay plain.
+                    val sentMessageId = smtpService.sendEmail(
+                        account = account,
+                        to = p.recipient,
+                        subject = subject,
+                        body = p.enc.body,
+                        extraHeaders = extraHeaders,
+                        bodyFormat = com.mailchat.network.BodyFormat.PLAIN
+                    )
+                    val poll = Poll(
+                        id = p.apptId,
+                        accountId = account.id,
+                        chatId = chat.id,
+                        groupId = groupId,
+                        recipientEmail = p.recipient.trim().lowercase(),
+                        title = title,
+                        question = question,
+                        options = PollFormat.optionsToJson(options),
+                        multi = false,
+                        numberMode = false,
+                        personMode = false,
+                        appointmentMode = true,
+                        startDate = startDate,
+                        startTime = startTime,
+                        endDate = endDate,
+                        endTime = endTime,
+                        allDay = allDay,
+                        location = location,
+                        creatorEmail = account.emailAddress,
+                        pollMessageId = sentMessageId,
+                        status = Poll.STATUS_OPEN,
+                        createdAt = System.currentTimeMillis()
+                    )
+                    pollRepository.insertPoll(poll)
+                    // One local message per recipient (real Message-ID → deduped when fetched back).
+                    val message = Message(
+                        chatId = chat.id,
+                        accountId = account.id,
+                        from = account.emailAddress,
+                        subject = subject,
+                        body = p.body,
+                        bodyFull = p.body,
+                        timestamp = System.currentTimeMillis(),
+                        isRead = true,
+                        isIncoming = false,
+                        messageId = sentMessageId,
+                        isEncrypted = p.enc.isEncrypted
+                    )
+                    val messageId = messageRepository.insertMessage(message)
+                    messageRepository.updateMessage(message.copy(id = messageId, pollId = groupId))
+                }
+                // The creator can also answer: a dedicated per-recipient poll-ID for the creator
+                // (NOT sent as an email — it only exists so the creator's answer is tracked).
+                pollRepository.insertPoll(
+                    Poll(
+                        id = PollFormat.newPollId(),
+                        accountId = account.id,
+                        chatId = chat.id,
+                        groupId = groupId,
+                        recipientEmail = account.emailAddress.trim().lowercase(),
+                        title = title,
+                        question = question,
+                        options = PollFormat.optionsToJson(options),
+                        multi = false,
+                        numberMode = false,
+                        personMode = false,
+                        appointmentMode = true,
+                        startDate = startDate,
+                        startTime = startTime,
+                        endDate = endDate,
+                        endTime = endTime,
+                        allDay = allDay,
+                        location = location,
+                        creatorEmail = account.emailAddress,
+                        pollMessageId = "",
+                        status = Poll.STATUS_OPEN,
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+                chatRepository.updateChat(
+                    chat.copy(
+                        lastMessageTimestamp = System.currentTimeMillis(),
+                        lastMessageBody = firstBody,
+                        lastMessageSubject = subject
+                    )
+                )
+                _uiState.update { it.copy(isSending = false) }
+            } catch (e: com.mailchat.crypto.EncryptionHelper.EncryptionFailed) {
+                encryptionErrorRetry = { createAppointment(title, question, startDate, startTime, endDate, endTime, allDay, location, targetChatId, forceUnencrypted = true) }
+                _uiState.update { it.copy(isSending = false, encryptionErrorDialog = e.message) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSending = false, sendError = e.message) }
+            }
+        }
+    }
+
+    /**
+     * Answers a TERMIN (appointment) poll: sends the choice (Ja/Nein/Vielleicht) + optional comment
+     * as a reply to the chat. Mirrors [answerPoll] but with the appointment answer marker.
+     */
+    fun answerAppointment(
+        pollId: String,
+        choice: Int,
+        comment: String,
+        forceUnencrypted: Boolean = false
+    ) {
+        viewModelScope.launch {
+            val chat = _uiState.value.chat ?: return@launch
+            val account = senderAccountFor(chat) ?: return@launch
+            // Resolve the actual poll-ID (group → the voter's own per-recipient poll-ID).
+            val groupPolls = pollRepository.getPollsByGroupSync(pollId, account.id)
+            val poll = if (groupPolls.isNotEmpty()) {
+                val voterEmail = account.emailAddress.trim().lowercase()
+                groupPolls.firstOrNull { it.recipientEmail.trim().lowercase() == voterEmail }
+                    ?: groupPolls.first()
+            } else {
+                pollRepository.getPoll(pollId, account.id) ?: return@launch
+            }
+            val actualPollId = if (poll.groupId.isNotBlank()) {
+                poll.id
+            } else {
+                val creatorAccount = accountRepository.getAllAccounts().first()
+                    .firstOrNull { it.emailAddress.trim().lowercase() == poll.creatorEmail.trim().lowercase() }
+                if (creatorAccount != null) {
+                    pollRepository.getPollsByChatSync(chat.id, creatorAccount.id)
+                        .firstOrNull { it.recipientEmail.trim().lowercase() == poll.recipientEmail.trim().lowercase() }
+                        ?.id ?: poll.id
+                } else {
+                    poll.id
+                }
+            }
+            val options = PollFormat.optionsFromJson(poll.options)
+            val isGerman = SettingsUtils.isGermanUi(appContext)
+            val noReply = if (isGerman) "⚠️ Nicht antworten!" else "⚠️ Do not reply!"
+            val commentLabel = if (isGerman) "Kommentar" else "Comment"
+            val body = AppointmentFormat.buildApptAnswerBody(options, choice, comment, actualPollId, noReply, commentLabel)
+            val subject = if (EmailGrouping.isGroupKey(chat.participantEmail)) {
+                chat.participantName
+            } else {
+                "Re: ${poll.title}"
+            }
+            // The creator answers for themselves; everyone else answers to the chat's other party.
+            val isCreator = account.emailAddress.trim().lowercase() == poll.creatorEmail.trim().lowercase()
+            val recipient = if (isCreator) account.emailAddress else recipientForChat(chat, account)
+            _uiState.update { it.copy(isSending = true, sendError = null) }
+            try {
+                val recipients = recipient.split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }
+                val isGroupChat = EmailGrouping.isGroupKey(chat.participantEmail)
+                val enc = com.mailchat.crypto.EncryptionHelper.encryptForRecipients(
+                    appContext, body, recipients, isGroupChat, chat.isEncrypted, forceUnencrypted
+                )
+                val extraHeaders = mutableMapOf("X-MailChat-Appt-Answer" to actualPollId)
+                extraHeaders.putAll(enc.headers)
+                val sentMessageId = smtpService.sendEmail(
+                    account = account,
+                    to = recipient,
+                    subject = subject,
+                    body = enc.body,
+                    extraHeaders = extraHeaders,
+                    bodyFormat = com.mailchat.network.BodyFormat.PLAIN
+                )
+                val message = Message(
+                    chatId = chat.id,
+                    accountId = account.id,
+                    from = account.emailAddress,
+                    subject = subject,
+                    body = body,
+                    bodyFull = body,
+                    timestamp = System.currentTimeMillis(),
+                    isRead = true,
+                    isIncoming = false,
+                    messageId = sentMessageId,
+                    isEncrypted = enc.isEncrypted
+                )
+                val messageId = messageRepository.insertMessage(message)
+                pollProcessor.processMessageForPolls(message.copy(id = messageId), chat)
+                chatRepository.updateChat(
+                    chat.copy(
+                        lastMessageTimestamp = System.currentTimeMillis(),
+                        lastMessageBody = body,
+                        lastMessageSubject = subject
+                    )
+                )
+                _uiState.update { it.copy(isSending = false) }
+            } catch (e: com.mailchat.crypto.EncryptionHelper.EncryptionFailed) {
+                encryptionErrorRetry = { answerAppointment(pollId, choice, comment, forceUnencrypted = true) }
+                _uiState.update { it.copy(isSending = false, encryptionErrorDialog = e.message) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSending = false, sendError = e.message) }
+            }
+        }
+    }
+
+    /**
+     * Shares the appointment as an ICS file (via the Android share sheet) so the user can add it
+     * to their own calendar ("In Kalender übernehmen").
+     */
+    fun shareAppointmentToCalendar(pollId: String) {
+        viewModelScope.launch {
+            val chat = _uiState.value.chat ?: return@launch
+            val account = senderAccountFor(chat) ?: return@launch
+            val groupPolls = pollRepository.getPollsByGroupSync(pollId, account.id)
+            val poll = if (groupPolls.isNotEmpty()) {
+                groupPolls.first()
+            } else {
+                pollRepository.getPoll(pollId, account.id) ?: return@launch
+            }
+            val isGerman = SettingsUtils.isGermanUi(appContext)
+            val dateLabel = AppointmentFormat.dateLabel(
+                poll.startDate, poll.startTime, poll.endDate, poll.endTime, poll.allDay, isGerman
+            )
+            val description = buildString {
+                if (poll.question.isNotBlank()) append(poll.question).append('\n')
+                append("🗓 ").append(dateLabel)
+                if (poll.location.isNotBlank()) append("\n📍 ").append(poll.location)
+            }
+            try {
+                // Use ACTION_INSERT (like the AI "add to my calendar" flow) instead of ACTION_SEND
+                // with an ICS file: the system calendar registers for ACTION_INSERT, so the
+                // calendar app is actually offered in the chooser.
+                val calendarIntent = android.content.Intent(android.content.Intent.ACTION_INSERT).apply {
+                    data = android.net.Uri.parse("content://com.android.calendar/events")
+                    putExtra("title", poll.title)
+                    putExtra("description", description)
+                    // The official extra is "eventLocation" (CalendarContract.Events.EVENT_LOCATION);
+                    // "location" is set too for third-party calendar apps that read it.
+                    if (poll.location.isNotBlank()) {
+                        putExtra("eventLocation", poll.location)
+                        putExtra("location", poll.location)
+                    }
+                    // appContext is the Application context (not an Activity), so starting an
+                    // activity from it requires FLAG_ACTIVITY_NEW_TASK.
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    if (poll.allDay) {
+                        // All-day event: beginTime/endTime are UTC-midnight timestamps; the end is
+                        // exclusive (the day after the last day).
+                        putExtra("allDay", true)
+                        try {
+                            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                            sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                            val start = sdf.parse(poll.startDate)
+                            val end = sdf.parse(poll.endDate.ifBlank { poll.startDate })
+                            if (start != null && end != null) {
+                                putExtra("beginTime", start.time)
+                                putExtra("endTime", end.time + 24L * 60L * 60L * 1000L)
+                            }
+                        } catch (_: Exception) { }
+                    } else if (poll.startDate.isNotBlank()) {
+                        try {
+                            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+                            val beginTime = sdf.parse("${poll.startDate} ${poll.startTime.ifBlank { "00:00" }}")
+                            if (beginTime != null) {
+                                putExtra("beginTime", beginTime.time)
+                                val endTime = if (poll.endDate.isNotBlank() && poll.endTime.isNotBlank()) {
+                                    sdf.parse("${poll.endDate} ${poll.endTime}")
+                                } else {
+                                    null
+                                }
+                                putExtra("endTime", (endTime ?: beginTime).time)
+                            }
+                        } catch (_: Exception) { }
+                    }
+                }
+                val chooser = android.content.Intent.createChooser(
+                    calendarIntent, appContext.getString(com.mailchat.R.string.calendar_share_chooser)
+                )
+                chooser.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                appContext.startActivity(chooser)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(sendError = e.message) }
+            }
+        }
+    }
+
+    /**
+     * Lists the chats (conversations) of the current account, for the recipient/group picker when
+     * starting an appointment poll from an AI-detected appointment.
+     */
+    suspend fun chatsForPicker(): List<com.mailchat.data.model.Chat> {
+        val accountId = _uiState.value.chat?.accountId ?: return emptyList()
+        val chats = chatRepository.getChatsByAccountSync(accountId)
+        val chatEmails = chats.map { it.participantEmail.lowercase() }.toSet()
+        // Add contacts that are not already in the chats (so the user can start an appointment
+        // poll with any contact, not only the ones they're currently corresponding with).
+        val contactChats = contactService.getAllContacts()
+            .filter { it.email.lowercase() !in chatEmails }
+            .map { contact ->
+                com.mailchat.data.model.Chat(
+                    id = 0,
+                    participantEmail = contact.email,
+                    participantName = contact.name,
+                    accountId = accountId
+                )
+            }
+        return chats + contactChats
     }
 
     /**

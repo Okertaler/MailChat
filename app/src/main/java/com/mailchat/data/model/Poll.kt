@@ -23,6 +23,12 @@ import androidx.room.Index
  * records who a per-recipient poll-ID was sent to (only set in the creator's records). The
  * creator manages the whole group (aggregated results, auto-close, result emails) until it is
  * closed. Recipient-side copies have an empty [groupId] (they are standalone single polls).
+ *
+ * [appointmentMode] marks a TERMIN (appointment) poll: instead of free-form options, the options
+ * are the fixed Ja/Nein/Vielleicht (Yes/No/Maybe) choices and the poll carries the appointment
+ * details ([startDate]/[startTime], [endDate]/[endTime], [allDay], [location]). Dates are stored
+ * as ISO strings (startDate/endDate = "YYYY-MM-DD", startTime/endTime = "HH:mm", empty for
+ * all-day). See [com.mailchat.util.AppointmentFormat] for the email format and ICS generation.
  */
 @Entity(
     tableName = "polls",
@@ -41,6 +47,14 @@ data class Poll(
     val multi: Boolean = false,
     val numberMode: Boolean = false,
     val personMode: Boolean = false,
+    // Appointment (Termin) mode: fixed Ja/Nein/Vielleicht options + the appointment details.
+    val appointmentMode: Boolean = false,
+    val startDate: String = "", // "YYYY-MM-DD"
+    val startTime: String = "", // "HH:mm" (empty for all-day)
+    val endDate: String = "",   // "YYYY-MM-DD" (inclusive end date, may be > startDate)
+    val endTime: String = "",   // "HH:mm" (empty for all-day)
+    val allDay: Boolean = false,
+    val location: String = "",
     val creatorEmail: String = "",
     val pollMessageId: String = "",
     val status: String = STATUS_OPEN,

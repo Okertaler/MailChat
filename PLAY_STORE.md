@@ -16,14 +16,14 @@ MailChat
 
 In der Play Console unter **Release → What's new** eintragen.
 
-### Englisch (398 Zeichen)
+### Englisch (438 Zeichen)
 ```
-New: polls with number mode (a number per option, result = sum) and person-related polls (result as a table). Recipients now see the same result as the creator, with contact names. Image mosaic in the chat bubble (up to 4) with full-screen zoom. Sync button in the chat view (spins while syncing). Edit menu opens multi-select immediately. Fixed: images and attachments not showing after a restore.
+New: Appointment polls – suggest a date/time in a chat (date, location, question); recipients answer Yes/No/Maybe; the creator sees responses live and after closing everyone sees the same graphical result. Add the appointment to your calendar. AI appointment detection: send detected appointments as a poll or add them to your calendar. Improved: email push (IMAP IDLE) with significantly reduced battery usage; editable quote in replies.
 ```
 
-### Deutsch (422 Zeichen)
+### Deutsch (475 Zeichen)
 ```
-Neu: Umfragen mit Zahlen-Modus (eine Zahl pro Option, Ergebnis = Summe) und Personen-Umfragen (Ergebnis als Tabelle). Empfänger sehen jetzt dasselbe Ergebnis wie der Ersteller, mit Kontaktnamen. Bild-Mosaik in der Chatblase (bis zu 4) mit Vollbild-Zoom. Sync-Button in der Chatansicht (dreht sich beim Sync). Bearbeiten-Menü öffnet sofort die Mehrfachauswahl. Behoben: Bilder und Anhänge nach einem Restore nicht sichtbar.
+Neu: Terminumfragen – in einem Chat einen Termin vorschlagen (Datum/Zeit, Ort, Frage); Empfänger antworten mit Ja/Nein/Vielleicht; der Ersteller sieht die Antworten live, nach dem Abschluss sehen alle dasselbe graphische Ergebnis. Termin direkt in den Kalender übernehmen. KI-Termin-Erkennung: erkannte Termine als Umfrage senden oder in den Kalender übernehmen. Verbessert: E-Mail-Push (IMAP IDLE) mit deutlich reduziertem Akku-Verbrauch; bearbeitbares Zitat in der Antwort.
 ```
 
 > Hinweis: In der Play Console unter **Release → What's new** wird der Text **ohne** die `<de-DE>`/`<en-GB>`-Tags eingetragen (die Tags sind nur für `version.md` im Repo). Pro Sprache ein eigener Eintrag, jeweils ≤ 500 Zeichen.
@@ -82,6 +82,7 @@ MailChat turns your email into private, chat-style conversations — with encryp
 • Real-name & appointment extraction.
 • AI assistant (chat with your data).
 • Polls in chat (single/multiple choice, number mode, person-related) with a bar chart or table and a result email; works with regular email clients.
+• Appointment polls (date/time, all-day, location) with Yes/No/Maybe answers, live responses and a graphical result; add the appointment to your calendar.
 • Image mosaic in the chat bubble (up to 4 images) with a full-screen zoom viewer (pinch-to-zoom).
 • Home-screen widget showing your latest or unread emails (adjustable font size).
 • Image blocking for spam (anti tracking pixels).
@@ -130,6 +131,7 @@ MailChat verwandelt deine E-Mails in private, chatartige Gespräche — mit Vers
 • Name- & Termin-Erkennung.
 • KI-Assistent (Chat mit deinen Daten).
 • Umfragen im Chat (Einzel-/Mehrfachauswahl, Zahlen-Modus, personenbezogen) mit Balkendiagramm oder Tabelle und Ergebnis per E-Mail; funktioniert auch mit normalen E-Mail-Programmen.
+• Terminumfragen (Datum/Zeit, ganztägig, Ort) mit Ja/Nein/Vielleicht-Antworten, live Antworten und graphischem Ergebnis; Termin in den Kalender übernehmen.
 • Bild-Mosaik in der Chatblase (bis zu 4 Bilder) mit Vollbild-Zoom-Viewer (Pinch-to-Zoom).
 • Startbildschirm-Widget mit deinen letzten oder ungelesenen E-Mails (Schriftgröße einstellbar).
 • Bild-Blockierung für Spam (Anti-Tracking-Pixel).
@@ -256,7 +258,7 @@ Die Play Console verlangt eine **öffentliche Privacy-Policy-URL**.
 - ✅ Release-AAB: `app/build/outputs/bundle/release/app-release.aab` (signiert)
 - ✅ Source: `https://github.com/Okertaler/MailChat`
 - ✅ Legal-Dokumente: in der App + `legal/`-Ordner
-- ✅ Version: 2.6 (versionCode 89, targetSdk 36 / Android 16)
+- ✅ Version: 2.7 (versionCode 90, targetSdk 36 / Android 16)
 
 ---
 
