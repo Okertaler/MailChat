@@ -473,6 +473,41 @@ object SettingsUtils {
     }
 
     /**
+     * Whether the auto-reply for [email] should additionally attach a small OpenStreetMap map
+     * image of the user's location (tiles fetched from tile.openstreetmap.org). Only relevant
+     * when [getAutoLocationReply] is enabled.
+     */
+    /**
+     * Message IDs for which the CID-image repair was attempted but could not fix the message
+     * (the server copy has no content-ID mapping either). These are skipped on every repair
+     * pass — without this, the same messages would be re-fetched from the server on every
+     * periodic sync forever (a persistent network/battery drain).
+     */
+    fun getCidRepairFailedMessageIds(context: Context): Set<String> =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getStringSet("cid_repair_failed_message_ids", emptySet())!!.toSet()
+
+    fun addCidRepairFailedMessageId(context: Context, messageId: String) {
+        if (messageId.isBlank()) return
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val current = prefs.getStringSet("cid_repair_failed_message_ids", emptySet())!!.toMutableSet()
+        current.add(messageId)
+        val trimmed = if (current.size > 500) current.toList().takeLast(500).toSet() else current
+        prefs.edit().putStringSet("cid_repair_failed_message_ids", trimmed).apply()
+    }
+
+    fun getAutoMap(context: Context, email: String): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean("auto_map_" + email.trim().lowercase(), false)
+
+    fun setAutoMap(context: Context, email: String, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("auto_map_" + email.trim().lowercase(), enabled)
+            .apply()
+    }
+
+    /**
      * The set of message IDs that have already received an automatic "Wo bist Du?" reply.
      * Used to avoid replying twice to the same message (e.g. on re-sync).
      */
@@ -488,6 +523,24 @@ object SettingsUtils {
         // Keep the set bounded so it doesn't grow without limit.
         val trimmed = if (current.size > 500) current.toList().takeLast(500).toSet() else current
         prefs.edit().putStringSet("auto_replied_message_ids", trimmed).apply()
+    }
+
+    /**
+     * The set of message IDs for which the "auto-reply skipped: no location permission" notice
+     * has already been shown in the chat. Used to avoid inserting the notice again on every
+     * re-sync of the same message.
+     */
+    fun getAutoReplyErrorShownMessageIds(context: Context): Set<String> =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getStringSet("auto_reply_error_shown_message_ids", emptySet())!!.toSet()
+
+    fun addAutoReplyErrorShownMessageId(context: Context, messageId: String) {
+        if (messageId.isBlank()) return
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val current = prefs.getStringSet("auto_reply_error_shown_message_ids", emptySet())!!.toMutableSet()
+        current.add(messageId)
+        val trimmed = if (current.size > 500) current.toList().takeLast(500).toSet() else current
+        prefs.edit().putStringSet("auto_reply_error_shown_message_ids", trimmed).apply()
     }
 
     /**

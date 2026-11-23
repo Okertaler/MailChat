@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.MarkEmailRead
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.StickyNote2
 import androidx.compose.material.icons.automirrored.filled.StarHalf
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Visibility
@@ -155,6 +156,7 @@ fun ChatListScreen(
     var filterPhishing by remember { mutableStateOf(false) }
     var filterUnwanted by remember { mutableStateOf(false) }
     var filterNewsletter by remember { mutableStateOf(false) }
+    var filterStickyNotes by remember { mutableStateOf(false) }
     var filterCustomTags by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showUnreadOnly by remember { mutableStateOf(false) }
     var showGroupOnly by remember { mutableStateOf(false) }
@@ -165,12 +167,55 @@ fun ChatListScreen(
     var emptyImportPassword by remember { mutableStateOf("") }
     var pendingImportFile by remember { mutableStateOf<File?>(null) }
     var showPermissionDialog by remember { mutableStateOf(false) }
+    // One-time location permission prompt (the location permission was added after the first
+    // launch dialog existed, so existing installs were never asked for it).
+    var showLocationPermissionDialog by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
     ) { }
 
+    // Persist the chat-list filter settings so they survive navigation / app restarts
+    // (previously they were reset to defaults every time the screen was recreated).
     LaunchedEffect(Unit) {
         val prefs = context.getSharedPreferences("mailchat_prefs", android.content.Context.MODE_PRIVATE)
+        showFavoritesOnly = prefs.getBoolean("filter_favorites", false)
+        showTodoOnly = prefs.getBoolean("filter_todo", false)
+        showProcessedOnly = prefs.getBoolean("filter_processed", false)
+        showHiddenOnly = prefs.getBoolean("filter_hidden", false)
+        filterPhishing = prefs.getBoolean("filter_phishing", false)
+        filterUnwanted = prefs.getBoolean("filter_unwanted", false)
+        filterNewsletter = prefs.getBoolean("filter_newsletter", false)
+        filterStickyNotes = prefs.getBoolean("filter_sticky_notes", false)
+        showUnreadOnly = prefs.getBoolean("filter_unread", false)
+        showGroupOnly = prefs.getBoolean("filter_group", false)
+        filterCustomTags = prefs.getStringSet("filter_custom_tags", emptySet()) ?: emptySet()
+    }
+    LaunchedEffect(
+        showFavoritesOnly, showTodoOnly, showProcessedOnly, showHiddenOnly,
+        filterPhishing, filterUnwanted, filterNewsletter, filterStickyNotes,
+        showUnreadOnly, showGroupOnly, filterCustomTags
+    ) {
+        val prefs = context.getSharedPreferences("mailchat_prefs", android.content.Context.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean("filter_favorites", showFavoritesOnly)
+            .putBoolean("filter_todo", showTodoOnly)
+            .putBoolean("filter_processed", showProcessedOnly)
+            .putBoolean("filter_hidden", showHiddenOnly)
+            .putBoolean("filter_phishing", filterPhishing)
+            .putBoolean("filter_unwanted", filterUnwanted)
+            .putBoolean("filter_newsletter", filterNewsletter)
+            .putBoolean("filter_sticky_notes", filterStickyNotes)
+            .putBoolean("filter_unread", showUnreadOnly)
+            .putBoolean("filter_group", showGroupOnly)
+            .putStringSet("filter_custom_tags", filterCustomTags)
+            .apply()
+    }
+
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("mailchat_prefs", android.content.Context.MODE_PRIVATE)
+        val locationGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+            context, android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
         if (!prefs.getBoolean("permissions_prompted", false)) {
             val contactsGranted = androidx.core.content.ContextCompat.checkSelfPermission(
                 context, android.Manifest.permission.READ_CONTACTS
@@ -178,10 +223,19 @@ fun ChatListScreen(
             val audioGranted = androidx.core.content.ContextCompat.checkSelfPermission(
                 context, android.Manifest.permission.RECORD_AUDIO
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-            if (!contactsGranted || !audioGranted) {
+            if (!contactsGranted || !audioGranted || !locationGranted) {
                 showPermissionDialog = true
             }
-            prefs.edit().putBoolean("permissions_prompted", true).apply()
+            // Mark both flags so the one-time location prompt below does not fire again for a
+            // fresh install.
+            prefs.edit()
+                .putBoolean("permissions_prompted", true)
+                .putBoolean("location_prompted", true)
+                .apply()
+        } else if (!prefs.getBoolean("location_prompted", false) && !locationGranted) {
+            // Existing install: the location permission was added later, so prompt once.
+            showLocationPermissionDialog = true
+            prefs.edit().putBoolean("location_prompted", true).apply()
         }
     }
 
@@ -190,7 +244,7 @@ fun ChatListScreen(
             onDismissRequest = { showPermissionDialog = false },
             title = { Text("Berechtigungen") },
             text = {
-                Text("MailChat benötigt Zugriff auf Kontakte (für Namen und Fotos) und Mikrofon (für Sprachnachrichten). Diese Berechtigungen sind optional.")
+                Text("MailChat benötigt Zugriff auf Kontakte (für Namen und Fotos), Mikrofon (für Sprachnachrichten) und Standort — auch im Hintergrund (für die „Wo bist Du?“-Auto-Antwort, die auch bei gesperrtem Handy funktionieren soll). Diese Berechtigungen sind optional.")
             },
             confirmButton = {
                 TextButton(onClick = {
@@ -198,13 +252,41 @@ fun ChatListScreen(
                     permissionLauncher.launch(
                         arrayOf(
                             android.Manifest.permission.READ_CONTACTS,
-                            android.Manifest.permission.RECORD_AUDIO
+                            android.Manifest.permission.RECORD_AUDIO,
+                            android.Manifest.permission.ACCESS_FINE_LOCATION,
+                            android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
                         )
                     )
                 }) { Text("OK") }
             },
             dismissButton = {
                 TextButton(onClick = { showPermissionDialog = false }) { Text("Später") }
+            }
+        )
+    }
+
+    // One-time location permission prompt for existing installs (the location permission was
+    // added after the first-launch dialog existed, so those devices were never asked for it).
+    if (showLocationPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showLocationPermissionDialog = false },
+            title = { Text("Standort-Berechtigung") },
+            text = {
+                Text("MailChat benötigt die Standort-Berechtigung — auch im Hintergrund — für die „Wo bist Du?“-Auto-Antwort (sendet deinen Standort, wenn ein Kontakt fragt, auch bei gesperrtem Handy). Diese Berechtigung ist optional.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLocationPermissionDialog = false
+                    permissionLauncher.launch(
+                        arrayOf(
+                            android.Manifest.permission.ACCESS_FINE_LOCATION,
+                            android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                        )
+                    )
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLocationPermissionDialog = false }) { Text("Später") }
             }
         )
     }
@@ -236,6 +318,7 @@ fun ChatListScreen(
         filterPhishing,
         filterUnwanted,
         filterNewsletter,
+        filterStickyNotes,
         filterCustomTags,
         showUnreadOnly,
         showGroupOnly,
@@ -243,6 +326,7 @@ fun ChatListScreen(
         uiState.chatCustomTags,
         uiState.todoCounts,
         uiState.processedCounts,
+        uiState.stickyNoteCounts,
         uiState.contactNames
     ) {
         val sourceList = if (showHiddenOnly) uiState.hiddenChats else uiState.chats
@@ -261,6 +345,7 @@ fun ChatListScreen(
             (!showFavoritesOnly || chat.favorite || chat.important) &&
                 (!showTodoOnly || (uiState.todoCounts[chat.id] ?: 0) > 0) &&
                 (!showProcessedOnly || (uiState.processedCounts[chat.id] ?: 0) > 0) &&
+                (!filterStickyNotes || (uiState.stickyNoteCounts[chat.id] ?: 0) > 0) &&
                 (!showUnreadOnly || chat.unreadCount > 0) &&
                 (!showGroupOnly || chat.participantEmail.contains(";")) &&
                 spamMatch && customTagMatch
@@ -490,12 +575,13 @@ fun ChatListScreen(
                         }) {
                             Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
                         }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                         Box {
                             IconButton(onClick = { showFilterSheet = !showFilterSheet }) {
                             val activeFilterCount = listOf(
                                 showFavoritesOnly, showTodoOnly, showProcessedOnly,
                                 showHiddenOnly, filterPhishing, filterUnwanted, filterNewsletter,
-                                showUnreadOnly, showGroupOnly
+                                filterStickyNotes, showUnreadOnly, showGroupOnly
                             ).count { it } + filterCustomTags.size
                                 Box(contentAlignment = Alignment.TopEnd) {
                                     Icon(
@@ -527,6 +613,31 @@ fun ChatListScreen(
                                 expanded = showFilterSheet,
                                 onDismissRequest = { showFilterSheet = false }
                             ) {
+                                // "Filter löschen" at the very top: resets all filter settings.
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.filter_clear)) },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    },
+                                    onClick = {
+                                        showFavoritesOnly = false
+                                        showTodoOnly = false
+                                        showProcessedOnly = false
+                                        showHiddenOnly = false
+                                        filterPhishing = false
+                                        filterUnwanted = false
+                                        filterNewsletter = false
+                                        filterStickyNotes = false
+                                        showUnreadOnly = false
+                                        showGroupOnly = false
+                                        filterCustomTags = emptySet()
+                                    }
+                                )
+                                androidx.compose.material3.HorizontalDivider()
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.filter_favorites)) },
                                     leadingIcon = {
@@ -612,6 +723,20 @@ fun ChatListScreen(
                                     onClick = { showHiddenOnly = !showHiddenOnly }
                                 )
                                 DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.filter_sticky_notes)) },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.StickyNote2,
+                                            contentDescription = null,
+                                            tint = if (filterStickyNotes) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    },
+                                    trailingIcon = {
+                                        if (filterStickyNotes) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    },
+                                    onClick = { filterStickyNotes = !filterStickyNotes }
+                                )
+                                DropdownMenuItem(
                                     text = { Text(stringResource(R.string.spam_phishing)) },
                                     leadingIcon = {
                                         Icon(
@@ -679,6 +804,11 @@ fun ChatListScreen(
                                     }
                                 }
                             }
+                        }
+                        com.mailchat.ui.component.HelpIcon(
+                            title = stringResource(R.string.help_filter_menu_title),
+                            text = stringResource(R.string.help_filter_menu_text)
+                        )
                         }
                         IconButton(onClick = onAssistant) {
                             Icon(

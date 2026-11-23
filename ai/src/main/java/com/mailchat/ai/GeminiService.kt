@@ -394,7 +394,7 @@ $truncated"""
         matches.joinToString(",")
     }
 
-    data class Appointment(val title: String, val date: String, val time: String, val durationMin: Int)
+    data class Appointment(val title: String, val date: String, val time: String, val durationMin: Int, val location: String = "")
 
     /**
      * Extracts ALL dated events from [text]. Returns an empty list if no dated event is found.
@@ -404,7 +404,7 @@ $truncated"""
     suspend fun extractAppointments(text: String): List<Appointment> = withContext(Dispatchers.IO) {
         val truncated = text.stripHtml().take(5000)
         val prompt = """Extract ALL dated events from this text. Reply with ONLY a JSON array, no other text.
-Format: [{"title":"...","date":"YYYY-MM-DD","time":"HH:mm","duration":60}, ...]
+Format: [{"title":"...","date":"YYYY-MM-DD","time":"HH:mm","duration":60,"location":"..."}, ...]
 Rules:
 - Extract every specific calendar date (day + month, with or without year) that refers to an event: appointments, meetings, deadlines, due dates, effective dates, billing dates, and any other dated event.
 - IGNORE any email header lines (From:, To:, Cc:, Date:, Subject:, Von:, An:, Datum:, Betreff:). In particular the "Date:"/"Datum:" line is the email's received date, NOT an appointment — never extract it.
@@ -413,6 +413,7 @@ Rules:
 - time: start time in HH:mm (24h format) if given. German formats: "14:30 Uhr" = "14:30", "14.30 Uhr" = "14:30", "um 15 Uhr" = "15:00", "von 14 bis 16 Uhr" = start "14:00" duration 120
 - If no time is given, use "09:00" as default time
 - duration: duration in minutes (default 60 if not specified). "2 Stunden" = 120, "90 Minuten" = 90
+- location: the place where the event takes place, if mentioned (max 80 chars) — a room, office, address, city, restaurant, "bei Max", or an online platform ("Teams", "Zoom", "online"). Keep it short and close to the original wording. If NO place is mentioned, use an empty string "".
 - If the same event/date is mentioned multiple times, list it only once.
 - Reply with an empty array [] if the text contains NO specific calendar date at all
 
@@ -431,9 +432,10 @@ $truncated"""
                 val date = Regex("\"date\"\\s*:\\s*\"([^\"]*)\"").find(obj)?.groupValues?.get(1) ?: ""
                 val time = Regex("\"time\"\\s*:\\s*\"([^\"]*)\"").find(obj)?.groupValues?.get(1) ?: ""
                 val duration = Regex("\"duration\"\\s*:\\s*(\\d+)").find(obj)?.groupValues?.get(1)?.toIntOrNull() ?: 60
+                val location = Regex("\"location\"\\s*:\\s*\"([^\"]*)\"").find(obj)?.groupValues?.get(1) ?: ""
                 // Validate the date format (YYYY-MM-DD) so a malformed entry is rejected.
                 if (title.isBlank() || !Regex("\\d{4}-\\d{2}-\\d{2}").matches(date)) return@mapNotNull null
-                Appointment(title, date, time.ifBlank { "09:00" }, duration)
+                Appointment(title, date, time.ifBlank { "09:00" }, duration, location.trim())
             }.distinct().take(5)
         } catch (_: Exception) {
             emptyList()

@@ -154,6 +154,8 @@
     <string name="filter_todo">Offen</string>
     <string name="filter_processed">Erledigt</string>
     <string name="filter_hidden">Ausgeblendet</string>
+    <string name="filter_sticky_notes">Notizzettel</string>
+    <string name="filter_clear">Filter löschen</string>
     <string name="filter_spam">Spam</string>
     <string name="filter_title">Filter</string>
     <string name="spam_filter_off">Aus</string>
@@ -333,14 +335,26 @@
     <string name="location_unavailable">Standort nicht verfügbar</string>
     <string name="location_permission_needed">Standort-Berechtigung erforderlich</string>
     <string name="location_error">Standort-Fehler</string>
+    <string name="location_map_attached">Karte angehängt</string>
+    <string name="location_map_failed">Karte konnte nicht erstellt werden (Links hinzugefügt)</string>
+    <string name="sticky_note">Notizzettel</string>
+    <string name="sticky_note_edit">Notizzettel bearbeiten</string>
+    <string name="sticky_note_hint">Notiz schreiben…</string>
+    <string name="sticky_note_not_sent">Notizzettel — nicht gesendet</string>
+    <string name="save">Speichern</string>
     <string name="where_are_you">Wo bist Du?</string>
     <string name="where_are_you_text">Wo bist Du?</string>
+    <string name="where_are_you_confirm_hint">Die Standortanfrage wird sofort gesendet (Betreff: „Standortanfrage“). Die MailChat-App des Kontakts antwortet nur automatisch mit seinem Standort, wenn dort die Standort-Berechtigung erteilt und die Auto-Antwort für dich aktiviert wurde.</string>
     <string name="auto_reply_title">Auto-Antwort „Wo bist Du?“</string>
     <string name="auto_reply_location">Meinen Standort automatisch senden</string>
     <string name="auto_reply_weather">Wetter hinzufügen (nächste 4 Stunden)</string>
     <string name="weather_warning_title">Standort wird an open-meteo.com gesendet</string>
     <string name="weather_warning_text">Damit die Auto-Antwort das Wetter enthalten kann, wird dein aktueller Standort (Breiten- und Längengrad) an den kostenlosen Wetterdienst open-meteo.com gesendet. Es wird kein Konto oder API-Key verwendet und die Daten werden dort nicht gespeichert. Aktiviere dies nur, wenn du damit einverstanden bist, dass dein Standort an open-meteo.com gesendet wird.</string>
     <string name="weather_warning_ok">OK, Wetter aktivieren</string>
+    <string name="auto_reply_map">Karte anhängen (OpenStreetMap)</string>
+    <string name="map_warning_title">Karte wird bei OpenStreetMap angefragt</string>
+    <string name="map_warning_text">Damit die Karte erzeugt werden kann, werden deine genauen Koordinaten an tile.openstreetmap.org gesendet, um die Kartenkacheln zu laden. Das Kartenbild (nur dein Standort, ohne Wetter) wird als Anhang unverschlüsselt an den Kontakt gesendet. Aktiviere dies nur, wenn du damit einverstanden bist, dass dein Standort an OpenStreetMap gesendet wird.</string>
+    <string name="map_warning_ok">OK, Karte aktivieren</string>
     <string name="compose_options">Optionen</string>
     <string name="upload_media">Medien hochladen</string>
     <string name="take_photo">Foto machen</string>
@@ -531,6 +545,16 @@
         <item>Gruppenchats: E-Mails mit mehreren Empfängern werden in einem Chat gesammelt</item>
         <item>Neue E-Mails können an mehrere Empfänger (kommagetrennt) gesendet werden</item>
         <item>Antworten in einem Gruppenchat gehen an alle Mitglieder</item>
+    </string-array>
+    <string-array name="version_2_8_changes">
+        <item>Neu: „Mein Standort" im Plus-Menü – hängt ein OpenStreetMap-Kartenbild (rote Markierung) deiner aktuellen Position an die Nachricht, plus Karten-Links (OpenStreetMap, Google Maps, Apple Maps)</item>
+        <item>Neu: Notizzettel – gelbe Notizen direkt in einen Chat schreiben (Icon in der Kopfzeile); Notizen werden lokal gespeichert und nie als E-Mail gesendet; per Tipp auf die Notiz bearbeiten; neuer Filter „Notizzettel" in der Chat-Übersicht</item>
+        <item>Neu: Anhang-Kreise in der Chatblase zeigen das Dateiformat (PDF, TXT, DOCX…) statt eines leeren Kreises für Nicht-Bilddateien</item>
+        <item>Neu: Chat-Filter bleiben zwischen den Sitzungen erhalten (kein Zurücksetzen mehr); neuer Eintrag „Filter löschen" oben im Filtermenü setzt alle Filter zurück</item>
+        <item>Verbessert: Kartenbilder werden deutlich schneller erstellt (Kacheln werden parallel geladen) und sind 30 % näher um deinen Standort herum gezeigt</item>
+        <item>Verbessert: Notizzettel werden nie KI-verarbeitet (keine Zusammenfassung, keine Spam-Klassifikation, keine Tags)</item>
+        <item>Behoben: Die letzte Mail wurde bei jedem Sync neu abgerufen und neu dechiffriert (Akku-Verbrauch) – der inkrementelle Sync überspringt jetzt Ordner ohne neue Nachrichten</item>
+        <item>Behoben: Die „Wo bist Du?"-Auto-Antwort mit Kartenbild funktioniert jetzt auch bei gesperrtem Handy (Standort-Berechtigung im Hintergrund)</item>
     </string-array>
     <string-array name="version_2_7_changes">
         <item>Neu: Terminumfragen – in einem Chat einen Termin vorschlagen (Datum/Zeit oder ganztägig, optionaler Ort, Frage); die Empfänger antworten mit Ja/Nein/Vielleicht und optionaler Bemerkung; der Ersteller sieht die Antworten live, nach dem Abschluss sehen alle dasselbe graphische Ergebnis; funktioniert auch mit normalen E-Mail-Programmen (z. B. Thunderbird) und in Gruppenchats</item>
@@ -1171,7 +1195,11 @@
     <string name="help_selection_title">Auswahlmodus</string>
     <string name="help_selection_text">Langdrücken auf eine Nachricht oder einen Chat aktiviert den Auswahlmodus. Das Bearbeitungsmenü (oben rechts) bietet Massenaktionen: Alle auswählen, umkehren, nach Richtung auswählen, als bearbeitet markieren, Spam-Kategorie setzen, KI-Zusammenfassung und mehr. Wischen von rechts nach links zum Abwählen, von links nach rechts zum Auswählen. Das Menü bleibt offen, bis der Auswahlmodus beendet wird.</string>
     <string name="help_filter_menu_title">Filter-Menü</string>
-    <string name="help_filter_menu_text">Tippe auf das Filter-Icon (oben rechts), um das Dropdown-Menü zu öffnen. Filter für Favoriten, Ungelesen, Erledigt, Offen, Ausgeblendet, Phishing, Unerwünscht, Newsletter und eigene Tags aktivieren. Das Badge zeigt die Gesamtzahl der aktiven Filter einschließlich eigener Tags.</string>
+    <string name="help_filter_menu_text">Tippe auf das Filter-Icon (oben rechts), um das Dropdown-Menü zu öffnen. Filter für Favoriten, Ungelesen, Erledigt, Offen, Ausgeblendet, Notizzettel, Phishing, Unerwünscht, Newsletter und eigene Tags aktivieren. Das Badge zeigt die Gesamtzahl der aktiven Filter einschließlich eigener Tags. Die Filter bleiben zwischen den Sitzungen erhalten; der Eintrag „Filter löschen" oben im Menü setzt alle Filter zurück.</string>
+    <string name="help_sticky_note_title">Notizzettel</string>
+    <string name="help_sticky_note_text">Tippe auf das gelbe Notizzettel-Icon in der Chat-Kopfzeile, um eine Notiz direkt in den Chat zu schreiben. Notizen werden lokal gespeichert und nie als E-Mail gesendet. Sie werden als gelbe Blasen mit dem Hinweis „Notizzettel – nicht gesendet" angezeigt. Tippe auf eine Notiz, um sie zu bearbeiten. Notizen können über das normale Nachrichtenmenü gelöscht werden (lang drücken, auswählen, löschen). Notizzettel werden nie KI-verarbeitet (keine Zusammenfassung, keine Spam-Klassifikation, keine Tags). In der Chat-Übersicht zeigt der Filter „Notizzettel" nur Chats mit mindestens einer Notiz.</string>
+    <string name="help_my_location_title">Mein Standort (Karte)</string>
+    <string name="help_my_location_text">Tippe auf „Mein Standort" im Plus-Menü, um deine aktuelle Position an die Nachricht anzuhängen: Karten-Links (OpenStreetMap, Google Maps, Apple Maps) werden in den Text eingefügt und ein OpenStreetMap-Kartenbild mit roter Markierung an deiner Position wird als PNG angehängt. Die Karte wird auf deinem Gerät aus Kartenkacheln (tile.openstreetmap.org) erzeugt und ist optional – wenn sie nicht erstellt werden kann, werden trotzdem die Links hinzugefügt. Die Auto-Antwort „Wo bist Du?" kann ebenfalls ein Kartenbild anhängen (Kontakt-Option „Karte anhängen").</string>
     <string name="help_unread_filter_title">Ungelesen-Filter</string>
     <string name="help_unread_filter_text">Der "Ungelesen"-Filter zeigt nur Chats mit ungelesenen Nachrichten. Aktiviere ihn im Filter-Dropdown-Menü.</string>
     <string name="help_pinch_zoom_title">Pinch-to-Zoom</string>

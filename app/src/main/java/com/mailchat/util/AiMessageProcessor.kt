@@ -23,6 +23,9 @@ object AiMessageProcessor {
      *                     missing and the message is long enough.
      */
     suspend fun processMessage(context: Context, message: Message, forceSummary: Boolean = false): Message {
+        // Sticky notes (Notizzettel) are local notes, never sent as an email — no AI
+        // processing at all (no spam classification, no tags, no summary).
+        if (message.isStickyNote) return message
         // Phishing blacklist: a blacklisted sender is always phishing — skip AI classification
         // so the manual decision is never overridden.
         if (message.isIncoming && SettingsUtils.isPhishingBlacklisted(context, message.from)) {

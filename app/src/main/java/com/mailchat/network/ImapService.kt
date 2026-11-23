@@ -532,11 +532,34 @@ class ImapService @Inject constructor(
             val storedPeriodStart = state?.periodStart ?: 0L
             val periodExtended = state != null && (storedPeriodStart == 0L || sinceTimestamp < storedPeriodStart)
 
+            // lastUid may be 0 for a folder that is (and was) empty: an incremental fetch then
+            // does getMessagesByUID(1, LASTUID), which returns nothing for an empty folder and
+            // correctly picks up the first message if one arrives later. Requiring lastUid > 0
+            // here would keep an empty folder "non-incremental" forever (full SINCE search on
+            // every sync) — a battery drain.
             val incremental = uidFolder != null && state != null &&
-                state.uidValidity == uidValidity && state.lastUid > 0 && !periodExtended
+                state.uidValidity == uidValidity && !periodExtended
 
             val messages: Array<JMessage> = if (incremental) {
-                uidFolder!!.getMessagesByUID(state!!.lastUid + 1, javax.mail.UIDFolder.LASTUID)
+                // JavaMail 1.6.2 quirk: getMessagesByUID() with an EMPTY UID range
+                // (first > last, i.e. lastUid is already the folder's highest UID) still
+                // returns the folder's last message, which would then be re-fetched (and
+                // re-decrypted) on EVERY sync — a battery drain. Skip the fetch entirely
+                // when no new UID is possible (uidNext comes from the SELECT response, no
+                // extra round-trip).
+                val uidNext = runCatching { uidFolder!!.uidNext }.getOrNull() ?: 0L
+                if (uidNext > 0L && state!!.lastUid >= uidNext - 1L) {
+                    emptyArray()
+                } else {
+                    val incMsgs = uidFolder!!.getMessagesByUID(state!!.lastUid + 1, javax.mail.UIDFolder.LASTUID)
+                    if (incMsgs.isNotEmpty()) {
+                        com.mailchat.ai.AppLogger.log(
+                            context,
+                            "IMAP $folderName: incremental=true lastUid=${state!!.lastUid} fetched=${incMsgs.size}"
+                        )
+                    }
+                    incMsgs
+                }
             } else {
                 // Full or extended fetch: a server-side SINCE search reliably respects the period
                 // (the old client-side date break assumed perfectly date-sorted folders).
@@ -558,11 +581,10 @@ class ImapService @Inject constructor(
             var count = 0
             for (mail in messages) {
                 if (count >= maxMessages) break
-                if (uidFolder != null) {
-                    runCatching { uidFolder.getUID(mail) }.getOrNull()?.let { uid ->
-                        if (uid > newLastUid) newLastUid = uid
-                    }
-                }
+                val msgUid = if (uidFolder != null) {
+                    runCatching { uidFolder.getUID(mail) }.getOrNull()
+                } else null
+                if (msgUid != null && msgUid > newLastUid) newLastUid = msgUid
                 val fetched = parseMessage(mail, isIncoming)
                 if (fetched != null) {
                     result.add(fetched)
@@ -571,12 +593,37 @@ class ImapService @Inject constructor(
             }
             result.reverse()
 
+            // After a FULL fetch, baseline newLastUid on the folder's actual highest UID. Without
+            // this, a folder with no messages in the period (e.g. Sent/OUTBOX) leaves newLastUid
+            // at 0, so the sync state is never saved (shouldSaveState requires newLastUid > 0)
+            // and the folder stays "non-incremental" forever — every sync then re-fetches (and
+            // re-decrypts) the whole period. A major battery drain.
+            // JavaMail 1.6.2's UIDFolder has no getLastUID(); UIDNext is the next expected UID,
+            // so the current highest UID is UIDNext - 1 (UIDs are assigned sequentially).
+            if (!incremental && uidFolder != null) {
+                val uidNext = runCatching { uidFolder.uidNext }.getOrNull() ?: 1L
+                val folderLastUid = uidNext - 1L
+                if (folderLastUid > newLastUid) newLastUid = folderLastUid
+                com.mailchat.ai.AppLogger.log(
+                    context,
+                    "IMAP $folderName: full fetch, uidNext=$uidNext -> lastUid baseline=$newLastUid"
+                )
+            }
+
             // Keep the earliest period we have ever fetched, so decreasing the period does not
             // make us forget (and re-hide) older mail that is already stored.
             val newPeriodStart = if (storedPeriodStart > 0L && storedPeriodStart < sinceTimestamp) storedPeriodStart else sinceTimestamp
 
             val hasNewMessages = newLastUid > (state?.lastUid ?: 0L)
-            if (uidFolder != null && uidValidity > 0L && newLastUid > 0 && (hasNewMessages || periodExtended)) {
+            // Persist the sync state after EVERY full fetch, not only when new messages arrived.
+            // Otherwise a changed UIDVALIDITY (or a previously missing state) is never written
+            // back: the folder would stay "non-incremental" forever and every sync would
+            // re-fetch (and re-decrypt) the whole period — a significant battery drain.
+            // newLastUid may be 0 for an empty folder (uidNext == 1); we still save it so the
+            // folder becomes incremental and is not re-searched on every sync.
+            val shouldSaveState = uidFolder != null && uidValidity > 0L &&
+                (hasNewMessages || periodExtended || !incremental)
+            if (shouldSaveState) {
                 syncStateDao.save(
                     com.mailchat.data.model.SyncState(
                         accountId = account.id,

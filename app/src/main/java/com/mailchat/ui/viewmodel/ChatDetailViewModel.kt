@@ -92,6 +92,7 @@ class ChatDetailViewModel @Inject constructor(
     private val pollRepository: com.mailchat.data.repository.PollRepository,
     private val pollProcessor: com.mailchat.service.PollProcessor,
     private val syncEngine: com.mailchat.service.SyncEngine,
+    private val mapImageService: com.mailchat.network.MapImageService,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
@@ -459,8 +460,9 @@ class ChatDetailViewModel @Inject constructor(
     private suspend fun deleteMessagesWithServer(account: com.mailchat.data.model.EmailAccount?, toDelete: List<Message>) {
         if (account != null) {
             try {
-                val incoming = toDelete.filter { it.isIncoming && it.messageId.isNotBlank() }.map { it.messageId }
-                val outgoing = toDelete.filter { !it.isIncoming && it.messageId.isNotBlank() }.map { it.messageId }
+                // Sticky notes are local-only (never sent) — never touch the server for them.
+                val incoming = toDelete.filter { it.isIncoming && !it.isStickyNote && it.messageId.isNotBlank() }.map { it.messageId }
+                val outgoing = toDelete.filter { !it.isIncoming && !it.isStickyNote && it.messageId.isNotBlank() }.map { it.messageId }
                 if (incoming.isNotEmpty()) {
                     imapService.deleteMessagesFromServer(account, incoming, isIncoming = true)
                 }
@@ -980,6 +982,62 @@ class ChatDetailViewModel @Inject constructor(
 
     fun addComposeAttachment(file: File) =
         _uiState.update { it.copy(composeAttachments = it.composeAttachments + file) }
+
+    /**
+     * Generates an OpenStreetMap image (red marker at the given position) and attaches it to the
+     * message being composed ("Mein Standort" from the "+" menu). Returns true on success.
+     */
+    suspend fun attachLocationMap(lat: Double, lon: Double): Boolean {
+        val mapFile = mapImageService.generateMapImage(lat, lon) ?: return false
+        // Move the map into the compose-attachments dir so it survives cache cleanup of the
+        // generic cache dir and gets a stable, descriptive name.
+        val attachDir = File(appContext.filesDir, "compose_attachments").apply { mkdirs() }
+        val target = File(attachDir, "standort_${System.currentTimeMillis()}.png")
+        mapFile.copyTo(target, overwrite = true)
+        mapFile.delete()
+        addComposeAttachment(target)
+        return true
+    }
+
+    /**
+     * Saves a local sticky note (Notizzettel) in this chat: it appears in the chat as a yellow
+     * bubble but is never sent as an email.
+     */
+    fun saveStickyNote(text: String) {
+        viewModelScope.launch {
+            val chat = _uiState.value.chat ?: return@launch
+            val note = Message(
+                chatId = chatId,
+                accountId = chat.accountId,
+                from = "Notizzettel",
+                subject = "",
+                body = text,
+                bodyFull = text,
+                timestamp = System.currentTimeMillis(),
+                isRead = true,
+                isIncoming = false,
+                isProcessed = true,
+                messageId = "sticky-${System.currentTimeMillis()}",
+                isStickyNote = true
+            )
+            messageRepository.insertMessage(note)
+        }
+    }
+
+    /**
+     * Updates the text of an existing sticky note (opened by clicking the note in the chat).
+     * The note stays local-only and is never sent as an email.
+     */
+    fun updateStickyNote(message: Message, text: String) {
+        viewModelScope.launch {
+            messageRepository.updateMessage(message.copy(body = text, bodyFull = text))
+            // Keep the chat list preview up to date when the note is the chat's last message.
+            val chat = _uiState.value.chat ?: return@launch
+            if (chat.lastMessageTimestamp <= message.timestamp) {
+                chatRepository.updateChat(chat.copy(lastMessageBody = text))
+            }
+        }
+    }
 
     fun removeComposeAttachment(file: File) =
         _uiState.update { it.copy(composeAttachments = it.composeAttachments - file) }
@@ -1986,6 +2044,112 @@ class ChatDetailViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                _uiState.update { it.copy(isSending = false, sendError = e.message) }
+            }
+        }
+    }
+
+    /**
+     * Sends the "Wo bist Du?" location request: a standalone message with the exact subject
+     * "Standortanfrage" and the body "Wo bist du?" + "Anfrage von <contactName>". It goes
+     * through the same encryption + SMTP pipeline as a normal message (encrypted when the
+     * recipient has a key) and is saved locally so it shows up in the chat. It does NOT use the
+     * current compose draft (no attachments, cc/bcc or quote) and does NOT get a "Re:" prefix.
+     */
+    fun sendLocationRequest(contactName: String) {
+        viewModelScope.launch {
+            val state = _uiState.value
+            val chat = state.chat ?: return@launch
+            val account = senderAccountFor(chat) ?: return@launch
+            val isGroupChat = EmailGrouping.isGroupKey(chat.participantEmail)
+            val recipient = if (isGroupChat) {
+                chat.participantEmail.split(";")
+                    .filter { it != EmailGrouping.normalize(account.emailAddress) }
+                    .joinToString(",")
+                    .ifBlank { chat.participantEmail }
+            } else {
+                chat.participantEmail
+            }
+            if (recipient.isBlank()) return@launch
+            val body = "Wo bist du?\n\nAnfrage von $contactName"
+            val subject = "Standortanfrage"
+            _uiState.update { it.copy(isSending = true, sendError = null) }
+            try {
+                val recipients = recipient.split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }
+                val firstRecipient = recipients.firstOrNull() ?: ""
+                var finalBody = body
+                var isEncryptedMsg = false
+                val extraHeaders = mutableMapOf<String, String>()
+                // OpenPGP (primary) — same as a normal send.
+                if (com.mailchat.crypto.OpenPgpKeyService.hasIdentity(appContext)) {
+                    withContext(Dispatchers.IO) {
+                        try {
+                            val pubKey = com.mailchat.crypto.OpenPgpKeyService.currentPeerKey(appContext, firstRecipient)
+                            if (!pubKey.isNullOrBlank()) {
+                                val keySig = com.mailchat.util.SettingsUtils.getEncryptedKeySignatureText(appContext)
+                                val bodyToEncrypt = if (keySig.isNotBlank()) "$body\n\n$keySig" else body
+                                finalBody = com.mailchat.crypto.OpenPgpKeyService.signAndEncryptForRecipient(appContext, bodyToEncrypt, pubKey)
+                                isEncryptedMsg = true
+                                extraHeaders["X-MailChat-Encryption"] = "OpenPGP"
+                                com.mailchat.ai.AppLogger.log(appContext, "Location request: signed+encrypted with OpenPGP")
+                            } else {
+                                com.mailchat.ai.AppLogger.log(appContext, "Location request: no public key for $firstRecipient -> plaintext")
+                            }
+                        } catch (e: Exception) {
+                            com.mailchat.ai.AppLogger.log(appContext, "Location request: OpenPGP encryption failed: ${e.message}")
+                        }
+                    }
+                }
+                // Legacy MAILCHAT_ENC fallback.
+                if (!isEncryptedMsg) {
+                    val peer = com.mailchat.crypto.CryptoService.getPeers(appContext)
+                        .firstOrNull { it.email.lowercase() == firstRecipient && it.pinVerified }
+                    if (peer != null) {
+                        try {
+                            finalBody = "MAILCHAT_ENC:" + com.mailchat.crypto.CryptoService.encryptForRecipient(body, peer.publicKeyArmored)
+                            isEncryptedMsg = true
+                            extraHeaders["X-MailChat-Encryption"] = "AES-256-GCM"
+                            extraHeaders["X-MailChat-Fingerprint"] = peer.fingerprint
+                            com.mailchat.ai.AppLogger.log(appContext, "Location request: encrypted with legacy MAILCHAT_ENC")
+                        } catch (e: Exception) {
+                            com.mailchat.ai.AppLogger.log(appContext, "Location request: legacy encryption failed: ${e.message}")
+                        }
+                    }
+                }
+                val sentMessageId = smtpService.sendEmail(
+                    account = account,
+                    to = recipient,
+                    subject = subject,
+                    body = finalBody,
+                    extraHeaders = extraHeaders,
+                    bodyFormat = if (isEncryptedMsg) com.mailchat.network.BodyFormat.PLAIN
+                        else com.mailchat.network.BodyFormat.PLAIN_AS_HTML
+                )
+                val message = Message(
+                    chatId = chat.id,
+                    accountId = account.id,
+                    from = account.emailAddress,
+                    subject = subject,
+                    body = body,
+                    bodyFull = body,
+                    timestamp = System.currentTimeMillis(),
+                    isRead = true,
+                    isIncoming = false,
+                    messageId = sentMessageId,
+                    isEncrypted = isEncryptedMsg
+                )
+                messageRepository.insertMessage(message)
+                chatRepository.updateChat(
+                    chat.copy(
+                        lastMessageTimestamp = System.currentTimeMillis(),
+                        lastMessageBody = body,
+                        lastMessageSubject = subject
+                    )
+                )
+                com.mailchat.ai.AppLogger.log(appContext, "Location request 'Standortanfrage' sent to $recipient (encrypted=$isEncryptedMsg)")
+                _uiState.update { it.copy(isSending = false) }
+            } catch (e: Exception) {
+                com.mailchat.ai.AppLogger.log(appContext, "Location request failed: ${e.message}")
                 _uiState.update { it.copy(isSending = false, sendError = e.message) }
             }
         }

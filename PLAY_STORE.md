@@ -16,14 +16,14 @@ MailChat
 
 In der Play Console unter **Release → What's new** eintragen.
 
-### Englisch (438 Zeichen)
+### Englisch (455 Zeichen)
 ```
-New: Appointment polls – suggest a date/time in a chat (date, location, question); recipients answer Yes/No/Maybe; the creator sees responses live and after closing everyone sees the same graphical result. Add the appointment to your calendar. AI appointment detection: send detected appointments as a poll or add them to your calendar. Improved: email push (IMAP IDLE) with significantly reduced battery usage; editable quote in replies.
+New: "My Location" in the plus menu attaches an OpenStreetMap map image of your position. Sticky notes: yellow notes in the chat (never sent), tap to edit, own filter. Attachments show the file type (PDF, TXT, DOCX…) in the circle. Filters are now kept; new "Clear filters" entry. Maps are generated faster and zoomed 30% in around your position. Fixed: repeated re-fetching of the last email (battery); auto-reply with map also works with a locked phone.
 ```
 
-### Deutsch (475 Zeichen)
+### Deutsch (474 Zeichen)
 ```
-Neu: Terminumfragen – in einem Chat einen Termin vorschlagen (Datum/Zeit, Ort, Frage); Empfänger antworten mit Ja/Nein/Vielleicht; der Ersteller sieht die Antworten live, nach dem Abschluss sehen alle dasselbe graphische Ergebnis. Termin direkt in den Kalender übernehmen. KI-Termin-Erkennung: erkannte Termine als Umfrage senden oder in den Kalender übernehmen. Verbessert: E-Mail-Push (IMAP IDLE) mit deutlich reduziertem Akku-Verbrauch; bearbeitbares Zitat in der Antwort.
+Neu: „Mein Standort" im Plus-Menü hängt eine OpenStreetMap-Karte mit deinem Standort als Bild an. Notizzettel: gelbe Notizen im Chat (nie gesendet), per Tipp bearbeiten, eigener Filter. Anhänge zeigen im Kreis das Dateiformat (PDF, TXT, DOCX…). Filter bleiben erhalten; neuer Eintrag „Filter löschen". Karten werden schneller erstellt und 30 % näher um den Standort gezeigt. Behoben: doppelte Abrufe der letzten Mail (Akku); Auto-Antwort mit Karte auch bei gesperrtem Handy.
 ```
 
 > Hinweis: In der Play Console unter **Release → What's new** wird der Text **ohne** die `<de-DE>`/`<en-GB>`-Tags eingetragen (die Tags sind nur für `version.md` im Repo). Pro Sprache ein eigener Eintrag, jeweils ≤ 500 Zeichen.
@@ -65,7 +65,11 @@ MailChat turns your email into private, chat-style conversations — with encryp
 • Group chats for multiple recipients.
 • Quick replies, voice messages and file attachments.
 • Rich text formatting in replies: bold, italic, underline, alignment, font size, font family and lists — sent as clean HTML.
-• Smart auto-replies (e.g. "Where are you?" shares your location and the current weather).
+• Smart auto-replies (e.g. "Where are you?" shares your location, an optional OpenStreetMap map image and the current weather).
+• "My Location" (plus menu): attach an OpenStreetMap map image of your position plus map links.
+• Sticky notes: local yellow notes in the chat (never sent), tap a note to edit it, own filter.
+• Attachment circles show the file type (PDF, TXT, DOCX…).
+• Chat-list filters are kept between sessions; "Clear filters" resets everything.
 
 🛡️ SECURITY
 • OpenPGP (RFC 4880) with key management and optional key-server lookup.
@@ -114,7 +118,11 @@ MailChat verwandelt deine E-Mails in private, chatartige Gespräche — mit Vers
 • Gruppenchats für mehrere Empfänger.
 • Schnelle Antworten, Sprachnachrichten und Dateianhänge.
 • Text-Formatierung in Antworten: fett, kursiv, unterstreichen, Ausrichtung, Schriftgröße, Schriftart und Listen — als sauberes HTML gesendet.
-• Clevere Auto-Antworten (z. B. "Wo bist Du?" teilt deinen Standort und das aktuelle Wetter).
+• Clevere Auto-Antworten (z. B. "Wo bist Du?" teilt deinen Standort, ein optionales OpenStreetMap-Kartenbild und das aktuelle Wetter).
+• "Mein Standort" (Plus-Menü): OpenStreetMap-Kartenbild deines Standorts plus Karten-Links anhängen.
+• Notizzettel: lokale gelbe Notizen im Chat (nie gesendet), per Tipp bearbeiten, eigener Filter.
+• Anhang-Kreise zeigen das Dateiformat (PDF, TXT, DOCX…).
+• Chat-Filter bleiben zwischen den Sitzungen erhalten; "Filter löschen" setzt alles zurück.
 
 🛡️ SICHERHEIT
 • OpenPGP (RFC 4880) mit Schlüsselverwaltung und optionalem Key-Server-Lookup.
@@ -165,17 +173,18 @@ In der Console unter **App Information → Data safety**. Wichtige Punkte für M
 | **Messages / E-Mail-Inhalt** | E-Mail-Provider (IMAP/SMTP) + Empfänger | Sync & Versand |
 | **E-Mail-Adresse des Empfängers** | keys.openpgp.org (optional) | OpenPGP-Schlüssel-Lookup |
 | **Standort-Koordinaten** | open-meteo.com (nur bei aktiver Wetter-Option) | Wetter-Vorhersage |
+| **Standort-Kacheln (ungefähre Position)** | tile.openstreetmap.org (nur bei Kartenbild) | Kartenbild-Erstellung |
 | **E-Mail-Inhalt (optional)** | Eigener OpenAI-Endpunkt (nur wenn konfiguriert) | KI-Verarbeitung |
 
 ### Wichtige Angaben im Formular:
 - **Zweck der Datenverarbeitung:** App-Funktionalität (Sync, Versand, KI).
 - **Art der Daten:** Wie oben.
-- **Geteilt mit:** E-Mail-Provider, keys.openpm.org (optional), open-meteo.com (optional), eigener OpenAI-Endpunkt (optional).
+- **Geteilt mit:** E-Mail-Provider, keys.openpgp.org (optional), open-meteo.com (optional), tile.openstreetmap.org (optional), eigener OpenAI-Endpunkt (optional).
 - **Verschlüsselung:** In Transit (TLS) + lokal (OpenPGP / Android Keystore).
 - **Löschung:** „You can delete data by uninstalling the app" (Daten sind nur lokal).
 - **Kinder:** App ist **nicht** an Kinder gerichtet (E-Mail-App, Altersfreigabe 12+/16+ je nach KI/Standort).
 
-> ⚠️ **Wichtig:** Die optionalen Cloud-Dienste (OpenAI-Endpunkt, open-meteo, keys.openpgp.org) müssen als „optional" deklariert werden, da sie standardmäßig deaktiviert sind.
+> ⚠️ **Wichtig:** Die optionalen Cloud-Dienste (OpenAI-Endpunkt, open-meteo, tile.openstreetmap.org, keys.openpgp.org) müssen als „optional" deklariert werden, da sie standardmäßig deaktiviert sind.
 
 ---
 
@@ -202,8 +211,10 @@ Unter **App Information → Targeting → Location** oder im Data-Safety-Formula
 - Die App verwendet `ACCESS_FINE_LOCATION` für:
   - „Mein Standort" (Plus-Menü)
   - Auto-Antwort „Wo bist Du?"
+- Die App verwendet `ACCESS_BACKGROUND_LOCATION` für:
+  - Auto-Antwort „Wo bist Du?" auch bei gesperrtem Handy (Standort wird nur an den von dir gewählten Kontakt gesendet)
 - Deklarationstext (Beispiel):
-  > „Die App kann mit deiner Erlaubnis deinen genauen Standort abrufen, um ihn auf Wunsch als Karten-Link an einen von dir gewählten Kontakt zu senden (Funktion 'Wo bist Du?'). Der Standort wird nicht an Dritte übermittelt."
+  > „Die App kann mit deiner Erlaubnis deinen genauen Standort abrufen, um ihn auf Wunsch als Karten-Link und optionales Kartenbild an einen von dir gewählten Kontakt zu senden (Funktion 'Wo bist Du?'). Der Standort wird nicht an Dritte übermittelt."
 
 ### Kontakte
 - Die App liest Kontakte **nur lokal** (zur Anzeige und Auswahl als Empfänger).
@@ -258,7 +269,7 @@ Die Play Console verlangt eine **öffentliche Privacy-Policy-URL**.
 - ✅ Release-AAB: `app/build/outputs/bundle/release/app-release.aab` (signiert)
 - ✅ Source: `https://github.com/Okertaler/MailChat`
 - ✅ Legal-Dokumente: in der App + `legal/`-Ordner
-- ✅ Version: 2.7 (versionCode 90, targetSdk 36 / Android 16)
+- ✅ Version: 2.8 (versionCode 91, targetSdk 36 / Android 16)
 
 ---
 

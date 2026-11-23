@@ -71,9 +71,14 @@ fun AttachmentIcon(
     modifier: Modifier = Modifier
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    // Only show a thumbnail when the local file actually exists — otherwise Coil fails
-    // silently and the circle would be empty. Fall back to the text label (e.g. "JPEG").
+    // Only show a thumbnail for actual images whose local file exists — for other file
+    // types (PDF, DOCX, …) Coil fails silently and the circle would be empty/white.
+    // Show the file-type label (e.g. "PDF", "TXT", "DOCX") instead.
     val localFile = remember(attachment) { AttachmentUtils.resolveFile(context, attachment) }
+    val name = attachment.fileName.lowercase()
+    val isImage = attachment.mimeType.lowercase().startsWith("image/") ||
+        name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") ||
+        name.endsWith(".gif") || name.endsWith(".webp")
     Box(
         modifier = modifier
             .size(32.dp)
@@ -82,7 +87,7 @@ fun AttachmentIcon(
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         contentAlignment = Alignment.Center
     ) {
-        if (localFile != null) {
+        if (localFile != null && isImage) {
             AsyncImage(
                 model = localFile.absolutePath,
                 contentDescription = attachment.fileName,

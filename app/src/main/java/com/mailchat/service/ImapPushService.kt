@@ -47,11 +47,13 @@ class ImapPushService : Service() {
         try {
             startForeground(NOTIFICATION_ID, buildNotification(getString(R.string.push_active)))
             foregroundStarted = true
+            com.mailchat.ai.AppLogger.log(this, "ImapPushService: created, foreground started")
         } catch (e: Exception) {
             // On Android 12+, starting a foreground service from the background can fail with
             // ForegroundServiceStartNotAllowedException ("time limit already exhausted"). Stop the
             // service gracefully instead of crashing the whole app.
             android.util.Log.e("MailchatPush", "startForeground failed: ${e.message} — stopping service")
+            com.mailchat.ai.AppLogger.log(this, "ImapPushService: startForeground FAILED: ${e.message} — stopping (SyncWorker fallback active)")
             stopSelf()
         }
     }
@@ -276,12 +278,19 @@ class ImapPushService : Service() {
             }
         }
 
-        /** Startet den Push-Loop nur, wenn die Funktion aktiviert ist; Fehler (Background-Limits) werden ignoriert. */
+        /** Startet den Push-Loop nur, wenn die Funktion aktiviert ist. Fehler (z. B. die
+         *  Background-Start-Beschränkung auf Android 12+) werden geloggt, nicht verschluckt —
+         *  der SyncWorker ist in dem Fall der Fallback. */
         fun startIfEnabled(context: android.content.Context) {
-            if (!com.mailchat.util.SettingsUtils.isImapPushEnabled(context)) return
+            if (!com.mailchat.util.SettingsUtils.isImapPushEnabled(context)) {
+                com.mailchat.ai.AppLogger.log(context, "ImapPushService: push disabled in settings — not starting")
+                return
+            }
             try {
                 start(context)
-            } catch (_: Exception) {
+                com.mailchat.ai.AppLogger.log(context, "ImapPushService: start requested")
+            } catch (e: Exception) {
+                com.mailchat.ai.AppLogger.log(context, "ImapPushService: start FAILED: ${e.message} (SyncWorker fallback active)")
             }
         }
 

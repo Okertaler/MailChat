@@ -52,6 +52,7 @@ data class ChatListUiState(
     val messageCounts: Map<Long, Int> = emptyMap(),
     val todoCounts: Map<Long, Int> = emptyMap(),
     val processedCounts: Map<Long, Int> = emptyMap(),
+    val stickyNoteCounts: Map<Long, Int> = emptyMap(),
     val contactPhotos: Map<String, String?> = emptyMap(),
     val contactNames: Map<String, String> = emptyMap(),
     val aiSummarizedChatIds: Set<Long> = emptySet(),
@@ -119,7 +120,8 @@ class ChatListViewModel @Inject constructor(
                         chats = chats,
                         messageCounts = items.associate { it.chat.id to it.messageCount },
                         todoCounts = items.filter { i -> i.todoCount > 0 }.associate { it.chat.id to it.todoCount },
-                        processedCounts = items.filter { i -> i.processedCount > 0 }.associate { it.chat.id to it.processedCount }
+                        processedCounts = items.filter { i -> i.processedCount > 0 }.associate { it.chat.id to it.processedCount },
+                        stickyNoteCounts = items.filter { i -> i.stickyNoteCount > 0 }.associate { it.chat.id to it.stickyNoteCount }
                     )
                 }
                 val photos = contactService.getPhotoUrisByEmails(chats.map { it.participantEmail }).toMutableMap()
@@ -371,18 +373,12 @@ class ChatListViewModel @Inject constructor(
         if (SettingsUtils.getAiEnabled(appContext) && SettingsUtils.getAiAutoRealNames(appContext) && isNewIncoming) {
             ensureDisplayNameForChat(chat)
         }
-        // Poll answers are suppressed in the chat → no notification for them.
-        return if (isNewIncoming && !isPollAnswerMsg) {
-            NotificationHelper.NewEmailInfo(
-                chatId = chat.id,
-                sender = fetchedMsg.message.from,
-                subject = fetchedMsg.message.subject,
-                preview = msgBody.take(200),
-                timestamp = fetchedMsg.message.timestamp
-            )
-        } else null
         // Automatic "Wo bist Du?" reply: if this contact has the auto-location-reply enabled and
         // the message asks "Wo bist Du?", reply with the current location (+ optional weather).
+        // Must run BEFORE the return below — this path processes the message when the app is in
+        // the foreground, so the SyncEngine (push service) will dedupe it and never reach its own
+        // auto-reply call. (The messageId dedupe in AutoReplyService prevents a double reply if
+        // both paths ever see the same message.)
         if (fetchedMsg.isIncoming) {
             autoReplyService.maybeAutoReply(account, message.copy(id = dbMessageId))
         }
@@ -404,6 +400,16 @@ class ChatListViewModel @Inject constructor(
                 }
             }
         }
+        // Poll answers are suppressed in the chat → no notification for them.
+        return if (isNewIncoming && !isPollAnswerMsg) {
+            NotificationHelper.NewEmailInfo(
+                chatId = chat.id,
+                sender = fetchedMsg.message.from,
+                subject = fetchedMsg.message.subject,
+                preview = msgBody.take(200),
+                timestamp = fetchedMsg.message.timestamp
+            )
+        } else null
     }
 
     private fun processMessageWithAi(message: Message) {

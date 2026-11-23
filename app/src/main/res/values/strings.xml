@@ -154,6 +154,8 @@
     <string name="filter_todo">Todo</string>
     <string name="filter_processed">Processed</string>
     <string name="filter_hidden">Hidden</string>
+    <string name="filter_sticky_notes">Sticky notes</string>
+    <string name="filter_clear">Clear filters</string>
     <string name="filter_spam">Spam</string>
     <string name="filter_title">Filter</string>
     <string name="spam_filter_off">Off</string>
@@ -333,14 +335,26 @@
     <string name="location_unavailable">Location not available</string>
     <string name="location_permission_needed">Location permission needed</string>
     <string name="location_error">Location error</string>
+    <string name="location_map_attached">Map attached</string>
+    <string name="location_map_failed">Map could not be created (links added)</string>
+    <string name="sticky_note">Sticky note</string>
+    <string name="sticky_note_edit">Edit sticky note</string>
+    <string name="sticky_note_hint">Write a note…</string>
+    <string name="sticky_note_not_sent">Sticky note — not sent</string>
+    <string name="save">Save</string>
     <string name="where_are_you">Where are you?</string>
     <string name="where_are_you_text">Where are you?</string>
+    <string name="where_are_you_confirm_hint">The location request is sent immediately (subject: Standortanfrage). The contact\'s MailChat app replies automatically with their location only if the location permission is granted in their app and auto-replies are enabled for you there.</string>
     <string name="auto_reply_title">Auto-reply \"Where are you?\"</string>
     <string name="auto_reply_location">Send my location automatically</string>
     <string name="auto_reply_weather">Include weather (next 4 hours)</string>
     <string name="weather_warning_title">Location is sent to open-meteo.com</string>
     <string name="weather_warning_text">To include the weather in the auto-reply, your current location (latitude and longitude) is sent to the free weather service open-meteo.com. No account or API key is used, and the data is not stored there. Only enable this if you are comfortable with your location being sent to open-meteo.com.</string>
     <string name="weather_warning_ok">OK, enable weather</string>
+    <string name="auto_reply_map">Attach map (OpenStreetMap)</string>
+    <string name="map_warning_title">Map is requested from OpenStreetMap</string>
+    <string name="map_warning_text">To generate the map, your exact coordinates are sent to tile.openstreetmap.org to load the map tiles. The map image (only your location, no weather) is sent to the contact as an unencrypted attachment. Only enable this if you are comfortable with your location being sent to OpenStreetMap.</string>
+    <string name="map_warning_ok">OK, enable map</string>
     <string name="compose_options">Compose options</string>
     <string name="upload_media">Upload media</string>
     <string name="take_photo">Take photo</string>
@@ -531,6 +545,16 @@
         <item>Group chats: emails with multiple recipients are collected in one chat</item>
         <item>New emails can be sent to multiple recipients (comma separated)</item>
         <item>Replies in a group chat are sent to all members</item>
+    </string-array>
+    <string-array name="version_2_8_changes">
+        <item>New: "My Location" in the plus menu – attaches an OpenStreetMap map image (red marker) of your current position to the message being composed, plus map links (OpenStreetMap, Google Maps, Apple Maps)</item>
+        <item>New: Sticky notes – write yellow notes directly into a chat (icon in the header); notes are stored locally and never sent as an email; tap a note to edit it; new "Sticky notes" filter in the chat list</item>
+        <item>New: Attachment circles in the chat bubble show the file type (PDF, TXT, DOCX…) instead of an empty circle for non-image files</item>
+        <item>New: Chat list filters are kept between sessions (no more reset); new "Clear filters" entry at the top of the filter menu resets all filters</item>
+        <item>Improved: Map images are generated much faster (tiles are downloaded in parallel) and are zoomed 30% in around your position</item>
+        <item>Improved: Sticky notes are never processed by the AI (no summary, no spam classification, no tags)</item>
+        <item>Fixed: The last email was re-fetched and re-decrypted on every sync (battery drain) – incremental sync now skips folders without new messages</item>
+        <item>Fixed: The "Where are you?" auto-reply with map image now also works with a locked phone (background location permission)</item>
     </string-array>
     <string-array name="version_2_7_changes">
         <item>New: Appointment polls – suggest a date/time in a chat (date/time or all-day, optional location, question); recipients answer Yes/No/Maybe with an optional comment; the creator sees responses live and after closing everyone sees the same graphical result; works with regular email clients (e.g. Thunderbird) and in group chats</item>
@@ -1171,7 +1195,11 @@
     <string name="help_selection_title">Selection Mode</string>
     <string name="help_selection_text">Long-press a message or chat to enter selection mode. Use the edit menu (top right) for batch actions: select all, invert, select by direction, mark as processed, set spam category, AI summarize, and more. Swipe right-to-left to deselect, left-to-right to select. The edit menu stays open until you exit selection mode.</string>
     <string name="help_filter_menu_title">Filter Menu</string>
-    <string name="help_filter_menu_text">Tap the filter icon (top right) to open the filter dropdown. Toggle filters for favorites, unread, processed, todo, hidden, phishing, unwanted, newsletter, and custom tags. The badge shows the total number of active filters including custom tags.</string>
+    <string name="help_filter_menu_text">Tap the filter icon (top right) to open the filter dropdown. Toggle filters for favorites, unread, processed, todo, hidden, sticky notes, phishing, unwanted, newsletter, and custom tags. The badge shows the total number of active filters including custom tags. Filters are kept between sessions; the "Clear filters" entry at the top of the menu resets all filters.</string>
+    <string name="help_sticky_note_title">Sticky Notes</string>
+    <string name="help_sticky_note_text">Tap the yellow sticky note icon in the chat header to write a note directly into the chat. Notes are stored locally and are never sent as an email. They are shown as yellow bubbles with a "Sticky note – not sent" label. Tap a note to edit it. Notes can be deleted via the normal message menu (long-press, select, delete). Sticky notes are never processed by the AI (no summary, no spam classification, no tags). In the chat list, the "Sticky notes" filter shows only chats that contain at least one note.</string>
+    <string name="help_my_location_title">My Location (Map)</string>
+    <string name="help_my_location_text">Tap "My Location" in the plus menu to add your current position to the message being composed: map links (OpenStreetMap, Google Maps, Apple Maps) are inserted into the text and an OpenStreetMap map image with a red marker at your position is attached as a PNG. The map is generated on your device from map tiles (tile.openstreetmap.org) and is optional — if it cannot be created, the links are still added. The "Where are you?" auto-reply can also attach a map image (per-contact option "Attach map").</string>
     <string name="help_unread_filter_title">Unread Filter</string>
     <string name="help_unread_filter_text">The "Unread" filter shows only chats that have unread messages. Enable it from the filter dropdown menu.</string>
     <string name="help_pinch_zoom_title">Pinch-to-Zoom</string>

@@ -13,6 +13,7 @@ import com.mailchat.data.model.EmailAccount
 import com.mailchat.data.model.Message
 import com.mailchat.data.repository.ChatRepository
 import com.mailchat.data.repository.MessageRepository
+import com.mailchat.network.MapImageService
 import com.mailchat.network.SmtpService
 import com.mailchat.network.WeatherService
 import com.mailchat.util.SettingsUtils
@@ -37,6 +38,7 @@ class AutoReplyService @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val smtpService: SmtpService,
     private val weatherService: WeatherService,
+    private val mapImageService: MapImageService,
     private val messageRepository: MessageRepository,
     private val chatRepository: ChatRepository
 ) {
@@ -50,12 +52,25 @@ class AutoReplyService @Inject constructor(
         if (!message.isIncoming) return false
         val sender = message.from.trim().lowercase()
         if (sender.isBlank()) return false
-        if (!SettingsUtils.getAutoLocationReply(appContext, sender)) return false
-        if (!isWhereAreYouQuestion(message.bodyFull.ifBlank { message.body })) return false
+        if (!SettingsUtils.getAutoLocationReply(appContext, sender)) {
+            com.mailchat.ai.AppLogger.log(appContext, "Auto-reply skipped: auto-location-reply NOT enabled for $sender")
+            return false
+        }
+        val bodyToCheck = message.bodyFull.ifBlank { message.body }
+        if (!isWhereAreYouQuestion(bodyToCheck)) {
+            com.mailchat.ai.AppLogger.log(
+                appContext,
+                "Auto-reply skipped: not a 'Wo bist Du?' question (encrypted=${message.isEncrypted}, body starts: ${bodyToCheck.take(80).replace("\n", " ")})"
+            )
+            return false
+        }
         // Avoid replying twice to the same message (e.g. on re-sync).
         if (message.messageId.isNotBlank() &&
             message.messageId in SettingsUtils.getAutoRepliedMessageIds(appContext)
-        ) return false
+        ) {
+            com.mailchat.ai.AppLogger.log(appContext, "Auto-reply skipped: already replied to ${message.messageId}")
+            return false
+        }
 
         // The location permission is required to read the current position.
         val hasPermission = ContextCompat.checkSelfPermission(
@@ -66,6 +81,36 @@ class AutoReplyService @Inject constructor(
             ) == PackageManager.PERMISSION_GRANTED
         if (!hasPermission) {
             com.mailchat.ai.AppLogger.log(appContext, "Auto-reply skipped: no location permission")
+            // Make the skip visible in the chat (once per message), so the user knows why no
+            // automatic reply was sent and can grant the location permission.
+            if (message.chatId > 0 &&
+                (message.messageId.isBlank() ||
+                    message.messageId !in SettingsUtils.getAutoReplyErrorShownMessageIds(appContext))
+            ) {
+                try {
+                    val notice = Message(
+                        chatId = message.chatId,
+                        accountId = account.id,
+                        from = "MailChat",
+                        subject = "",
+                        body = "⚠️ Auto-Antwort übersprungen: Standort-Berechtigung fehlt. Bitte in den Einstellungen die Option 'Immer erlauben' wählen (damit die Auto-Antwort auch bei gesperrtem Handy funktioniert): Einstellungen → Apps → MailChat → Standort.",
+                        bodyFull = "",
+                        timestamp = System.currentTimeMillis(),
+                        isRead = true,
+                        isIncoming = true,
+                        isProcessed = true,
+                        messageId = "local-perm-error-${message.messageId.ifBlank { System.currentTimeMillis().toString() }}",
+                        isEncrypted = false
+                    )
+                    messageRepository.insertMessage(notice)
+                    if (message.messageId.isNotBlank()) {
+                        SettingsUtils.addAutoReplyErrorShownMessageId(appContext, message.messageId)
+                    }
+                    com.mailchat.ai.AppLogger.log(appContext, "Auto-reply: permission notice inserted into chat")
+                } catch (e: Exception) {
+                    com.mailchat.ai.AppLogger.log(appContext, "Auto-reply: permission notice insert failed: ${e.message}")
+                }
+            }
             return false
         }
 
@@ -98,6 +143,18 @@ class AutoReplyService @Inject constructor(
                 sb.append(weather)
                 sb.append("\n\nQuelle: open-meteo.com")
             }
+        }
+
+        // Optionally attach a small OpenStreetMap map image of the location. The map is
+        // optional: if it cannot be generated (network failure, …) the reply is sent without
+        // it. Note: the map image is an unencrypted attachment (only the body is encrypted).
+        val mapFile = if (SettingsUtils.getAutoMap(appContext, sender)) {
+            // Tiles are fetched in parallel, so generation normally takes 1–3 s; the 30 s
+            // timeout is a safety net (worst case: one tile timeout of 8 s + overhead).
+            withTimeoutOrNull(30_000L) { mapImageService.generateMapImage(lat, lon) }
+        } else null
+        if (mapFile != null) {
+            com.mailchat.ai.AppLogger.log(appContext, "Auto-reply: map image attached (${mapFile.length()} bytes)")
         }
 
         // Send the reply (encrypted when the recipient has a public key, same as a normal send).
@@ -163,6 +220,7 @@ class AutoReplyService @Inject constructor(
                 to = sender,
                 subject = subject,
                 body = finalBody,
+                attachments = mapFile?.let { listOf(it) } ?: emptyList(),
                 extraHeaders = extraHeaders,
                 bodyFormat = if (isEncryptedMsg) com.mailchat.network.BodyFormat.PLAIN
                     else com.mailchat.network.BodyFormat.PLAIN_AS_HTML
@@ -189,7 +247,30 @@ class AutoReplyService @Inject constructor(
                         messageId = sentMessageId,
                         isEncrypted = isEncryptedMsg
                     )
-                    messageRepository.insertMessage(sentMsg)
+                    val sentMessageIdLocal = messageRepository.insertMessage(sentMsg)
+                    // Store the map image with the local copy (in the persistent attachments
+                    // dir — cacheDir can be wiped by the system) so it shows up in the chat.
+                    if (mapFile != null && mapFile.exists()) {
+                        try {
+                            val attDir = java.io.File(appContext.filesDir, "attachments")
+                            if (!attDir.exists()) attDir.mkdirs()
+                            val stored = java.io.File(attDir, mapFile.name)
+                            mapFile.copyTo(stored, overwrite = true)
+                            messageRepository.insertAttachment(
+                                com.mailchat.data.model.Attachment(
+                                    messageId = sentMessageIdLocal,
+                                    fileName = stored.name,
+                                    mimeType = "image/png",
+                                    uri = stored.absolutePath,
+                                    isImage = true,
+                                    sizeBytes = stored.length(),
+                                    sortOrder = 0
+                                )
+                            )
+                        } catch (e: Exception) {
+                            com.mailchat.ai.AppLogger.log(appContext, "Auto-reply: map attachment save failed: ${e.message}")
+                        }
+                    }
                     chatRepository.getChatById(message.chatId)?.let { chat ->
                         chatRepository.updateChat(
                             chat.copy(

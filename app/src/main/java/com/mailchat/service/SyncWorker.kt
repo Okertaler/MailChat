@@ -42,7 +42,22 @@ class SyncWorker @AssistedInject constructor(
         com.mailchat.ai.AppLogger.log(applicationContext, "SyncWorker doWork: started")
         val accounts = accountRepository.getAllAccounts().first()
         if (accounts.isEmpty()) return Result.success()
-        val result = syncEngine.syncAll()
+        // Skip the redundant full sync if a sync ran very recently (the IMAP push service polls
+        // every 60s). Without this, the push service and this worker run syncAll in parallel —
+        // double the IMAP connections, double the traffic, double the battery drain. If no
+        // recent sync happened (push service stopped or stuck), this worker is the fallback and
+        // runs the full sync.
+        val lastSync = accounts.maxOfOrNull { it.lastSyncTimestamp } ?: 0L
+        val sinceLastSync = System.currentTimeMillis() - lastSync
+        val result = if (sinceLastSync in 0..RECENT_SYNC_THRESHOLD_MS) {
+            com.mailchat.ai.AppLogger.log(
+                applicationContext,
+                "SyncWorker: recent sync ${sinceLastSync / 1000}s ago — skipping redundant syncAll (maintenance only)"
+            )
+            SyncEngine.SyncResult(emptyList(), 0, 0)
+        } else {
+            syncEngine.syncAll()
+        }
         // Periodic-sync-only maintenance passes (CID image repair, missing-attachment repair,
         // embeddings).
         for (account in accounts) {
@@ -74,12 +89,22 @@ class SyncWorker @AssistedInject constructor(
     private suspend fun repairCidImages(account: EmailAccount) {
         try {
             val broken = messageRepository.getBrokenCidMessages(account.id)
-            if (broken.isEmpty()) return
-            com.mailchat.ai.AppLogger.log(applicationContext, "CID repair: ${broken.size} messages to check")
-            for (msg in broken) {
+            // Skip messages that were already attempted and could not be fixed (the server copy
+            // has no content-ID mapping either). Without this, the same messages would be
+            // re-fetched from the server on EVERY periodic sync forever.
+            val failedIds = SettingsUtils.getCidRepairFailedMessageIds(applicationContext)
+            val toCheck = broken.filter { it.messageId !in failedIds }
+            if (toCheck.isEmpty()) return
+            com.mailchat.ai.AppLogger.log(applicationContext, "CID repair: ${toCheck.size} messages to check")
+            for (msg in toCheck) {
                 try {
                     val fetched = imapService.fetchMessageByMessageId(account, msg.messageId) ?: continue
-                    if (fetched.attachments.none { it.contentId.isNotBlank() }) continue
+                    if (fetched.attachments.none { it.contentId.isNotBlank() }) {
+                        // The server copy cannot fix this message — remember it so it is not
+                        // re-fetched on every sync.
+                        SettingsUtils.addCidRepairFailedMessageId(applicationContext, msg.messageId)
+                        continue
+                    }
                     messageRepository.deleteAttachmentsByMessage(msg.id)
                     for (att in fetched.attachments) {
                         messageRepository.insertAttachment(att.copy(messageId = msg.id))
@@ -224,6 +249,11 @@ class SyncWorker @AssistedInject constructor(
 
     companion object {
         const val WORK_NAME = "mailchat_periodic_sync"
+
+        /** If a sync ran within this window, the periodic worker skips its own syncAll (the
+         *  IMAP push service already polls every 60s). 3 min is well above the 60s poll and
+         *  well below the 15 min worker interval. */
+        private const val RECENT_SYNC_THRESHOLD_MS = 3 * 60 * 1000L
 
         fun schedule(context: Context, intervalMinutes: Int) {
             val workManager = WorkManager.getInstance(context)

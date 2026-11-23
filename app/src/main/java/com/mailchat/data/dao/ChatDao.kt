@@ -16,7 +16,8 @@ interface ChatDao {
     @Query(
         "SELECT c.*, COUNT(m.id) AS messageCount, " +
             "COALESCE(SUM(m.isTodo), 0) AS todoCount, " +
-            "COALESCE(SUM(m.isProcessed), 0) AS processedCount " +
+            "COALESCE(SUM(m.isProcessed), 0) AS processedCount, " +
+            "COALESCE(SUM(m.isStickyNote), 0) AS stickyNoteCount " +
             "FROM chats c LEFT JOIN messages m ON m.chatId = c.id " +
             "WHERE c.hidden = 0 GROUP BY c.id " +
             "ORDER BY c.favorite DESC, c.lastMessageTimestamp DESC"

@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.StickyNote2
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -88,14 +89,19 @@ fun ChatBubble(
     }
     val cleanBody = remember(message.body) { message.body.stripHtml().normalizeWhitespace() }
     val isPgpKeyEmail = remember(message.bodyFull) { message.bodyFull.contains("MAILCHAT_PGP:") }
+    // Sticky notes always show their own text — never an AI summary (they are local notes,
+    // not emails, and must not be summarized).
     val displayBody = if (isPgpKeyEmail) {
         stringResource(com.mailchat.R.string.pgp_key_received)
-    } else if (message.summary.isNotBlank()) {
+    } else if (!message.isStickyNote && message.summary.isNotBlank()) {
         message.summary.normalizeWhitespace()
     } else {
         cleanBody
     }
-    val bubbleColor = if (isOutgoing) {
+    // Sticky notes (Notizzettel) are always yellow — they are local notes, never sent.
+    val bubbleColor = if (message.isStickyNote) {
+        if (darkTheme) Color(0xFF6B5B1E) else Color(0xFFFFF9C4)
+    } else if (isOutgoing) {
         if (darkTheme) WhatsAppDarkBubbleOut else WhatsAppBubbleOut
     } else {
         if (darkTheme) WhatsAppDarkBubbleIn else WhatsAppBubbleIn
@@ -186,8 +192,32 @@ fun ChatBubble(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier
                         .align(if (isOutgoing) Alignment.End else Alignment.Start)
-                        .then(if (message.isSpam || message.summary.isNotBlank() || message.customTag.isNotBlank() || isEncrypted) Modifier.padding(bottom = 2.dp) else Modifier)
+                        .then(if (message.isSpam || message.summary.isNotBlank() || message.customTag.isNotBlank() || isEncrypted || message.isStickyNote) Modifier.padding(bottom = 2.dp) else Modifier)
                 ) {
+                    // Sticky note (Notizzettel): local note, never sent as an email.
+                    if (message.isStickyNote) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0xFFFFC107))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.StickyNote2,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(10.dp),
+                                    tint = Color(0xFF5D4037)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = stringResource(com.mailchat.R.string.sticky_note_not_sent),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF5D4037)
+                                )
+                            }
+                        }
+                    }
                     if (isEncrypted) {
                         Box(
                             modifier = Modifier
@@ -271,7 +301,8 @@ fun ChatBubble(
                             )
                         }
                     }
-                    if (message.summary.isNotBlank()) {
+                    // No "AI" badge for sticky notes (they are never summarized).
+                    if (!message.isStickyNote && message.summary.isNotBlank()) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))

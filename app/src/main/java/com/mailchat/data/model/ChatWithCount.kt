@@ -6,5 +6,6 @@ data class ChatWithCount(
     @Embedded val chat: Chat,
     val messageCount: Int,
     val todoCount: Int = 0,
-    val processedCount: Int = 0
+    val processedCount: Int = 0,
+    val stickyNoteCount: Int = 0
 )

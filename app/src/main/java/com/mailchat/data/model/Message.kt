@@ -56,5 +56,10 @@ data class Message(
     /** The poll ID when this message is a poll or a poll answer ("" otherwise). */
     val pollId: String = "",
     /** True when this message is a poll answer (hidden in the chat, counted in the poll). */
-    val isPollAnswer: Boolean = false
+    val isPollAnswer: Boolean = false,
+    /**
+     * True when this message is a local sticky note (Notizzettel): written in the chat but
+     * never sent as an email. Shown with a yellow bubble and the "nicht gesendet" label.
+     */
+    val isStickyNote: Boolean = false
 )

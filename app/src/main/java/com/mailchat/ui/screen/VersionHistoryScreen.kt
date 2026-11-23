@@ -28,6 +28,7 @@ data class VersionEntry(
 )
 
 private val versionHistory = listOf(
+    VersionEntry("2.8", com.mailchat.R.array.version_2_8_changes),
     VersionEntry("2.7", com.mailchat.R.array.version_2_7_changes),
     VersionEntry("2.6", com.mailchat.R.array.version_2_6_changes),
     VersionEntry("2.5", com.mailchat.R.array.version_2_5_changes),
