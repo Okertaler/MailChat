@@ -3,6 +3,7 @@ package com.mailchat.data.dao
 import androidx.room.*
 import com.mailchat.data.model.Chat
 import com.mailchat.data.model.ChatWithCount
+import com.mailchat.data.model.StickyNoteColorCount
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -23,6 +24,14 @@ interface ChatDao {
             "ORDER BY c.favorite DESC, c.lastMessageTimestamp DESC"
     )
     fun getAllChatsWithCount(): Flow<List<ChatWithCount>>
+
+    /** Sticky-note counts per chat and per color (for the chat-list color filter). */
+    @Query(
+        "SELECT chatId AS chatId, stickyNoteColor AS color, COUNT(*) AS count " +
+            "FROM messages WHERE isStickyNote = 1 " +
+            "GROUP BY chatId, stickyNoteColor"
+    )
+    fun getStickyNoteColorCounts(): Flow<List<StickyNoteColorCount>>
 
     @Query("SELECT * FROM chats WHERE hidden = 1 ORDER BY lastMessageTimestamp DESC")
     fun getHiddenChats(): Flow<List<Chat>>

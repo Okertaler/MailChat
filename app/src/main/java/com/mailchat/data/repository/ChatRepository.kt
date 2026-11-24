@@ -3,6 +3,7 @@ package com.mailchat.data.repository
 import com.mailchat.data.dao.ChatDao
 import com.mailchat.data.model.Chat
 import com.mailchat.data.model.ChatWithCount
+import com.mailchat.data.model.StickyNoteColorCount
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,6 +17,8 @@ class ChatRepository @Inject constructor(
     fun getAllChats(): Flow<List<Chat>> = chatDao.getAllChats()
 
     fun getAllChatsWithCount(): Flow<List<ChatWithCount>> = chatDao.getAllChatsWithCount()
+
+    fun getStickyNoteColorCounts(): Flow<List<StickyNoteColorCount>> = chatDao.getStickyNoteColorCounts()
 
     fun getHiddenChats(): Flow<List<Chat>> = chatDao.getHiddenChats()
 

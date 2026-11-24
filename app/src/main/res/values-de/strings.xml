@@ -157,6 +157,10 @@
     <string name="filter_processed">Erledigt</string>
     <string name="filter_hidden">Ausgeblendet</string>
     <string name="filter_sticky_notes">Notizzettel</string>
+    <string name="filter_sticky_yellow">Notizzettel: gelb</string>
+    <string name="filter_sticky_pink">Notizzettel: pink</string>
+    <string name="filter_sticky_orange">Notizzettel: orange</string>
+    <string name="filter_sticky_purple">Notizzettel: lila</string>
     <string name="filter_clear">Filter löschen</string>
     <string name="filter_spam">Spam</string>
     <string name="filter_title">Filter</string>

@@ -157,6 +157,10 @@
     <string name="filter_processed">Processed</string>
     <string name="filter_hidden">Hidden</string>
     <string name="filter_sticky_notes">Sticky notes</string>
+    <string name="filter_sticky_yellow">Sticky notes: yellow</string>
+    <string name="filter_sticky_pink">Sticky notes: pink</string>
+    <string name="filter_sticky_orange">Sticky notes: orange</string>
+    <string name="filter_sticky_purple">Sticky notes: purple</string>
     <string name="filter_clear">Clear filters</string>
     <string name="filter_spam">Spam</string>
     <string name="filter_title">Filter</string>

@@ -9,3 +9,10 @@ data class ChatWithCount(
     val processedCount: Int = 0,
     val stickyNoteCount: Int = 0
 )
+
+/** The number of sticky notes of a single [color] in one chat (for the color filter). */
+data class StickyNoteColorCount(
+    val chatId: Long,
+    val color: String,
+    val count: Int
+)

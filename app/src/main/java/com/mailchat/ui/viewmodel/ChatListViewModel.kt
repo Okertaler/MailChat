@@ -52,7 +52,8 @@ data class ChatListUiState(
     val messageCounts: Map<Long, Int> = emptyMap(),
     val todoCounts: Map<Long, Int> = emptyMap(),
     val processedCounts: Map<Long, Int> = emptyMap(),
-    val stickyNoteCounts: Map<Long, Int> = emptyMap(),
+    /** Sticky-note counts per chat and per color key (for the color filter). */
+    val stickyNoteColorCounts: Map<Long, Map<String, Int>> = emptyMap(),
     val contactPhotos: Map<String, String?> = emptyMap(),
     val contactNames: Map<String, String> = emptyMap(),
     val aiSummarizedChatIds: Set<Long> = emptySet(),
@@ -120,8 +121,7 @@ class ChatListViewModel @Inject constructor(
                         chats = chats,
                         messageCounts = items.associate { it.chat.id to it.messageCount },
                         todoCounts = items.filter { i -> i.todoCount > 0 }.associate { it.chat.id to it.todoCount },
-                        processedCounts = items.filter { i -> i.processedCount > 0 }.associate { it.chat.id to it.processedCount },
-                        stickyNoteCounts = items.filter { i -> i.stickyNoteCount > 0 }.associate { it.chat.id to it.stickyNoteCount }
+                        processedCounts = items.filter { i -> i.processedCount > 0 }.associate { it.chat.id to it.processedCount }
                     )
                 }
                 val photos = contactService.getPhotoUrisByEmails(chats.map { it.participantEmail }).toMutableMap()
@@ -135,6 +135,14 @@ class ChatListViewModel @Inject constructor(
         viewModelScope.launch {
             chatRepository.getHiddenChats().collectLatest { hidden ->
                 _uiState.update { it.copy(hiddenChats = hidden) }
+            }
+        }
+        viewModelScope.launch {
+            chatRepository.getStickyNoteColorCounts().collectLatest { rows ->
+                val byChat = rows
+                    .groupBy({ it.chatId }, { it.color to it.count })
+                    .mapValues { entry -> entry.value.toMap() }
+                _uiState.update { it.copy(stickyNoteColorCounts = byChat) }
             }
         }
         viewModelScope.launch {

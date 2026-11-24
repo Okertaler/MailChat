@@ -156,7 +156,8 @@ fun ChatListScreen(
     var filterPhishing by remember { mutableStateOf(false) }
     var filterUnwanted by remember { mutableStateOf(false) }
     var filterNewsletter by remember { mutableStateOf(false) }
-    var filterStickyNotes by remember { mutableStateOf(false) }
+    // Selected sticky-note colors for the filter (empty = no color filter).
+    var filterStickyNoteColors by remember { mutableStateOf<Set<String>>(emptySet()) }
     var filterCustomTags by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showUnreadOnly by remember { mutableStateOf(false) }
     var showGroupOnly by remember { mutableStateOf(false) }
@@ -185,14 +186,18 @@ fun ChatListScreen(
         filterPhishing = prefs.getBoolean("filter_phishing", false)
         filterUnwanted = prefs.getBoolean("filter_unwanted", false)
         filterNewsletter = prefs.getBoolean("filter_newsletter", false)
-        filterStickyNotes = prefs.getBoolean("filter_sticky_notes", false)
+        filterStickyNoteColors = prefs.getStringSet("filter_sticky_note_colors", emptySet()) ?: emptySet()
+        // Migration: the old single "sticky notes" filter -> all four colors.
+        if (filterStickyNoteColors.isEmpty() && prefs.getBoolean("filter_sticky_notes", false)) {
+            filterStickyNoteColors = com.mailchat.util.StickyNoteColors.ALL.map { it.key }.toSet()
+        }
         showUnreadOnly = prefs.getBoolean("filter_unread", false)
         showGroupOnly = prefs.getBoolean("filter_group", false)
         filterCustomTags = prefs.getStringSet("filter_custom_tags", emptySet()) ?: emptySet()
     }
     LaunchedEffect(
         showFavoritesOnly, showTodoOnly, showProcessedOnly, showHiddenOnly,
-        filterPhishing, filterUnwanted, filterNewsletter, filterStickyNotes,
+        filterPhishing, filterUnwanted, filterNewsletter, filterStickyNoteColors,
         showUnreadOnly, showGroupOnly, filterCustomTags
     ) {
         val prefs = context.getSharedPreferences("mailchat_prefs", android.content.Context.MODE_PRIVATE)
@@ -204,7 +209,7 @@ fun ChatListScreen(
             .putBoolean("filter_phishing", filterPhishing)
             .putBoolean("filter_unwanted", filterUnwanted)
             .putBoolean("filter_newsletter", filterNewsletter)
-            .putBoolean("filter_sticky_notes", filterStickyNotes)
+            .putStringSet("filter_sticky_note_colors", filterStickyNoteColors)
             .putBoolean("filter_unread", showUnreadOnly)
             .putBoolean("filter_group", showGroupOnly)
             .putStringSet("filter_custom_tags", filterCustomTags)
@@ -318,7 +323,7 @@ fun ChatListScreen(
         filterPhishing,
         filterUnwanted,
         filterNewsletter,
-        filterStickyNotes,
+        filterStickyNoteColors,
         filterCustomTags,
         showUnreadOnly,
         showGroupOnly,
@@ -326,7 +331,7 @@ fun ChatListScreen(
         uiState.chatCustomTags,
         uiState.todoCounts,
         uiState.processedCounts,
-        uiState.stickyNoteCounts,
+        uiState.stickyNoteColorCounts,
         uiState.contactNames
     ) {
         val sourceList = if (showHiddenOnly) uiState.hiddenChats else uiState.chats
@@ -342,10 +347,14 @@ fun ChatListScreen(
             val customTag = uiState.chatCustomTags[chat.id] ?: ""
             val tagList = customTag.split(",").map { it.trim() }.filter { it.isNotBlank() }
             val customTagMatch = if (filterCustomTags.isEmpty()) true else tagList.any { it in filterCustomTags }
+            // Sticky-note color filter: the chat must contain at least one note of a selected color.
+            val stickyColorCounts = uiState.stickyNoteColorCounts[chat.id] ?: emptyMap()
+            val stickyMatch = if (filterStickyNoteColors.isEmpty()) true
+                else filterStickyNoteColors.any { color -> (stickyColorCounts[color] ?: 0) > 0 }
             (!showFavoritesOnly || chat.favorite || chat.important) &&
                 (!showTodoOnly || (uiState.todoCounts[chat.id] ?: 0) > 0) &&
                 (!showProcessedOnly || (uiState.processedCounts[chat.id] ?: 0) > 0) &&
-                (!filterStickyNotes || (uiState.stickyNoteCounts[chat.id] ?: 0) > 0) &&
+                stickyMatch &&
                 (!showUnreadOnly || chat.unreadCount > 0) &&
                 (!showGroupOnly || chat.participantEmail.contains(";")) &&
                 spamMatch && customTagMatch
@@ -581,8 +590,8 @@ fun ChatListScreen(
                             val activeFilterCount = listOf(
                                 showFavoritesOnly, showTodoOnly, showProcessedOnly,
                                 showHiddenOnly, filterPhishing, filterUnwanted, filterNewsletter,
-                                filterStickyNotes, showUnreadOnly, showGroupOnly
-                            ).count { it } + filterCustomTags.size
+                                showUnreadOnly, showGroupOnly
+                            ).count { it } + filterStickyNoteColors.size + filterCustomTags.size
                                 Box(contentAlignment = Alignment.TopEnd) {
                                     Icon(
                                         Icons.Default.FilterList,
@@ -594,7 +603,7 @@ fun ChatListScreen(
                                             modifier = Modifier
                                                 .size(14.dp)
                                                 .clip(CircleShape)
-                                                .background(MaterialTheme.colorScheme.primary)
+                                                .background(Color(0xFFD32F2F))
                                                 .align(Alignment.TopCenter)
                                                 .offset(y = (-1).dp),
                                             contentAlignment = Alignment.Center
@@ -603,7 +612,8 @@ fun ChatListScreen(
                                                 text = activeFilterCount.toString(),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = Color.White,
-                                                fontSize = androidx.compose.ui.unit.TextUnit(8f, androidx.compose.ui.unit.TextUnitType.Sp)
+                                                fontSize = androidx.compose.ui.unit.TextUnit(8f, androidx.compose.ui.unit.TextUnitType.Sp),
+                                                modifier = Modifier.offset(y = 1.dp)
                                             )
                                         }
                                     }
@@ -631,7 +641,7 @@ fun ChatListScreen(
                                         filterPhishing = false
                                         filterUnwanted = false
                                         filterNewsletter = false
-                                        filterStickyNotes = false
+                                        filterStickyNoteColors = emptySet()
                                         showUnreadOnly = false
                                         showGroupOnly = false
                                         filterCustomTags = emptySet()
@@ -722,20 +732,39 @@ fun ChatListScreen(
                                     },
                                     onClick = { showHiddenOnly = !showHiddenOnly }
                                 )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.filter_sticky_notes)) },
-                                    leadingIcon = {
-                                        Icon(
-                                            Icons.Default.StickyNote2,
-                                            contentDescription = null,
-                                            tint = if (filterStickyNotes) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    },
-                                    trailingIcon = {
-                                        if (filterStickyNotes) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                    },
-                                    onClick = { filterStickyNotes = !filterStickyNotes }
-                                )
+                                // Sticky-note color filter block (separated by lines).
+                                androidx.compose.material3.HorizontalDivider()
+                                com.mailchat.util.StickyNoteColors.ALL.forEach { color ->
+                                    val colorSelected = color.key in filterStickyNoteColors
+                                    val colorLabelRes = when (color.key) {
+                                        com.mailchat.util.StickyNoteColors.YELLOW -> R.string.filter_sticky_yellow
+                                        com.mailchat.util.StickyNoteColors.PINK -> R.string.filter_sticky_pink
+                                        com.mailchat.util.StickyNoteColors.ORANGE -> R.string.filter_sticky_orange
+                                        else -> R.string.filter_sticky_purple
+                                    }
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(colorLabelRes)) },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.StickyNote2,
+                                                contentDescription = null,
+                                                tint = if (colorSelected) color.accent else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        },
+                                        trailingIcon = {
+                                            if (colorSelected) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        },
+                                        onClick = {
+                                            filterStickyNoteColors = if (colorSelected) {
+                                                filterStickyNoteColors - color.key
+                                            } else {
+                                                filterStickyNoteColors + color.key
+                                            }
+                                        }
+                                    )
+                                }
+                                // Spam-category filter block (separated by lines).
+                                androidx.compose.material3.HorizontalDivider()
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.spam_phishing)) },
                                     leadingIcon = {
@@ -780,6 +809,7 @@ fun ChatListScreen(
                                 )
                                 val customTags = remember { SettingsUtils.getCustomTags(context).filter { it.name.isNotBlank() } }
                                 if (customTags.isNotEmpty()) {
+                                    androidx.compose.material3.HorizontalDivider()
                                     customTags.forEach { tag ->
                                         DropdownMenuItem(
                                             text = { Text(tag.name) },
