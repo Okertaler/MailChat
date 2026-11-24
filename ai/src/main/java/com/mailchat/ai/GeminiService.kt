@@ -501,7 +501,18 @@ Regeln:
                 "(e.g. if it declines, refuses or asks something, keep that) and expand it into a " +
                 "complete reply:\n$draftText\n\n"
         } else ""
-        val prompt = "Based on the conversation context, suggest a short reply (1-2 sentences). $langInstruction $wordsPrompt $namesPrompt $draftInstruction\n\n$subjectPrompt$context"
+        // Without any conversation context (e.g. a new chat with no emails yet) the task is to
+        // expand the user's draft, not to reply to a conversation — say so explicitly. With a
+        // draft the goal is a complete reply (length follows the draft's intent), without a
+        // draft a short 1-2 sentence suggestion.
+        val baseInstruction = when {
+            context.isBlank() && draftText.isNotBlank() ->
+                "There is no conversation yet. Write a complete, well-formulated reply. "
+            context.isBlank() ->
+                "There is no conversation yet. Suggest a short reply (1-2 sentences). "
+            else -> "Based on the conversation context, suggest a short reply (1-2 sentences). "
+        }
+        val prompt = "$baseInstruction$langInstruction $wordsPrompt $namesPrompt $draftInstruction\n\n$subjectPrompt$context"
         generate(prompt)
     }
 

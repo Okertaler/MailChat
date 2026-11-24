@@ -1163,6 +1163,10 @@ fun ChatDetailScreen(
                                         val latestIncoming = uiState.messages.lastOrNull { it.isIncoming }
                                         if (latestIncoming != null) {
                                             replyToneMessage = latestIncoming
+                                        } else {
+                                            // No email in the chat yet: suggest a reply based on the
+                                            // text already in the compose fields (subject + body).
+                                            showComposeAiTone = true
                                         }
                                     }
                                 )
