@@ -59,7 +59,12 @@ data class Message(
     val isPollAnswer: Boolean = false,
     /**
      * True when this message is a local sticky note (Notizzettel): written in the chat but
-     * never sent as an email. Shown with a yellow bubble and the "nicht gesendet" label.
+     * never sent as an email. Shown with a colored bubble and the "nicht gesendet" label.
      */
-    val isStickyNote: Boolean = false
+    val isStickyNote: Boolean = false,
+    /**
+     * The color of a sticky note (only meaningful when [isStickyNote] is true). One of
+     * "yellow" (default), "pink", "orange", "purple" — see [com.mailchat.util.StickyNoteColors].
+     */
+    val stickyNoteColor: String = "yellow"
 )

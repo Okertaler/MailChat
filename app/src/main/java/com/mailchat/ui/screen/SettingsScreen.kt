@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -177,6 +178,7 @@ fun SettingsScreen(
     // Export: the user chooses the passphrase of the exported file (or none).
     var showExportPassphraseDialog by remember { mutableStateOf(false) }
     var exportPassphrase by remember { mutableStateOf("") }
+    var exportPassphraseConfirm by remember { mutableStateOf("") }
     var exportKeyContent by remember { mutableStateOf("") }
     var isExportingKey by remember { mutableStateOf(false) }
 
@@ -1291,6 +1293,7 @@ fun SettingsScreen(
                         .fillMaxWidth()
                         .clickable {
                             exportPassphrase = ""
+                            exportPassphraseConfirm = ""
                             showExportPassphraseDialog = true
                         }
                 )
@@ -1307,10 +1310,28 @@ fun SettingsScreen(
                                 onValueChange = { exportPassphrase = it },
                                 label = { Text(stringResource(R.string.key_export_passphrase)) },
                                 singleLine = true,
+                                visualTransformation = PasswordVisualTransformation(),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            if (exportPassphrase.isBlank()) {
+                            if (exportPassphrase.isNotBlank()) {
+                                OutlinedTextField(
+                                    value = exportPassphraseConfirm,
+                                    onValueChange = { exportPassphraseConfirm = it },
+                                    label = { Text(stringResource(R.string.password_confirm)) },
+                                    singleLine = true,
+                                    visualTransformation = PasswordVisualTransformation(),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                if (exportPassphraseConfirm.isNotEmpty() && exportPassphraseConfirm != exportPassphrase) {
+                                    Text(
+                                        stringResource(R.string.password_mismatch),
+                                        color = Color(0xFFD32F2F),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            } else {
                                 Text(
                                     stringResource(R.string.key_export_unprotected_warning),
                                     color = Color(0xFFF57C00),
@@ -1355,7 +1376,8 @@ fun SettingsScreen(
                                     }
                                 }
                             },
-                            enabled = !isExportingKey
+                            enabled = !isExportingKey &&
+                                (exportPassphrase.isBlank() || exportPassphraseConfirm == exportPassphrase)
                         ) {
                             if (isExportingKey) {
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp))
@@ -1394,6 +1416,7 @@ fun SettingsScreen(
                                     onValueChange = { importPassphrase = it },
                                     label = { Text(stringResource(R.string.key_import_passphrase)) },
                                     singleLine = true,
+                                    visualTransformation = PasswordVisualTransformation(),
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                     modifier = Modifier.fillMaxWidth()
                                 )

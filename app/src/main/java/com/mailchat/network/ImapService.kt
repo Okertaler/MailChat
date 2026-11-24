@@ -931,6 +931,37 @@ class ImapService @Inject constructor(
         }
     }
 
+    /**
+     * Generates a default file name for a file-like MIME part that has no usable file name
+     * (e.g. a PDF sent with `Content-Disposition: inline` and no filename). Returns null for
+     * body-like text parts that should not be stored as attachments.
+     */
+    private fun defaultFileNameForMime(mimeType: String): String? {
+        val ts = System.currentTimeMillis()
+        return when {
+            mimeType.startsWith("image/") -> "image-$ts.png"
+            mimeType.startsWith("audio/") -> "audio-$ts.mp3"
+            mimeType.startsWith("video/") -> "video-$ts.mp4"
+            mimeType.startsWith("application/") -> {
+                val ext = when {
+                    mimeType.contains("pdf") -> "pdf"
+                    mimeType.contains("zip") || mimeType.contains("compressed") || mimeType.contains("x-tar") -> "zip"
+                    mimeType.contains("msword") -> "doc"
+                    mimeType.contains("wordprocessingml") -> "docx"
+                    mimeType.contains("ms-excel") -> "xls"
+                    mimeType.contains("spreadsheetml") -> "xlsx"
+                    mimeType.contains("mspowerpoint") -> "ppt"
+                    mimeType.contains("presentationml") -> "pptx"
+                    mimeType.contains("json") -> "json"
+                    mimeType.contains("xml") -> "xml"
+                    else -> "bin"
+                }
+                "attachment-$ts.$ext"
+            }
+            else -> null
+        }
+    }
+
     private fun saveAttachment(part: javax.mail.Part, sortOrder: Int): Attachment? {
         return try {
             val mimeType = part.contentType?.substringBefore(";")?.trim()?.lowercase() ?: "application/octet-stream"
@@ -950,9 +981,14 @@ class ImapService @Inject constructor(
                 partFileName.contains('.')
             ) partFileName else null
 
+            // A part without a usable file name is only kept when it is an image with a
+            // Content-ID (CID) or a file-like part (application/audio/video/image) — for those
+            // we generate a default name. Text parts (text/plain, text/html) without a file
+            // name are body parts, not attachments, and are skipped.
             val rawFileName = validPartFileName
                 ?: if (mimeType.startsWith("image/") && contentId.isNotBlank()) contentId
-                else return null
+                else defaultFileNameForMime(mimeType)
+            if (rawFileName == null) return null
             val isEncryptedExt = com.mailchat.crypto.CryptoService.isEncryptedFile(rawFileName) // .enc/.asc/.gpg
             val fileName = when {
                 rawFileName.endsWith(".gpg", ignoreCase = true) -> rawFileName.removeSuffix(".gpg")

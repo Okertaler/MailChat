@@ -68,6 +68,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.automirrored.filled.Forward
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.Lock
@@ -277,11 +278,18 @@ fun ChatDetailScreen(
     // is sent.
     var showWhereAreYouConfirm by remember { mutableStateOf(false) }
     var showCompressDialog by remember { mutableStateOf(false) }
+    // Drawing (Zeichnung/Bild): a full-screen finger-drawing canvas; the result is attached.
+    var showDrawingScreen by remember { mutableStateOf(false) }
     // Sticky note (Notizzettel): a local note written in the chat, never sent as an email.
     var showStickyNoteDialog by remember { mutableStateOf(false) }
     var stickyNoteText by remember { mutableStateOf("") }
+    // The selected color for the note (one of StickyNoteColors keys).
+    var stickyNoteColor by remember { mutableStateOf(com.mailchat.util.StickyNoteColors.YELLOW) }
     // Non-null when the dialog edits an existing note (opened by clicking the note in the chat).
     var editingStickyNote by remember { mutableStateOf<Message?>(null) }
+    // Non-empty when the note should be pinned under EACH of these selected messages
+    // (opened from the "Bearbeiten" menu with a selection).
+    var stickyNoteTargetMessages by remember { mutableStateOf<List<Message>>(emptyList()) }
     var messageSelectionMode by remember { mutableStateOf(false) }
     var selectedMessageIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var showMessageEditSheet by remember { mutableStateOf(false) }
@@ -810,6 +818,26 @@ fun ChatDetailScreen(
                                             viewModel.setProcessedForMessages(selectedMsgs, true)
                                         }
                                     )
+                                    // Create a sticky note (Notizzettel) under the selected message(s):
+                                    // with several selected, the SAME note is pinned under each one.
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.sticky_note)) },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.StickyNote2,
+                                                null,
+                                                tint = if (selectedMsgs.isEmpty()) Color(0xFFFFC107).copy(alpha = 0.3f) else Color(0xFFFFC107)
+                                            )
+                                        },
+                                        enabled = selectedMsgs.isNotEmpty(),
+                                        onClick = {
+                                            stickyNoteText = ""
+                                            stickyNoteColor = com.mailchat.util.StickyNoteColors.YELLOW
+                                            editingStickyNote = null
+                                            stickyNoteTargetMessages = selectedMsgs.toList()
+                                            showStickyNoteDialog = true
+                                        }
+                                    )
                                     androidx.compose.material3.HorizontalDivider()
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.delete)) },
@@ -862,12 +890,13 @@ fun ChatDetailScreen(
                                 contentDescription = stringResource(R.string.spam_category)
                             )
                         }
-                        // Sticky note (Notizzettel): write a local note into the chat (yellow),
-                        // never sent as an email.
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Sticky note (Notizzettel): write a local note into the chat,
+                        // never sent as an email. The help icon lives inside the editor dialog.
                         IconButton(onClick = {
                             stickyNoteText = ""
+                            stickyNoteColor = com.mailchat.util.StickyNoteColors.YELLOW
                             editingStickyNote = null
+                            stickyNoteTargetMessages = emptyList()
                             showStickyNoteDialog = true
                         }) {
                             Icon(
@@ -875,11 +904,6 @@ fun ChatDetailScreen(
                                 contentDescription = stringResource(R.string.sticky_note),
                                 tint = Color(0xFFFFC107)
                             )
-                        }
-                        com.mailchat.ui.component.HelpIcon(
-                            title = stringResource(R.string.help_sticky_note_title),
-                            text = stringResource(R.string.help_sticky_note_text)
-                        )
                         }
                     }
                 }
@@ -1086,6 +1110,18 @@ fun ChatDetailScreen(
                                     filePicker.launch(arrayOf("*/*"))
                                 }
                             )
+                            // Drawing (Zeichnung/Bild): draw with the finger (optionally on top of
+                            // a loaded image) and attach the result.
+                            androidx.compose.material3.DropdownMenuItem(
+                                leadingIcon = {
+                                    Icon(Icons.Default.Create, contentDescription = null)
+                                },
+                                text = { Text(stringResource(R.string.drawing)) },
+                                onClick = {
+                                    showAddMenu = false
+                                    showDrawingScreen = true
+                                }
+                            )
                             androidx.compose.material3.DropdownMenuItem(
                                 leadingIcon = {
                                     Icon(Icons.Default.PhotoCamera, contentDescription = null)
@@ -1211,7 +1247,8 @@ fun ChatDetailScreen(
                                             if (location != null) {
                                                 val lat = location.latitude
                                                 val lon = location.longitude
-                                                val locationText = "\n📍 Mein Standort:\n" +
+                                                val german = com.mailchat.util.SettingsUtils.isGermanUi(context)
+                                                val locationText = (if (german) "\n📍 Mein Standort:\n" else "\n📍 My Location:\n") +
                                                     "OpenStreetMap: https://www.openstreetmap.org/?mlat=$lat&mlon=$lon#map=16/$lat/$lon\n" +
                                                     "Google Maps: https://www.google.com/maps?q=$lat,$lon\n" +
                                                     "Apple Maps: https://maps.apple.com/?ll=$lat,$lon"
@@ -1601,6 +1638,8 @@ fun ChatDetailScreen(
                                                 // Clicking a sticky note opens the editor so the note can be modified.
                                                 editingStickyNote = message
                                                 stickyNoteText = message.body
+                                                stickyNoteColor = message.stickyNoteColor
+                                                stickyNoteTargetMessages = emptyList()
                                                 showStickyNoteDialog = true
                                             } else {
                                                 selectedMessage = message
@@ -2330,25 +2369,44 @@ fun ChatDetailScreen(
     }
 
     // Sticky note (Notizzettel): a local note written into the chat, never sent as an email.
-    // Yellow background for the dialog and the note bubble in the chat.
+    // The dialog background follows the selected note color. The help icon lives here (moved
+    // out of the chat header). In "pin under" mode (opened from "Bearbeiten" with a selection)
+    // the SAME note is pinned under each selected message.
     if (showStickyNoteDialog) {
+        val noteColor = com.mailchat.util.StickyNoteColors.byKey(stickyNoteColor)
+        val isPinMode = stickyNoteTargetMessages.isNotEmpty()
         AlertDialog(
             onDismissRequest = {
                 showStickyNoteDialog = false
                 editingStickyNote = null
+                stickyNoteTargetMessages = emptyList()
             },
-            containerColor = Color(0xFFFFF9C4),
-            titleContentColor = Color(0xFF5D4037),
+            containerColor = noteColor.bubbleLight,
+            titleContentColor = noteColor.textLight,
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Default.StickyNote2,
                         contentDescription = null,
-                        tint = Color(0xFFFFC107),
+                        tint = noteColor.accent,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text(stringResource(if (editingStickyNote != null) R.string.sticky_note_edit else R.string.sticky_note))
+                    Text(
+                        stringResource(
+                            when {
+                                editingStickyNote != null -> R.string.sticky_note_edit
+                                isPinMode -> R.string.sticky_note_pin
+                                else -> R.string.sticky_note
+                            }
+                        )
+                    )
+                    Spacer(Modifier.weight(1f))
+                    // Help icon moved here from the chat header.
+                    com.mailchat.ui.component.HelpIcon(
+                        title = stringResource(R.string.help_sticky_note_title),
+                        text = stringResource(R.string.help_sticky_note_text)
+                    )
                 }
             },
             text = {
@@ -2361,15 +2419,49 @@ fun ChatDetailScreen(
                         minLines = 3,
                         maxLines = 8,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color(0xFFFFF59D),
-                            unfocusedContainerColor = Color(0xFFFFF59D)
+                            focusedContainerColor = noteColor.bubbleLight,
+                            unfocusedContainerColor = noteColor.bubbleLight
                         )
                     )
+                    Spacer(Modifier.height(8.dp))
+                    // Color picker: yellow (default), pink, orange, purple.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        com.mailchat.util.StickyNoteColors.ALL.forEach { color ->
+                            val isSelected = color.key == stickyNoteColor
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(color.accent)
+                                    .border(
+                                        width = if (isSelected) 3.dp else 1.dp,
+                                        color = if (isSelected) noteColor.textLight else Color.Transparent,
+                                        shape = CircleShape
+                                    )
+                                    .clickable { stickyNoteColor = color.key },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isSelected) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = color.labelDe,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        stringResource(R.string.sticky_note_not_sent),
+                        stringResource(
+                            if (isPinMode) R.string.sticky_note_pin_hint else R.string.sticky_note_not_sent
+                        ),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF8D6E63)
+                        color = noteColor.textLight.copy(alpha = 0.7f)
                     )
                 }
             },
@@ -2379,12 +2471,19 @@ fun ChatDetailScreen(
                         if (stickyNoteText.isNotBlank()) {
                             val editing = editingStickyNote
                             if (editing != null) {
-                                viewModel.updateStickyNote(editing, stickyNoteText.trim())
+                                viewModel.updateStickyNote(editing, stickyNoteText.trim(), stickyNoteColor)
+                            } else if (isPinMode) {
+                                viewModel.saveStickyNoteUnderMessages(
+                                    stickyNoteTargetMessages,
+                                    stickyNoteText.trim(),
+                                    stickyNoteColor
+                                )
                             } else {
-                                viewModel.saveStickyNote(stickyNoteText.trim())
+                                viewModel.saveStickyNote(stickyNoteText.trim(), stickyNoteColor)
                             }
                             showStickyNoteDialog = false
                             editingStickyNote = null
+                            stickyNoteTargetMessages = emptyList()
                         }
                     },
                     enabled = stickyNoteText.isNotBlank()
@@ -2396,6 +2495,7 @@ fun ChatDetailScreen(
                 TextButton(onClick = {
                     showStickyNoteDialog = false
                     editingStickyNote = null
+                    stickyNoteTargetMessages = emptyList()
                 }) {
                     Text(stringResource(R.string.cancel))
                 }
@@ -2436,6 +2536,18 @@ fun ChatDetailScreen(
                 viewModel.createAppointment(title, question, startDate, startTime, endDate, endTime, allDay, location, targetChatId, targetEmail)
                 // The appointment is a standalone email — close the compose overlay for a clean flow.
                 viewModel.closeFullCompose()
+            }
+        )
+    }
+
+    // Drawing (Zeichnung/Bild): full-screen finger-drawing canvas. The saved PNG is attached
+    // to the email being composed.
+    if (showDrawingScreen) {
+        DrawingScreen(
+            onDismiss = { showDrawingScreen = false },
+            onConfirm = { file ->
+                showDrawingScreen = false
+                viewModel.addComposeAttachment(file)
             }
         )
     }
@@ -5531,36 +5643,49 @@ private fun FullEmailView(
                         )
                     }
                     if (showAttachments) {
-                        attachments.forEach { attachment ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = attachment.fileName,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable {
-                                            onOpenAttachment(attachment)
-                                        }
-                                )
-                                if (attachment.sizeBytes > 0) {
+                        // The list has a solid background (so file names stay readable) and is
+                        // scrollable with a max height (so many attachments don't push the
+                        // reply buttons off-screen).
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .heightIn(max = 300.dp)
+                                .verticalScroll(rememberScrollState())
+                                .padding(8.dp)
+                        ) {
+                            attachments.forEach { attachment ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Text(
-                                        text = formatFileSize(attachment.sizeBytes),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(end = 4.dp)
+                                        text = attachment.fileName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable {
+                                                onOpenAttachment(attachment)
+                                            }
                                     )
-                                }
-                                IconButton(onClick = {
-                                    shareAttachmentFile(context, File(attachment.uri), attachment.mimeType)
-                                }) {
-                                    Icon(
-                                        Icons.Default.Share,
-                                        contentDescription = stringResource(R.string.share),
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                    if (attachment.sizeBytes > 0) {
+                                        Text(
+                                            text = formatFileSize(attachment.sizeBytes),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(end = 4.dp)
+                                        )
+                                    }
+                                    IconButton(onClick = {
+                                        shareAttachmentFile(context, File(attachment.uri), attachment.mimeType)
+                                    }) {
+                                        Icon(
+                                            Icons.Default.Share,
+                                            contentDescription = stringResource(R.string.share),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
                             }
                         }

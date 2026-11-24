@@ -23,7 +23,10 @@ android {
 }
 
 dependencies {
-    implementation("com.google.ai.edge.litertlm:litertlm-android:latest.release") {
+    // Pinned to 0.19.1: version 0.20.0 was re-published by the vendor compiled with JDK 25
+    // (class file major version 69), which the D8 dexer in AGP 8.6.0 cannot process
+    // ("Unsupported class file major version 69"). 0.19.1 is compiled with JDK 21 and works.
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.19.1") {
         exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib")
         exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-jdk8")
         exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-jdk7")

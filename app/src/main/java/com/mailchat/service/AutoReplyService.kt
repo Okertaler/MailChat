@@ -50,6 +50,8 @@ class AutoReplyService @Inject constructor(
      */
     suspend fun maybeAutoReply(account: EmailAccount, message: Message): Boolean {
         if (!message.isIncoming) return false
+        // The reply text follows the app's UI language setting (German or English).
+        val german = SettingsUtils.isGermanUi(appContext)
         val sender = message.from.trim().lowercase()
         if (sender.isBlank()) return false
         if (!SettingsUtils.getAutoLocationReply(appContext, sender)) {
@@ -93,7 +95,8 @@ class AutoReplyService @Inject constructor(
                         accountId = account.id,
                         from = "MailChat",
                         subject = "",
-                        body = "⚠️ Auto-Antwort übersprungen: Standort-Berechtigung fehlt. Bitte in den Einstellungen die Option 'Immer erlauben' wählen (damit die Auto-Antwort auch bei gesperrtem Handy funktioniert): Einstellungen → Apps → MailChat → Standort.",
+                        body = if (german) "⚠️ Auto-Antwort übersprungen: Standort-Berechtigung fehlt. Bitte in den Einstellungen die Option 'Immer erlauben' wählen (damit die Auto-Antwort auch bei gesperrtem Handy funktioniert): Einstellungen → Apps → MailChat → Standort."
+                            else "⚠️ Auto-reply skipped: location permission missing. Please choose the 'Always allow' option in the settings (so the auto-reply also works with a locked phone): Settings → Apps → MailChat → Location.",
                         bodyFull = "",
                         timestamp = System.currentTimeMillis(),
                         isRead = true,
@@ -123,9 +126,10 @@ class AutoReplyService @Inject constructor(
         val lon = location.longitude
 
         // Build the reply text (location links), nicely structured with clear sections.
+        // The text follows the app's UI language setting (German or English).
         val sb = StringBuilder()
-        sb.append("📍 Mein Standort\n\n")
-        sb.append("🗺️ Karten:\n")
+        sb.append(if (german) "📍 Mein Standort\n\n" else "📍 My Location\n\n")
+        sb.append(if (german) "🗺️ Karten:\n" else "🗺️ Maps:\n")
         sb.append("• OpenStreetMap: https://www.openstreetmap.org/?mlat=$lat&mlon=$lon#map=16/$lat/$lon\n")
         sb.append("• Google Maps: https://www.google.com/maps?q=$lat,$lon\n")
         sb.append("• Apple Maps: https://maps.apple.com/?ll=$lat,$lon")
@@ -136,12 +140,17 @@ class AutoReplyService @Inject constructor(
         if (SettingsUtils.getAutoWeather(appContext, sender)) {
             val wLat = Math.round(lat * 100.0) / 100.0
             val wLon = Math.round(lon * 100.0) / 100.0
-            val weather = weatherService.getWeatherForNext4Hours(wLat, wLon)
+            val weather = weatherService.getWeatherForNext4Hours(wLat, wLon, german)
             if (weather != null) {
                 val place = getPlaceName(wLat, wLon)
-                sb.append("\n\n🌦️ Wetter in ${place.ifBlank { "deiner Region" }} (nächste 4 Stunden)\n")
+                val placeFallback = if (german) "deiner Region" else "your area"
+                val weatherHeader = if (german)
+                    "\n\n🌦️ Wetter in ${place.ifBlank { placeFallback }} (nächste 4 Stunden)\n"
+                else
+                    "\n\n🌦️ Weather in ${place.ifBlank { placeFallback }} (next 4 hours)\n"
+                sb.append(weatherHeader)
                 sb.append(weather)
-                sb.append("\n\nQuelle: open-meteo.com")
+                sb.append("\n\n" + (if (german) "Quelle" else "Source") + ": open-meteo.com")
             }
         }
 
@@ -163,7 +172,7 @@ class AutoReplyService @Inject constructor(
                 if (message.subject.startsWith("Re:", ignoreCase = true) ||
                     message.subject.startsWith("Aw:", ignoreCase = true)
                 ) message.subject else "Re: ${message.subject}"
-            } else "Wo bist Du?"
+            } else if (german) "Wo bist Du?" else "Where are you?"
             val plainBody = sb.toString()
 
             val extraHeaders = mutableMapOf<String, String>()

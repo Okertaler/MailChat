@@ -19,7 +19,7 @@ class WeatherService @Inject constructor() {
      * human-readable text summary (one line per hour). Returns null if the request fails or
      * no data is available. Must be called off the main thread (runs on [Dispatchers.IO]).
      */
-    suspend fun getWeatherForNext4Hours(lat: Double, lon: Double): String? =
+    suspend fun getWeatherForNext4Hours(lat: Double, lon: Double, german: Boolean = true): String? =
         withContext(Dispatchers.IO) {
             try {
                 val url = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon" +
@@ -45,10 +45,13 @@ class WeatherService @Inject constructor() {
                     val temp = temps.getDouble(i).toInt()
                     val codeVal = codes.getInt(i)
                     val precipVal = if (precip != null && i < precip.length()) precip.getDouble(i) else 0.0
-                    val desc = weatherCodeDescription(codeVal)
+                    val desc = weatherCodeDescription(codeVal, german)
                     // Clean, aligned line: "21:00  15°C  klar" (+ precipitation when present).
                     sb.append("$hour  $temp°C  $desc")
-                    if (precipVal > 0.0) sb.append("  (Regen: ${"%.0f".format(precipVal)} mm)")
+                    if (precipVal > 0.0) {
+                        val rainLabel = if (german) "Regen" else "Rain"
+                        sb.append("  ($rainLabel: ${"%.0f".format(precipVal)} mm)")
+                    }
                     if (i < times.length() - 1) sb.append("\n")
                 }
                 sb.toString().ifBlank { null }
@@ -57,27 +60,27 @@ class WeatherService @Inject constructor() {
             }
         }
 
-    /** Maps a WMO weather code (open-meteo) to a short German description. */
-    private fun weatherCodeDescription(code: Int): String = when (code) {
-        0 -> "klar"
-        1 -> "überwiegend klar"
-        2 -> "teilweise bewölkt"
-        3 -> "bedeckt"
-        45, 48 -> "Nebel"
-        51, 53, 55 -> "Nieselregen"
-        56, 57 -> "gefrierender Nieselregen"
-        61 -> "leichter Regen"
-        63 -> "mittlerer Regen"
-        65 -> "starker Regen"
-        66, 67 -> "gefrierender Regen"
-        71 -> "leichter Schneefall"
-        73 -> "mittlerer Schneefall"
-        75 -> "starker Schneefall"
-        77 -> "Schneegriesel"
-        80, 81, 82 -> "Regenschauer"
-        85, 86 -> "Schneeschauer"
-        95 -> "Gewitter"
-        96, 99 -> "Gewitter mit Hagel"
-        else -> "Wetterlage $code"
+    /** Maps a WMO weather code (open-meteo) to a short description (German or English). */
+    private fun weatherCodeDescription(code: Int, german: Boolean): String = when (code) {
+        0 -> if (german) "klar" else "clear"
+        1 -> if (german) "überwiegend klar" else "mainly clear"
+        2 -> if (german) "teilweise bewölkt" else "partly cloudy"
+        3 -> if (german) "bedeckt" else "overcast"
+        45, 48 -> if (german) "Nebel" else "fog"
+        51, 53, 55 -> if (german) "Nieselregen" else "drizzle"
+        56, 57 -> if (german) "gefrierender Nieselregen" else "freezing drizzle"
+        61 -> if (german) "leichter Regen" else "light rain"
+        63 -> if (german) "mittlerer Regen" else "moderate rain"
+        65 -> if (german) "starker Regen" else "heavy rain"
+        66, 67 -> if (german) "gefrierender Regen" else "freezing rain"
+        71 -> if (german) "leichter Schneefall" else "light snow"
+        73 -> if (german) "mittlerer Schneefall" else "moderate snow"
+        75 -> if (german) "starker Schneefall" else "heavy snow"
+        77 -> if (german) "Schneegriesel" else "snow grains"
+        80, 81, 82 -> if (german) "Regenschauer" else "rain showers"
+        85, 86 -> if (german) "Schneeschauer" else "snow showers"
+        95 -> if (german) "Gewitter" else "thunderstorm"
+        96, 99 -> if (german) "Gewitter mit Hagel" else "thunderstorm with hail"
+        else -> if (german) "Wetterlage $code" else "Weather condition $code"
     }
 }

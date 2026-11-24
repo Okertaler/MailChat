@@ -456,6 +456,28 @@ class ChatDetailViewModel @Inject constructor(
         }
     }
 
+    /**
+     * After deleting messages, refresh the chat's cached "last message" fields (subject, body,
+     * timestamp) so the chat overview shows the subject of the newest REMAINING message — or an
+     * empty subject when the chat has no messages left. Without this, deleting the last email
+     * would keep showing the deleted email's subject forever.
+     */
+    private suspend fun refreshChatLastMessage(chatId: Long) {
+        try {
+            val chat = chatRepository.getChatById(chatId) ?: return
+            val messages = messageRepository.getMessagesByChatSync(chatId)
+            val latest = messages.maxByOrNull { it.timestamp }
+            val updated = chat.copy(
+                lastMessageSubject = latest?.subject ?: "",
+                lastMessageBody = latest?.body ?: "",
+                lastMessageTimestamp = latest?.timestamp ?: 0L
+            )
+            chatRepository.updateChat(updated)
+            _uiState.update { it.copy(chat = updated) }
+        } catch (_: Exception) {
+        }
+    }
+
     /** Deletes [toDelete] from the IMAP server (grouped by incoming/outgoing) and locally. */
     private suspend fun deleteMessagesWithServer(account: com.mailchat.data.model.EmailAccount?, toDelete: List<Message>) {
         if (account != null) {
@@ -487,6 +509,7 @@ class ChatDetailViewModel @Inject constructor(
                 val toDelete = pollRelatedMessages(message)
                 deleteMessagesWithServer(account, toDelete)
                 cleanupPollData(message)
+                refreshChatLastMessage(chatId)
             } catch (_: Exception) {
             }
         }
@@ -509,6 +532,7 @@ class ChatDetailViewModel @Inject constructor(
                 for (msg in messages) {
                     cleanupPollData(msg)
                 }
+                refreshChatLastMessage(chatId)
                 val remaining = messageRepository.getMessagesByChatSync(chatId)
                 _uiState.update { it.copy(messages = remaining) }
             } catch (_: Exception) {
@@ -1000,10 +1024,11 @@ class ChatDetailViewModel @Inject constructor(
     }
 
     /**
-     * Saves a local sticky note (Notizzettel) in this chat: it appears in the chat as a yellow
-     * bubble but is never sent as an email.
+     * Saves a local sticky note (Notizzettel) in this chat: it appears in the chat as a colored
+     * bubble but is never sent as an email. [colorKey] is one of
+     * [com.mailchat.util.StickyNoteColors] (default: yellow).
      */
-    fun saveStickyNote(text: String) {
+    fun saveStickyNote(text: String, colorKey: String = com.mailchat.util.StickyNoteColors.YELLOW) {
         viewModelScope.launch {
             val chat = _uiState.value.chat ?: return@launch
             val note = Message(
@@ -1018,19 +1043,56 @@ class ChatDetailViewModel @Inject constructor(
                 isIncoming = false,
                 isProcessed = true,
                 messageId = "sticky-${System.currentTimeMillis()}",
-                isStickyNote = true
+                isStickyNote = true,
+                stickyNoteColor = colorKey
             )
             messageRepository.insertMessage(note)
         }
     }
 
     /**
-     * Updates the text of an existing sticky note (opened by clicking the note in the chat).
-     * The note stays local-only and is never sent as an email.
+     * Saves the SAME sticky note (text + color) under EACH of the given selected messages:
+     * one note is inserted right after each selected message (timestamp = message timestamp + 1ms,
+     * so the note appears directly below it in the chat). Used from the "Bearbeiten" menu when
+     * several emails are selected.
      */
-    fun updateStickyNote(message: Message, text: String) {
+    fun saveStickyNoteUnderMessages(messages: List<Message>, text: String, colorKey: String = com.mailchat.util.StickyNoteColors.YELLOW) {
         viewModelScope.launch {
-            messageRepository.updateMessage(message.copy(body = text, bodyFull = text))
+            val chat = _uiState.value.chat ?: return@launch
+            val sorted = messages.sortedBy { it.timestamp }
+            sorted.forEachIndexed { index, msg ->
+                val note = Message(
+                    chatId = chatId,
+                    accountId = chat.accountId,
+                    from = "Notizzettel",
+                    subject = "",
+                    body = text,
+                    bodyFull = text,
+                    timestamp = msg.timestamp + 1 + index,
+                    isRead = true,
+                    isIncoming = false,
+                    isProcessed = true,
+                    messageId = "sticky-${System.currentTimeMillis()}-$index",
+                    isStickyNote = true,
+                    stickyNoteColor = colorKey
+                )
+                messageRepository.insertMessage(note)
+            }
+        }
+    }
+
+    /**
+     * Updates the text and/or color of an existing sticky note (opened by clicking the note in
+     * the chat). The note stays local-only and is never sent as an email.
+     */
+    fun updateStickyNote(message: Message, text: String, colorKey: String? = null) {
+        viewModelScope.launch {
+            val updated = message.copy(
+                body = text,
+                bodyFull = text,
+                stickyNoteColor = colorKey ?: message.stickyNoteColor
+            )
+            messageRepository.updateMessage(updated)
             // Keep the chat list preview up to date when the note is the chat's last message.
             val chat = _uiState.value.chat ?: return@launch
             if (chat.lastMessageTimestamp <= message.timestamp) {

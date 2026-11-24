@@ -63,6 +63,8 @@
     <string name="password">Passwort</string>
     <string name="select_provider">Provider auswählen</string>
     <string name="password_app_hint">Bei Zweifaktorauthentifizierung bitte App-Passwort beim Provider erstellen und hier nutzen.</string>
+    <string name="password_confirm">Passwort wiederholen</string>
+    <string name="password_mismatch">Die Passwörter stimmen nicht überein</string>
     <string name="test_connection">Verbindung testen</string>
     <string name="save_account">Konto speichern</string>
     <string name="connection_success">Verbindung erfolgreich!</string>
@@ -341,6 +343,13 @@
     <string name="sticky_note_edit">Notizzettel bearbeiten</string>
     <string name="sticky_note_hint">Notiz schreiben…</string>
     <string name="sticky_note_not_sent">Notizzettel — nicht gesendet</string>
+    <string name="sticky_note_pin">Notizzettel unter Auswahl</string>
+    <string name="sticky_note_pin_hint">Die gleiche Notiz wird unter jeder ausgewählten E-Mail gepinnt — nicht gesendet</string>
+    <string name="drawing">Zeichnung / Bild</string>
+    <string name="drawing_title">Zeichnung</string>
+    <string name="drawing_load_image">Bild laden zum Darübermalen</string>
+    <string name="drawing_clear">Leeren</string>
+    <string name="drawing_undo">Rückgängig</string>
     <string name="save">Speichern</string>
     <string name="where_are_you">Wo bist Du?</string>
     <string name="where_are_you_text">Wo bist Du?</string>

@@ -63,6 +63,8 @@
     <string name="password">Password</string>
     <string name="select_provider">Select provider</string>
     <string name="password_app_hint">For two-factor authentication, create an app password with your provider and use it here.</string>
+    <string name="password_confirm">Repeat password</string>
+    <string name="password_mismatch">The passwords do not match</string>
     <string name="test_connection">Test connection</string>
     <string name="save_account">Save account</string>
     <string name="connection_success">Connection successful!</string>
@@ -341,6 +343,13 @@
     <string name="sticky_note_edit">Edit sticky note</string>
     <string name="sticky_note_hint">Write a note…</string>
     <string name="sticky_note_not_sent">Sticky note — not sent</string>
+    <string name="sticky_note_pin">Sticky note under selection</string>
+    <string name="sticky_note_pin_hint">The same note will be pinned under each selected email — not sent</string>
+    <string name="drawing">Drawing / image</string>
+    <string name="drawing_title">Drawing</string>
+    <string name="drawing_load_image">Load image to draw on</string>
+    <string name="drawing_clear">Clear</string>
+    <string name="drawing_undo">Undo</string>
     <string name="save">Save</string>
     <string name="where_are_you">Where are you?</string>
     <string name="where_are_you_text">Where are you?</string>

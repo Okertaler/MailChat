@@ -98,9 +98,11 @@ fun ChatBubble(
     } else {
         cleanBody
     }
-    // Sticky notes (Notizzettel) are always yellow — they are local notes, never sent.
+    // Sticky notes (Notizzettel) use the selected color (yellow default, pink, orange, purple) —
+    // they are local notes, never sent.
+    val noteColor = com.mailchat.util.StickyNoteColors.byKey(message.stickyNoteColor)
     val bubbleColor = if (message.isStickyNote) {
-        if (darkTheme) Color(0xFF6B5B1E) else Color(0xFFFFF9C4)
+        if (darkTheme) noteColor.bubbleDark else noteColor.bubbleLight
     } else if (isOutgoing) {
         if (darkTheme) WhatsAppDarkBubbleOut else WhatsAppBubbleOut
     } else {
@@ -199,7 +201,7 @@ fun ChatBubble(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(Color(0xFFFFC107))
+                                .background(noteColor.accent)
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -431,7 +433,11 @@ fun ChatBubble(
                         Text(
                             text = displayBody,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = if (message.isStickyNote) {
+                                if (darkTheme) noteColor.textDark else noteColor.textLight
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
                             maxLines = 6,
                             overflow = TextOverflow.Ellipsis
                         )
