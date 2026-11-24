@@ -887,18 +887,21 @@ class ImapService @Inject constructor(
 
             fun collectAttachments(part: javax.mail.Part) {
                 if (part.isMimeType("multipart/*")) {
+                    com.mailchat.ai.AppLogger.log(context, "collectAtt: multipart ${part.contentType?.substringBefore(";")?.trim()}")
                     for (subPart in bodyPartsOf(part)) {
                         collectAttachments(subPart)
                     }
                 } else {
                     val mime = part.contentType?.substringBefore(";")?.trim()?.lowercase() ?: "?"
-                    if (mime.startsWith("image/") || part.getHeader("Content-ID") != null) {
-                        com.mailchat.ai.AppLogger.log(context, "collectAtt: mime=$mime cid=${part.getHeader("Content-ID")?.firstOrNull()} fn=${part.fileName}")
-                    }
+                    val cid = part.getHeader("Content-ID")?.firstOrNull()
+                    val disp = part.getHeader("Content-Disposition")?.firstOrNull()
+                    com.mailchat.ai.AppLogger.log(context, "collectAtt: part mime=$mime fn=${part.fileName} cid=$cid disp=$disp")
                     val att = saveAttachment(part, sortOrder++)
                     if (att != null) {
                         attachments.add(att)
                         if (firstImageUri == null && att.isImage) firstImageUri = att.uri
+                    } else {
+                        com.mailchat.ai.AppLogger.log(context, "collectAtt: SKIP mime=$mime fn=${part.fileName}")
                     }
                 }
             }

@@ -422,9 +422,15 @@ class ChatDetailViewModel @Inject constructor(
         val failedIds = com.mailchat.util.SettingsUtils.getAttachRepairFailedMessageIds(appContext)
         val candidates = messages
             .filter { msg ->
-                (attachmentsMap[msg.id]?.isEmpty() ?: true) &&
+                val atts = attachmentsMap[msg.id] ?: emptyList()
+                // Candidate if it has no attachments, OR only image attachments (a file attachment
+                // such as an inline PDF may have been skipped before the fix while the CID images
+                // were stored). Messages that already have a non-image (file) attachment are left
+                // alone.
+                val needsRepair = atts.isEmpty() || atts.all { it.isImage }
+                needsRepair &&
                     !repairedAttachLocalIds.contains(msg.id) &&
-                    // Skip only if we already know the server copy is text-only (needs a Message-ID).
+                    // Skip only if we already know the server copy has nothing new (needs a Message-ID).
                     (msg.messageId.isBlank() || msg.messageId !in failedIds)
             }
             .sortedByDescending { it.timestamp }
@@ -432,8 +438,8 @@ class ChatDetailViewModel @Inject constructor(
         if (candidates.isEmpty()) return
         com.mailchat.ai.AppLogger.log(
             appContext,
-            "ATTACH repair (chat): ${candidates.size} candidate(s) with 0 local attachments: " +
-                candidates.joinToString(", ") { "'${it.subject.take(25)}' mid=${if (it.messageId.isBlank()) "<EMPTY>" else it.messageId.take(25)}" }
+            "ATTACH repair (chat): ${candidates.size} candidate(s): " +
+                candidates.joinToString(", ") { "'${it.subject.take(25)}' atts=${attachmentsMap[it.id]?.size ?: 0} mid=${if (it.messageId.isBlank()) "<EMPTY>" else it.messageId.take(25)}" }
         )
         viewModelScope.launch {
             val chat = _uiState.value.chat ?: return@launch
@@ -465,26 +471,31 @@ class ChatDetailViewModel @Inject constructor(
                         )
                         continue
                     }
-                    if (fetched.attachments.isEmpty()) {
-                        // The server copy has no attachments either — a genuinely text-only email.
-                        // Remember it so it is not re-fetched on every chat open forever.
+                    // Compare the server's attachments with the local ones by file name and add only
+                    // the missing ones (avoids duplicating the CID images that are already stored).
+                    val localNames = (attachmentsMap[msg.id] ?: emptyList())
+                        .map { it.fileName.lowercase() }.toSet()
+                    val newAttachments = fetched.attachments.filter { it.fileName.lowercase() !in localNames }
+                    if (newAttachments.isEmpty()) {
+                        // Nothing new on the server — remember it so it is not re-fetched on every
+                        // chat open forever.
                         if (msg.messageId.isNotBlank()) {
                             com.mailchat.util.SettingsUtils.addAttachRepairFailedMessageId(appContext, msg.messageId)
                         }
                         com.mailchat.ai.AppLogger.log(
                             appContext,
-                            "ATTACH repair (chat): server copy has 0 attachments for '${msg.subject.take(40)}' (text-only)"
+                            "ATTACH repair (chat): no new attachments for '${msg.subject.take(40)}' (server=${fetched.attachments.size}, local=${localNames.size})"
                         )
                         continue
                     }
-                    for (att in fetched.attachments) {
+                    for (att in newAttachments) {
                         messageRepository.insertAttachment(att.copy(messageId = msg.id))
                     }
                     // Refresh the attachments map so the UI shows the newly added attachments.
                     loadAttachments(_uiState.value.messages)
                     com.mailchat.ai.AppLogger.log(
                         appContext,
-                        "ATTACH repair (chat): re-fetched ${fetched.attachments.size} attachment(s) for '${msg.subject.take(40)}'"
+                        "ATTACH repair (chat): added ${newAttachments.size} missing attachment(s) for '${msg.subject.take(40)}': ${newAttachments.joinToString { it.fileName }}"
                     )
                 } catch (e: Exception) {
                     android.util.Log.w("MailchatChat", "attach repair failed for ${msg.messageId}", e)
