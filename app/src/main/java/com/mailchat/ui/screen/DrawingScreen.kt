@@ -84,7 +84,12 @@ fun DrawingScreen(
     var version by remember { mutableStateOf(0) }
     // The image the user loaded to draw on top of (null = plain white canvas).
     var baseImage by remember { mutableStateOf<Bitmap?>(null) }
+    // The display name of the loaded image (used for the saved file name).
+    var baseImageName by remember { mutableStateOf<String?>(null) }
     var strokeColor by remember { mutableStateOf(Color.Black) }
+    // Stroke width level: 1 = thin, 2 = medium, 3 = thick. Clicking the already-selected color
+    // cycles through the three levels.
+    var strokeWidthLevel by remember { mutableStateOf(1) }
     val paint = remember {
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
@@ -92,6 +97,12 @@ fun DrawingScreen(
             strokeJoin = Paint.Join.ROUND
             strokeWidth = 8f
         }
+    }
+
+    fun strokeWidthForLevel(level: Int): Float = when (level) {
+        1 -> 8f
+        2 -> 16f
+        else -> 28f
     }
     // Undo/redo stacks: each entry is a full copy of the bitmap taken BEFORE a stroke (or clear)
     // started. Bounded to keep memory usage reasonable.
@@ -138,6 +149,15 @@ fun DrawingScreen(
     ) { uri: Uri? ->
         uri?.let { picked ->
             try {
+                // Capture the display name (used for the saved file name).
+                var name: String? = null
+                context.contentResolver.query(picked, null, null, null, null)?.use { cursor ->
+                    val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0 && cursor.moveToFirst()) {
+                        name = cursor.getString(idx)
+                    }
+                }
+                baseImageName = name
                 context.contentResolver.openInputStream(picked)?.use { input ->
                     val bmp = BitmapFactory.decodeStream(input)
                     if (bmp != null) {
@@ -176,7 +196,7 @@ fun DrawingScreen(
                     TextButton(
                         onClick = {
                             bitmap?.let { bmp ->
-                                saveBitmapToPng(context, bmp) { file ->
+                                saveBitmapToPng(context, bmp, baseImageName) { file ->
                                     onConfirm(file)
                                 }
                             }
@@ -213,18 +233,37 @@ fun DrawingScreen(
                         Color(0xFFAA00FF),
                         Color.White
                     ).forEach { color ->
+                        val isSelected = strokeColor == color
                         Box(
                             modifier = Modifier
                                 .size(30.dp)
                                 .clip(CircleShape)
                                 .background(color)
                                 .border(
-                                    width = if (strokeColor == color) 3.dp else 1.dp,
-                                    color = if (strokeColor == color) MaterialTheme.colorScheme.primary else Color.LightGray,
+                                    width = if (isSelected) 3.dp else 1.dp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.LightGray,
                                     shape = CircleShape
                                 )
-                                .clickable { strokeColor = color }
-                        )
+                                .clickable {
+                                    if (isSelected) {
+                                        // Same color again -> cycle the stroke width (1 -> 2 -> 3 -> 1).
+                                        strokeWidthLevel = (strokeWidthLevel % 3) + 1
+                                    } else {
+                                        strokeColor = color
+                                        strokeWidthLevel = 1
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Show the current stroke-width level (1-3) in the selected swatch.
+                            if (isSelected) {
+                                Text(
+                                    text = strokeWidthLevel.toString(),
+                                    color = if (color == Color.White) Color.Black else Color.White,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
                     }
                 }
                 Spacer(Modifier.width(8.dp))
@@ -281,6 +320,7 @@ fun DrawingScreen(
                                         pushUndoState()
                                         val pos = change.position
                                         paint.color = strokeColor.toArgb()
+                                        paint.strokeWidth = strokeWidthForLevel(strokeWidthLevel)
                                         canvas.drawCircle(pos.x, pos.y, paint.strokeWidth / 2, paint)
                                         lastPos = pos
                                         version++
@@ -340,11 +380,29 @@ private fun drawBaseImage(canvas: android.graphics.Canvas, img: Bitmap, width: I
     canvas.drawBitmap(img, src, dst, null)
 }
 
+/**
+ * Builds the saved file name: without a base image it is "Drawing" + date/time
+ * (e.g. "Drawing_2026-11-24_11-30.png"); with a base image it is "Drawing_" + the image's base
+ * name (e.g. "Drawing_photo.png").
+ */
+private fun drawingFileName(baseImageName: String?): String {
+    return if (!baseImageName.isNullOrBlank()) {
+        // Strip the extension and sanitize, then append .png.
+        val base = baseImageName.substringBeforeLast('.')
+        val safe = base.replace(Regex("[^a-zA-Z0-9._-]"), "_").ifBlank { "image" }
+        "Drawing_$safe.png"
+    } else {
+        val dt = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm", java.util.Locale.US)
+            .format(java.util.Date())
+        "Drawing_$dt.png"
+    }
+}
+
 /** Saves [bmp] as a PNG file in the cache directory and hands the file back via [onSaved]. */
-private fun saveBitmapToPng(context: Context, bmp: Bitmap, onSaved: (File) -> Unit) {
+private fun saveBitmapToPng(context: Context, bmp: Bitmap, baseImageName: String?, onSaved: (File) -> Unit) {
     try {
-        val file = File(context.cacheDir, "drawing_${System.currentTimeMillis()}.png")
         context.cacheDir.mkdirs()
+        val file = File(context.cacheDir, drawingFileName(baseImageName))
         FileOutputStream(file).use { out ->
             bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
