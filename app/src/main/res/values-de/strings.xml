@@ -109,8 +109,8 @@
     <string name="help_sync_text">Neue E-Mails werden automatisch abgerufen, wenn du die App öffnest. Du kannst auch manuell synchronisieren: das Aktualisieren-Symbol in der Chat-Übersicht ziehen oder den Sync-Button in einem Chat antippen (er dreht sich während des Syncs und repariert dabei fehlende Bilder oder Anhänge).</string>
     <string name="help_poll_title">Umfragen</string>
     <string name="help_poll_text">Lege in einem Chat über das Umfrage-Icon in der Top-Bar eine Umfrage an. Wähle Einzel- oder Mehrfachauswahl und füge die Optionen hinzu. Die Umfrage wird als normale E-Mail gesendet, funktioniert also auch mit normalen E-Mail-Programmen (z. B. Thunderbird). Die Antworten werden als Balkendiagramm gesammelt; nach der letzten Stimme schließt sich die Umfrage automatisch und es wird eine Ergebnis-E-Mail gesendet. Nach dem Abschluss sehen alle dieselbe Ergebnisansicht (Balkendiagramm und wer geantwortet hat, mit Kontaktnamen). In Gruppenchats erhält jeder Empfänger seine eigene Umfrage.</string>
-    <string name="help_appt_title">Terminumfragen</string>
-    <string name="help_appt_text">Lege in einem Chat über das Plus-Menü eine Terminumfrage an: Titel, Datum/Zeit (oder ganztägig), optionaler Ort und eine Frage. Wähle die Empfänger – bestehende Chats oder Kontakte aus dem Adressbuch (alphabetisch, mit Suche). Die Umfrage wird als normale E-Mail gesendet und funktioniert auch mit normalen E-Mail-Programmen (z. B. Thunderbird). Die Empfänger antworten mit Ja/Nein/Vielleicht und optionaler Bemerkung. Du siehst die Antworten live; nach dem Abschluss (automatisch nach der letzten Antwort oder manuell) sehen alle dasselbe graphische Ergebnis. Mit „In Kalender übernehmen" wird der Termin (Titel, Ort, Zeitraum) direkt in deine Kalender-App übernommen. Erkennt die KI einen Termin in einer E-Mail, kannst du ihn als Terminumfrage senden oder in deinen eigenen Kalender übernehmen.</string>
+    <string name="help_appt_title">Terminabfragen</string>
+    <string name="help_appt_text">Lege in einem Chat über das Plus-Menü eine Terminabfrage an: Titel, Datum/Zeit (oder ganztägig), optionaler Ort und eine Frage. Wähle die Empfänger – bestehende Chats oder Kontakte aus dem Adressbuch (alphabetisch, mit Suche). Die Umfrage wird als normale E-Mail gesendet und funktioniert auch mit normalen E-Mail-Programmen (z. B. Thunderbird). Die Empfänger antworten mit Ja/Nein/Vielleicht und optionaler Bemerkung. Du siehst die Antworten live; nach dem Abschluss (automatisch nach der letzten Antwort oder manuell) sehen alle dasselbe graphische Ergebnis. Mit „In Kalender übernehmen" wird der Termin (Titel, Ort, Zeitraum) direkt in deine Kalender-App übernommen. Erkennt die KI einen Termin in einer E-Mail, kannst du ihn als Terminabfrage senden oder in deinen eigenen Kalender übernehmen.</string>
     <string name="help_language_title">Sprache</string>
     <string name="help_language_text">Die App folgt der Sprache deines Geräts. Deutsch und Englisch werden unterstützt.</string>
     <string name="help_dark_mode_title">Dark Mode</string>
@@ -260,8 +260,8 @@
     <string name="poll_total">Summe: %1$d</string>
     <string name="poll_send">Umfrage senden</string>
     <!-- Termin (Appointment) -->
-    <string name="appt_create">Terminumfrage</string>
-    <string name="appt_editor_title">Terminumfrage</string>
+    <string name="appt_create">Terminabfrage</string>
+    <string name="appt_editor_title">Terminabfrage</string>
     <string name="appt_pick_recipient">Empfänger / Gruppe wählen</string>
     <string name="appt_pick_recipient_empty">Keine Chats gefunden</string>
     <string name="appt_title_label">Titel</string>
@@ -278,7 +278,7 @@
     <string name="appt_answer_maybe">Vielleicht</string>
     <string name="appt_comment_label">Kommentar (optional)</string>
     <string name="appt_send_answer">Antwort senden</string>
-    <string name="appt_close">Terminumfrage beenden</string>
+    <string name="appt_close">Terminabfrage beenden</string>
     <string name="appt_calendar">In Kalender übernehmen</string>
     <string name="calendar_share_chooser">In Kalender übernehmen</string>
     <string name="appt_recipients">Antworten</string>
@@ -575,9 +575,9 @@
         <item>Behoben: Die „Wo bist Du?"-Auto-Antwort mit Kartenbild funktioniert jetzt auch bei gesperrtem Handy (Standort-Berechtigung im Hintergrund)</item>
     </string-array>
     <string-array name="version_2_7_changes">
-        <item>Neu: Terminumfragen – in einem Chat einen Termin vorschlagen (Datum/Zeit oder ganztägig, optionaler Ort, Frage); die Empfänger antworten mit Ja/Nein/Vielleicht und optionaler Bemerkung; der Ersteller sieht die Antworten live, nach dem Abschluss sehen alle dasselbe graphische Ergebnis; funktioniert auch mit normalen E-Mail-Programmen (z. B. Thunderbird) und in Gruppenchats</item>
+        <item>Neu: Terminabfragen – in einem Chat einen Termin vorschlagen (Datum/Zeit oder ganztägig, optionaler Ort, Frage); die Empfänger antworten mit Ja/Nein/Vielleicht und optionaler Bemerkung; der Ersteller sieht die Antworten live, nach dem Abschluss sehen alle dasselbe graphische Ergebnis; funktioniert auch mit normalen E-Mail-Programmen (z. B. Thunderbird) und in Gruppenchats</item>
         <item>Neu: Termin in den Kalender übernehmen – der Termin (Titel, Ort, Zeitraum) wird direkt in die Kalender-App übernommen</item>
-        <item>Neu: KI-Termin-Erkennung – erkennt die KI einen Termin in einer E-Mail, kannst du ihn als Terminumfrage senden oder in deinen eigenen Kalender übernehmen</item>
+        <item>Neu: KI-Termin-Erkennung – erkennt die KI einen Termin in einer E-Mail, kannst du ihn als Terminabfrage senden oder in deinen eigenen Kalender übernehmen</item>
         <item>Verbessert: E-Mail-Push über IMAP IDLE (Foreground-Service) – neue E-Mails werden automatisch abgerufen; der Akku-Verbrauch ist deutlich reduziert (Wake-Lock nur während des Syncs, Sync-Intervall 60 s)</item>
         <item>Verbessert: Das Zitat in der Detail-E-Mail-Verfassen (Antwort, Allen antworten) ist jetzt bearbeitbar – es wird in das Nachrichtenfeld kopiert, statt unten als separate, nicht bearbeitbare Anzeige zu erscheinen, und kann ein- oder ausgeschaltet werden</item>
     </string-array>

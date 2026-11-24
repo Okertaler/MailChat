@@ -139,7 +139,7 @@ MailChat verwandelt deine E-Mails in private, chatartige Gespräche — mit Vers
 • Name- & Termin-Erkennung.
 • KI-Assistent (Chat mit deinen Daten).
 • Umfragen im Chat (Einzel-/Mehrfachauswahl, Zahlen-Modus, personenbezogen) mit Balkendiagramm oder Tabelle und Ergebnis per E-Mail; funktioniert auch mit normalen E-Mail-Programmen.
-• Terminumfragen (Datum/Zeit, ganztägig, Ort) mit Ja/Nein/Vielleicht-Antworten, live Antworten und graphischem Ergebnis; Termin in den Kalender übernehmen.
+• Terminabfragen (Datum/Zeit, ganztägig, Ort) mit Ja/Nein/Vielleicht-Antworten, live Antworten und graphischem Ergebnis; Termin in den Kalender übernehmen.
 • Bild-Mosaik in der Chatblase (bis zu 4 Bilder) mit Vollbild-Zoom-Viewer (Pinch-to-Zoom).
 • Startbildschirm-Widget mit deinen letzten oder ungelesenen E-Mails (Schriftgröße einstellbar).
 • Bild-Blockierung für Spam (Anti-Tracking-Pixel).
