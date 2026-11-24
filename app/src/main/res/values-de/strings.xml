@@ -353,6 +353,8 @@
     <string name="drawing_redo">Wiederholen</string>
     <string name="drawing_shape_line">Linie</string>
     <string name="drawing_shape_circle">Kreis</string>
+    <string name="drawing_help">Hilfe</string>
+    <string name="drawing_help_text">Zeichnen:\n• Schneller Touch und Ziehen: Freihand\n• Antippen: Punkt\n• Lang drücken (still halten) und ziehen: Linie oder Kreis (Form per Button neben dem Bild-Button umschalten)\n• Linie: vom Aufsetzpunkt zum Finger\n• Kreis: Mittelpunkt am Aufsetzpunkt, Radius = Abstand zum Finger\n\nFarben:\n• Farbe antippen: auswählen\n• Gewählte Farbe erneut antippen: Strichstärke wechseln (1 dünn, 2 mittel, 3 dick)\n\nSonstiges:\n• Bild-Button: Bild laden zum Darübermalen\n• Mülleimer-Button: Leinwand leeren\n• Rückgängig / Wiederholen: obere Leiste\n• Speichern: speichert die Zeichnung als PNG (Name: Drawing_Datum_Uhrzeit, bzw. Drawing_Bildname bei geladenem Bild)</string>
     <string name="save">Speichern</string>
     <string name="where_are_you">Wo bist Du?</string>
     <string name="where_are_you_text">Wo bist Du?</string>

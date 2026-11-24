@@ -353,6 +353,8 @@
     <string name="drawing_redo">Redo</string>
     <string name="drawing_shape_line">Line</string>
     <string name="drawing_shape_circle">Circle</string>
+    <string name="drawing_help">Help</string>
+    <string name="drawing_help_text">Drawing:\n• Quick touch and drag: freehand\n• Tap: dot\n• Long press (hold still) and drag: line or circle (toggle the shape with the button next to the image button)\n• Line: from the press point to the finger\n• Circle: center at the press point, radius = distance to the finger\n\nColors:\n• Tap a color to select it\n• Tap the selected color again: cycle the stroke width (1 thin, 2 medium, 3 thick)\n\nOther:\n• Image button: load an image to draw on\n• Trash button: clear the canvas\n• Undo / Redo: top bar\n• Save: stores the drawing as a PNG (name: Drawing_date_time, or Drawing_image_name when an image is loaded)</string>
     <string name="save">Save</string>
     <string name="where_are_you">Where are you?</string>
     <string name="where_are_you_text">Where are you?</string>

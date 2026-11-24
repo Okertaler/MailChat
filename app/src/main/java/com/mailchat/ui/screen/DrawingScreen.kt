@@ -24,16 +24,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.HorizontalRule
 import androidx.compose.material.icons.filled.Image as ImageIcon
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Redo
 import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -102,6 +105,8 @@ fun DrawingScreen(
     var strokeWidthLevel by remember { mutableStateOf(1) }
     // The shape drawn by a long-press + drag gesture.
     var selectedShape by remember { mutableStateOf(DrawShape.Line) }
+    // Whether the help dialog is shown.
+    var showHelp by remember { mutableStateOf(false) }
     // The in-progress shape preview (set while a long-press drag is active).
     var shapeStart by remember { mutableStateOf<Offset?>(null) }
     var shapeCurrent by remember { mutableStateOf<Offset?>(null) }
@@ -202,6 +207,9 @@ fun DrawingScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showHelp = true }) {
+                        Icon(Icons.Default.Help, contentDescription = stringResource(R.string.drawing_help))
+                    }
                     IconButton(onClick = { undo() }, enabled = canUndo) {
                         Icon(Icons.Default.Undo, contentDescription = stringResource(R.string.drawing_undo))
                     }
@@ -282,34 +290,20 @@ fun DrawingScreen(
                     }
                 }
                 Spacer(Modifier.width(8.dp))
-                // Shape selector for the long-press gesture (line / circle).
+                // Shape toggle (line/circle) for the long-press gesture, right next to the
+                // load-image button. Shows the currently selected shape; tapping switches it.
                 IconButton(
-                    onClick = { selectedShape = DrawShape.Line },
-                    modifier = Modifier.background(
-                        if (selectedShape == DrawShape.Line) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
-                        CircleShape
-                    )
+                    onClick = {
+                        selectedShape = if (selectedShape == DrawShape.Line) DrawShape.Circle else DrawShape.Line
+                    }
                 ) {
                     Icon(
-                        Icons.Default.HorizontalRule,
-                        contentDescription = stringResource(R.string.drawing_shape_line),
-                        tint = if (selectedShape == DrawShape.Line) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        if (selectedShape == DrawShape.Line) Icons.Default.HorizontalRule else Icons.Default.RadioButtonUnchecked,
+                        contentDescription = stringResource(
+                            if (selectedShape == DrawShape.Line) R.string.drawing_shape_line else R.string.drawing_shape_circle
+                        )
                     )
                 }
-                IconButton(
-                    onClick = { selectedShape = DrawShape.Circle },
-                    modifier = Modifier.background(
-                        if (selectedShape == DrawShape.Circle) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
-                        CircleShape
-                    )
-                ) {
-                    Icon(
-                        Icons.Default.Circle,
-                        contentDescription = stringResource(R.string.drawing_shape_circle),
-                        tint = if (selectedShape == DrawShape.Circle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Spacer(Modifier.width(8.dp))
                 IconButton(onClick = { imagePicker.launch("image/*") }) {
                     Icon(Icons.Default.ImageIcon, contentDescription = stringResource(R.string.drawing_load_image))
                 }
@@ -493,6 +487,25 @@ fun DrawingScreen(
                 }
             }
         }
+    }
+
+    // Help dialog (opened via the "?" icon in the top bar).
+    if (showHelp) {
+        AlertDialog(
+            onDismissRequest = { showHelp = false },
+            title = { Text(stringResource(R.string.drawing_help)) },
+            text = {
+                Text(
+                    text = stringResource(R.string.drawing_help_text),
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showHelp = false }) {
+                    Text(stringResource(R.string.ok))
+                }
+            }
+        )
     }
 }
 
