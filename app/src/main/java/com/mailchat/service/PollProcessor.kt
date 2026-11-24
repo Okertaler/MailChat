@@ -595,14 +595,14 @@ class PollProcessor @Inject constructor(
             val recipients = recipient.split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }
             val isGroupChat = EmailGrouping.isGroupKey(chat.participantEmail)
             val enc = com.mailchat.crypto.EncryptionHelper.encryptForRecipients(
-                context, bodyWithMarker, recipients, isGroupChat, chat.isEncrypted
+                context, bodyWithMarker, recipients, isGroupChat, chat.isEncrypted, subject = subject
             )
             val extraHeaders = mutableMapOf("X-MailChat-Poll-Result" to poll.id)
             extraHeaders.putAll(enc.headers)
             smtpService.sendEmail(
                 account = account,
                 to = recipient,
-                subject = subject,
+                subject = enc.subject ?: subject,
                 body = enc.body,
                 extraHeaders = extraHeaders,
                 bodyFormat = com.mailchat.network.BodyFormat.PLAIN
@@ -651,14 +651,14 @@ class PollProcessor @Inject constructor(
             try {
                 val isGroupChat = EmailGrouping.isGroupKey(chat.participantEmail)
                 val enc = com.mailchat.crypto.EncryptionHelper.encryptForRecipients(
-                    context, bodyWithMarker, listOf(recipient), isGroupChat, chat.isEncrypted
+                    context, bodyWithMarker, listOf(recipient), isGroupChat, chat.isEncrypted, subject = subject
                 )
                 val extraHeaders = mutableMapOf("X-MailChat-Poll-Result" to poll.id)
                 extraHeaders.putAll(enc.headers)
                 smtpService.sendEmail(
                     account = account,
                     to = recipient,
-                    subject = subject,
+                    subject = enc.subject ?: subject,
                     body = enc.body,
                     extraHeaders = extraHeaders,
                     bodyFormat = com.mailchat.network.BodyFormat.PLAIN

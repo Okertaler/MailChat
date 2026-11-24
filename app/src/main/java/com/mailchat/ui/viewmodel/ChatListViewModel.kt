@@ -305,11 +305,27 @@ class ChatListViewModel @Inject constructor(
         }
         var msgBody = fetchedMsg.message.body
         var msgBodyFull = fetchedMsg.message.bodyFull
+        var msgSubject = fetchedMsg.message.subject
         var isEncryptedMsg = false
         // Preserve the signature status computed by the primary fetch path (ImapService); it is
         // only recomputed here if this fallback still has to decrypt the body.
         var signatureStatus = fetchedMsg.message.signatureStatus
         val sourceBody = msgBodyFull.ifBlank { msgBody }
+        // Decrypt an encrypted subject ("ENC:...") so the chat shows the plaintext subject.
+        if (fetchedMsg.isIncoming &&
+            msgSubject.startsWith(com.mailchat.crypto.OpenPgpKeyService.SUBJECT_ENC_PREFIX) &&
+            com.mailchat.crypto.OpenPgpKeyService.hasIdentity(appContext)
+        ) {
+            try {
+                val decryptedSubject = withContext(Dispatchers.IO) {
+                    val senderPubKey = com.mailchat.crypto.OpenPgpKeyService.getPeer(appContext, fetchedMsg.message.from)?.publicKeyArmored
+                        ?: com.mailchat.crypto.OpenPgpKeyService.fetchKeyByEmail(fetchedMsg.message.from, 5000, 8000)
+                    com.mailchat.crypto.OpenPgpKeyService.decryptSubject(appContext, msgSubject, senderPubKey)
+                }
+                if (decryptedSubject != null) msgSubject = decryptedSubject
+            } catch (_: Exception) {
+            }
+        }
         if (fetchedMsg.isIncoming &&
             com.mailchat.crypto.OpenPgpKeyService.isEncryptedContent(sourceBody) &&
             com.mailchat.crypto.OpenPgpKeyService.hasIdentity(appContext)
@@ -344,6 +360,7 @@ class ChatListViewModel @Inject constructor(
         val message = fetchedMsg.message.copy(
             chatId = chat.id,
             accountId = account.id,
+            subject = msgSubject,
             body = msgBody,
             bodyFull = msgBodyFull,
             isEncrypted = isEncryptedMsg,
@@ -505,6 +522,7 @@ class ChatListViewModel @Inject constructor(
                 // reply/send flow. Encrypts when the first recipient has a public key. ---
                 val firstRecipient = recipients.firstOrNull()?.lowercase() ?: ""
                 var finalBody = fullBody
+                var finalSubject = subject
                 var isEncryptedMsg = false
                 var encryptionAttempted = false
                 val extraHeaders = mutableMapOf<String, String>()
@@ -533,6 +551,14 @@ class ChatListViewModel @Inject constructor(
                                 isEncryptedMsg = true
                                 extraHeaders["X-MailChat-Encryption"] = "OpenPGP"
                                 com.mailchat.ai.AppLogger.log(appContext, "sendNewEmail: signed+encrypted with OpenPGP (keySig=${keySig.isNotBlank()})")
+                                // Optionally encrypt the subject as well (never fails the send).
+                                if (com.mailchat.crypto.OpenPgpKeyService.isEncryptSubjectEnabled(appContext) && subject.isNotBlank()) {
+                                    try {
+                                        finalSubject = com.mailchat.crypto.OpenPgpKeyService.encryptSubject(appContext, subject, listOf(pubKey)) ?: subject
+                                    } catch (e: Exception) {
+                                        com.mailchat.ai.AppLogger.log(appContext, "sendNewEmail: subject encryption failed: ${e.message}")
+                                    }
+                                }
                                 if (sendAttachments.isNotEmpty()) {
                                     val encDir = java.io.File(appContext.cacheDir, "enc_attachments").apply { mkdirs() }
                                     sendAttachments = sendAttachments.map { file ->
@@ -590,7 +616,7 @@ class ChatListViewModel @Inject constructor(
                 val sentMessageId = smtpService.sendEmail(
                     account = account,
                     to = recipients.joinToString(","),
-                    subject = subject,
+                    subject = finalSubject,
                     body = finalBody,
                     attachments = sendAttachments,
                     extraHeaders = extraHeaders,

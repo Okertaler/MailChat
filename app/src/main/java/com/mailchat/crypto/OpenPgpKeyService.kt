@@ -82,6 +82,10 @@ object OpenPgpKeyService {
     private const val KEY_AUTO_LOOKUP = "openpgp_auto_lookup"
     private const val KEY_AUTO_WRITEBACK = "openpgp_auto_writeback"
     private const val KEY_AUTO_WRITEBACK_INBOX = "openpgp_auto_writeback_inbox"
+    private const val KEY_ENCRYPT_SUBJECT = "openpgp_encrypt_subject"
+
+    /** Prefix of an encrypted Subject header value (see [encryptSubject]). */
+    const val SUBJECT_ENC_PREFIX = "ENC:"
 
     private const val KEY_SIZE = 3072
     private const val ANDROID_KEYSTORE = "AndroidKeyStore"
@@ -416,6 +420,19 @@ object OpenPgpKeyService {
     }
 
     /**
+     * Whether the email SUBJECT is encrypted as well (in addition to the body). Off by default.
+     * The encrypted subject is stored in the Subject header as "ENC:" + base64(armored PGP
+     * message) and is only readable by MailChat users whose private key matches; other email
+     * clients see the encrypted blob.
+     */
+    fun isEncryptSubjectEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_ENCRYPT_SUBJECT, false)
+
+    fun setEncryptSubjectEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_ENCRYPT_SUBJECT, enabled).apply()
+    }
+
+    /**
      * Result of publishing the own key to keys.openpgp.org.
      */
     enum class PublishResult {
@@ -640,6 +657,53 @@ object OpenPgpKeyService {
     fun encrypt(plaintext: String, recipientPublicKeyArmored: String): String {
         val encrypted = encryptData(plaintext.toByteArray(Charsets.UTF_8), "mailchat.txt", recipientPublicKeyArmored)
         return armorEncode(encrypted)
+    }
+
+    /**
+     * Encrypt [plaintext] for ALL the given recipients (multi-recipient OpenPGP, encrypted but
+     * NOT signed) and return an armored PGP MESSAGE.
+     */
+    fun encryptForRecipients(plaintext: String, recipientPublicKeys: List<String>): String {
+        val keys = recipientPublicKeys.filter { it.isNotBlank() }
+        if (keys.isEmpty()) throw IllegalArgumentException("No recipient public keys")
+        val encrypted = encryptDataMulti(plaintext.toByteArray(Charsets.UTF_8), "mailchat.txt", keys)
+        return armorEncode(encrypted)
+    }
+
+    /**
+     * Encrypts [subject] for the given recipients and returns a single-line Subject header
+     * value: "ENC:" + base64(armored PGP message). The subject is encrypted but NOT signed
+     * (keeps the header short; the body carries the signature). Returns null when [subject]
+     * is blank.
+     */
+    fun encryptSubject(context: Context, subject: String, recipientPublicKeys: List<String>): String? {
+        if (subject.isBlank()) return null
+        val armored = if (recipientPublicKeys.size > 1) {
+            encryptForRecipients(subject, recipientPublicKeys)
+        } else {
+            encrypt(subject, recipientPublicKeys.first())
+        }
+        return SUBJECT_ENC_PREFIX +
+            android.util.Base64.encodeToString(armored.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
+    }
+
+    /**
+     * Decrypts an encrypted subject (see [encryptSubject]) with the stored identity. Returns
+     * the plaintext subject, or null when [subject] is not an encrypted subject or decryption
+     * fails (the caller then keeps the original value).
+     */
+    fun decryptSubject(context: Context, subject: String, senderPublicKeyArmored: String?): String? {
+        if (!subject.startsWith(SUBJECT_ENC_PREFIX)) return null
+        return try {
+            val armored = String(
+                android.util.Base64.decode(subject.removePrefix(SUBJECT_ENC_PREFIX), android.util.Base64.NO_WRAP),
+                Charsets.UTF_8
+            )
+            decryptAndVerify(context, armored, senderPublicKeyArmored).plaintext
+        } catch (e: Exception) {
+            com.mailchat.ai.AppLogger.log(context, "Subject decrypt failed: ${e.message}")
+            null
+        }
     }
 
     /**

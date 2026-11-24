@@ -1735,6 +1735,7 @@ class ChatDetailViewModel @Inject constructor(
                     .filter { it.exists() }
                 var forwardAttachments = originalAttachments
                 var finalBody = body
+                var finalSubject = fwdSubject
                 var isEncryptedMsg = false
                 var encryptionAttempted = false
                 val extraHeaders = mutableMapOf<String, String>()
@@ -1763,6 +1764,14 @@ class ChatDetailViewModel @Inject constructor(
                                 isEncryptedMsg = true
                                 extraHeaders["X-MailChat-Encryption"] = "OpenPGP"
                                 com.mailchat.ai.AppLogger.log(appContext, "forwardTo: signed+encrypted with OpenPGP (keySig=${keySig.isNotBlank()})")
+                                // Optionally encrypt the subject as well (never fails the send).
+                                if (com.mailchat.crypto.OpenPgpKeyService.isEncryptSubjectEnabled(appContext) && fwdSubject.isNotBlank()) {
+                                    try {
+                                        finalSubject = com.mailchat.crypto.OpenPgpKeyService.encryptSubject(appContext, fwdSubject, listOf(pubKey)) ?: fwdSubject
+                                    } catch (e: Exception) {
+                                        com.mailchat.ai.AppLogger.log(appContext, "forwardTo: subject encryption failed: ${e.message}")
+                                    }
+                                }
                                 if (forwardAttachments.isNotEmpty()) {
                                     val encDir = java.io.File(appContext.cacheDir, "enc_attachments").apply { mkdirs() }
                                     forwardAttachments = forwardAttachments.map { file ->
@@ -1823,7 +1832,7 @@ class ChatDetailViewModel @Inject constructor(
                 val sentMessageId = smtpService.sendEmail(
                     account = account,
                     to = to,
-                    subject = fwdSubject,
+                    subject = finalSubject,
                     body = finalBody,
                     attachments = forwardAttachments,
                     extraHeaders = extraHeaders,
@@ -2017,6 +2026,7 @@ class ChatDetailViewModel @Inject constructor(
                 val recipients = recipient.split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }
                 val firstRecipient = recipients.firstOrNull() ?: ""
                 var finalBody = body
+                var finalSubject = replySubject
                 var isEncryptedMsg = false
                 var encryptionAttempted = false
                 var finalAttachments = state.composeAttachments
@@ -2057,6 +2067,14 @@ class ChatDetailViewModel @Inject constructor(
                                 isEncryptedMsg = true
                                 extraHeaders["X-MailChat-Encryption"] = "OpenPGP"
                                 com.mailchat.ai.AppLogger.log(appContext, "sendEmail: signed+encrypted with OpenPGP for ${pubKeys.size} recipient(s) (keySig=${keySig.isNotBlank()})")
+                                // Optionally encrypt the subject as well (never fails the send).
+                                if (com.mailchat.crypto.OpenPgpKeyService.isEncryptSubjectEnabled(appContext) && replySubject.isNotBlank()) {
+                                    try {
+                                        finalSubject = com.mailchat.crypto.OpenPgpKeyService.encryptSubject(appContext, replySubject, pubKeys) ?: replySubject
+                                    } catch (e: Exception) {
+                                        com.mailchat.ai.AppLogger.log(appContext, "sendEmail: subject encryption failed: ${e.message}")
+                                    }
+                                }
                                 if (state.composeAttachments.isNotEmpty()) {
                                     val encDir = java.io.File(appContext.cacheDir, "enc_attachments").apply { mkdirs() }
                                     finalAttachments = state.composeAttachments.map { file ->
@@ -2121,7 +2139,7 @@ class ChatDetailViewModel @Inject constructor(
                 val sentMessageId = smtpService.sendEmail(
                     account = account,
                     to = recipient,
-                    subject = replySubject,
+                    subject = finalSubject,
                     body = finalBody,
                     attachments = finalAttachments,
                     extraHeaders = extraHeaders,
@@ -2506,7 +2524,7 @@ class ChatDetailViewModel @Inject constructor(
                     val pollId = PollFormat.newPollId()
                     val body = PollFormat.buildPollBody(title, question, options, multi, pollId, choiceLabel, instruction, numberMode, personMode)
                     val enc = com.mailchat.crypto.EncryptionHelper.encryptForRecipients(
-                        appContext, body, listOf(recipient.trim().lowercase()), isGroupChat, chat.isEncrypted, forceUnencrypted
+                        appContext, body, listOf(recipient.trim().lowercase()), isGroupChat, chat.isEncrypted, forceUnencrypted, subject
                     )
                     prepared.add(Prepared(recipient, pollId, body, enc))
                 }
@@ -2521,7 +2539,7 @@ class ChatDetailViewModel @Inject constructor(
                     val sentMessageId = smtpService.sendEmail(
                         account = account,
                         to = p.recipient,
-                        subject = subject,
+                        subject = p.enc.subject ?: subject,
                         body = p.enc.body,
                         extraHeaders = extraHeaders,
                         bodyFormat = com.mailchat.network.BodyFormat.PLAIN
@@ -2678,7 +2696,7 @@ class ChatDetailViewModel @Inject constructor(
                         apptId, startISO, endISO, allDay
                     )
                     val enc = com.mailchat.crypto.EncryptionHelper.encryptForRecipients(
-                        appContext, body, listOf(recipient.trim().lowercase()), isGroupChat, chat.isEncrypted, forceUnencrypted
+                        appContext, body, listOf(recipient.trim().lowercase()), isGroupChat, chat.isEncrypted, forceUnencrypted, subject
                     )
                     prepared.add(Prepared(recipient, apptId, body, enc))
                 }
@@ -2692,7 +2710,7 @@ class ChatDetailViewModel @Inject constructor(
                     val sentMessageId = smtpService.sendEmail(
                         account = account,
                         to = p.recipient,
-                        subject = subject,
+                        subject = p.enc.subject ?: subject,
                         body = p.enc.body,
                         extraHeaders = extraHeaders,
                         bodyFormat = com.mailchat.network.BodyFormat.PLAIN
@@ -2837,14 +2855,14 @@ class ChatDetailViewModel @Inject constructor(
                 val recipients = recipient.split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }
                 val isGroupChat = EmailGrouping.isGroupKey(chat.participantEmail)
                 val enc = com.mailchat.crypto.EncryptionHelper.encryptForRecipients(
-                    appContext, body, recipients, isGroupChat, chat.isEncrypted, forceUnencrypted
+                    appContext, body, recipients, isGroupChat, chat.isEncrypted, forceUnencrypted, subject
                 )
                 val extraHeaders = mutableMapOf("X-MailChat-Appt-Answer" to actualPollId)
                 extraHeaders.putAll(enc.headers)
                 val sentMessageId = smtpService.sendEmail(
                     account = account,
                     to = recipient,
-                    subject = subject,
+                    subject = enc.subject ?: subject,
                     body = enc.body,
                     extraHeaders = extraHeaders,
                     bodyFormat = com.mailchat.network.BodyFormat.PLAIN
@@ -3051,7 +3069,7 @@ class ChatDetailViewModel @Inject constructor(
                 val recipients = recipient.split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }
                 val isGroupChat = EmailGrouping.isGroupKey(chat.participantEmail)
                 val enc = com.mailchat.crypto.EncryptionHelper.encryptForRecipients(
-                    appContext, body, recipients, isGroupChat, chat.isEncrypted, forceUnencrypted
+                    appContext, body, recipients, isGroupChat, chat.isEncrypted, forceUnencrypted, subject
                 )
                 val extraHeaders = mutableMapOf("X-MailChat-Poll-Answer" to actualPollId)
                 extraHeaders.putAll(enc.headers)
@@ -3059,7 +3077,7 @@ class ChatDetailViewModel @Inject constructor(
                 val sentMessageId = smtpService.sendEmail(
                     account = account,
                     to = recipient,
-                    subject = subject,
+                    subject = enc.subject ?: subject,
                     body = enc.body,
                     extraHeaders = extraHeaders,
                     bodyFormat = com.mailchat.network.BodyFormat.PLAIN

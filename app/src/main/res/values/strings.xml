@@ -1276,6 +1276,8 @@
     <string name="secure_delete_key_confirm">Delete Key</string>
     <string name="secure_auto_lookup">Automatic key lookup</string>
     <string name="secure_auto_lookup_hint">Look up the recipient\'s public key on keys.openpgp.org when sending</string>
+    <string name="secure_encrypt_subject_title">Also encrypt subject</string>
+    <string name="secure_encrypt_subject_hint">The subject is encrypted with the recipient\'s key. Only MailChat users can read it; other email clients see an encrypted subject.</string>
     <string name="secure_writeback_title">Decrypted copy in Sent</string>
     <string name="secure_writeback_hint">After sending, replace the encrypted email in the Sent folder with the decrypted version, so you can read it with all your email clients. The recipient still receives the encrypted version.</string>
     <string name="secure_writeback_inbox_title">Decrypted copy in Inbox</string>

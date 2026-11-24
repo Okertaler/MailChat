@@ -1276,6 +1276,8 @@
     <string name="secure_delete_key_confirm">Schlüssel löschen</string>
     <string name="secure_auto_lookup">Automatische Schlüsselsuche</string>
     <string name="secure_auto_lookup_hint">Öffentlichen Schlüssel des Empfängers beim Senden auf keys.openpgp.org suchen</string>
+    <string name="secure_encrypt_subject_title">Betreff auch verschlüsseln</string>
+    <string name="secure_encrypt_subject_hint">Der Betreff wird mit dem Schlüssel des Empfängers verschlüsselt. Nur MailChat-Nutzer können ihn lesen; andere E-Mail-Programme sehen einen verschlüsselten Betreff.</string>
     <string name="secure_writeback_title">Entschlüsselte Kopie im Postausgang</string>
     <string name="secure_writeback_hint">Nach dem Versand wird die verschlüsselte E-Mail im Postausgang durch die entschlüsselte Version ersetzt, damit du sie mit allen E-Mail-Clients lesen kannst. Der Empfänger bekommt weiterhin die verschlüsselte Version.</string>
     <string name="secure_writeback_inbox_title">Entschlüsselte Kopie im Posteingang</string>

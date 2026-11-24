@@ -1197,6 +1197,21 @@ fun SettingsScreen(
                 }
             )
 
+            var encryptSubjectEnabled by remember { mutableStateOf(com.mailchat.crypto.OpenPgpKeyService.isEncryptSubjectEnabled(context)) }
+            ListItem(
+                headlineContent = { Text("🔏 " + stringResource(R.string.secure_encrypt_subject_title)) },
+                supportingContent = { Text(stringResource(R.string.secure_encrypt_subject_hint)) },
+                trailingContent = {
+                    Switch(
+                        checked = encryptSubjectEnabled,
+                        onCheckedChange = {
+                            encryptSubjectEnabled = it
+                            com.mailchat.crypto.OpenPgpKeyService.setEncryptSubjectEnabled(context, it)
+                        }
+                    )
+                }
+            )
+
             var writeBackEnabled by remember { mutableStateOf(com.mailchat.crypto.OpenPgpKeyService.isAutoWriteBackEnabled(context)) }
             ListItem(
                 headlineContent = { Text("🔓 " + stringResource(R.string.secure_writeback_title)) },

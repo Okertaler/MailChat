@@ -27,7 +27,10 @@ object EncryptionHelper {
     data class Result(
         val body: String,
         val isEncrypted: Boolean,
-        val headers: Map<String, String>
+        val headers: Map<String, String>,
+        /** The encrypted subject (see OpenPgpKeyService.encryptSubject), or null when the
+         *  subject was not encrypted (use the original subject then). */
+        val subject: String? = null
     )
 
     /**
@@ -35,6 +38,9 @@ object EncryptionHelper {
      * @param isGroupChat true for group chats (encryption only when [chatEncrypted]).
      * @param chatEncrypted the chat's "encrypted" flag (group chats).
      * @param forceUnencrypted skip all encryption (retry after a failed attempt).
+     * @param subject optional subject to encrypt as well (when the "encrypt subject" setting
+     *        is enabled and the OpenPGP path is used); the encrypted value is returned in
+     *        [Result.subject].
      * @throws EncryptionFailed when encryption was attempted but failed.
      */
     suspend fun encryptForRecipients(
@@ -43,7 +49,8 @@ object EncryptionHelper {
         recipients: List<String>,
         isGroupChat: Boolean,
         chatEncrypted: Boolean,
-        forceUnencrypted: Boolean = false
+        forceUnencrypted: Boolean = false,
+        subject: String? = null
     ): Result {
         if (!forceUnencrypted) {
             // --- OpenPGP (primary) ---
@@ -69,7 +76,17 @@ object EncryptionHelper {
                                 OpenPgpKeyService.signAndEncryptForRecipient(context, bodyToEncrypt, pubKeys.first())
                             }
                         }
-                        return Result(encrypted, true, mapOf("X-MailChat-Encryption" to "OpenPGP"))
+                        // Optionally encrypt the subject as well (never fails the send).
+                        val encryptedSubject = withContext(Dispatchers.IO) {
+                            if (subject.isNullOrBlank() || !OpenPgpKeyService.isEncryptSubjectEnabled(context)) return@withContext null
+                            try {
+                                OpenPgpKeyService.encryptSubject(context, subject, pubKeys)
+                            } catch (e: Exception) {
+                                AppLogger.log(context, "EncryptionHelper: subject encryption failed: ${e.message}")
+                                null
+                            }
+                        }
+                        return Result(encrypted, true, mapOf("X-MailChat-Encryption" to "OpenPGP"), encryptedSubject)
                     } catch (e: Exception) {
                         AppLogger.log(context, "EncryptionHelper: OpenPGP encryption failed: ${e.message}")
                         throw EncryptionFailed("OpenPGP: ${e.message}")

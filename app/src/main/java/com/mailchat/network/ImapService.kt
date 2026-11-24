@@ -475,7 +475,11 @@ class ImapService @Inject constructor(
                     original.from?.firstOrNull()?.let { setFrom(it) }
                     original.getRecipients(JMessage.RecipientType.TO)?.let { setRecipients(JMessage.RecipientType.TO, it) }
                     original.getRecipients(JMessage.RecipientType.CC)?.let { setRecipients(JMessage.RecipientType.CC, it) }
-                    setSubject(original.subject)
+                    // Decrypt an encrypted subject ("ENC:...") so the write-back copy shows
+                    // the plaintext subject in every email client.
+                    val originalSubject = original.subject ?: ""
+                    val decryptedSubject = com.mailchat.crypto.OpenPgpKeyService.decryptSubject(context, originalSubject, null)
+                    setSubject(if (decryptedSubject != null) decryptedSubject else originalSubject)
                     setSentDate(original.sentDate)
                     when (val c = decryptedContent) {
                         is String -> setContent(c, "text/plain; charset=utf-8")
@@ -851,10 +855,28 @@ class ImapService @Inject constructor(
 
             // The subject may live in the outer header (standard PGP/MIME) or, if the outer one
             // is empty, in the decrypted message. Prefer the decrypted one, fall back to outer.
-            val subject = (sourceMail.subject ?: "").ifBlank { mail.subject ?: "" }
+            var subject = (sourceMail.subject ?: "").ifBlank { mail.subject ?: "" }
             var bodyFull = extractTextBody(sourceMail)
             // Signature status of the incoming message ("" = not checked / not encrypted).
             var signatureStatus = ""
+            // Sender's public key (local peer first, then keys.openpgp.org with short timeouts
+            // so a slow network never blocks the fetch). Looked up once, shared by the subject
+            // and the body decryption.
+            var senderPubKeyCache: String? = null
+            fun senderKey(): String? {
+                if (senderPubKeyCache == null) {
+                    senderPubKeyCache = com.mailchat.crypto.OpenPgpKeyService.getPeer(context, fromAddress)?.publicKeyArmored
+                        ?: com.mailchat.crypto.OpenPgpKeyService.fetchKeyByEmail(fromAddress, 5000, 8000)
+                }
+                return senderPubKeyCache
+            }
+            // Decrypt an encrypted subject ("ENC:...") so the chat shows the plaintext subject.
+            if (isIncoming && subject.startsWith(com.mailchat.crypto.OpenPgpKeyService.SUBJECT_ENC_PREFIX)
+                && com.mailchat.crypto.OpenPgpKeyService.hasIdentity(context)
+            ) {
+                val decryptedSubject = com.mailchat.crypto.OpenPgpKeyService.decryptSubject(context, subject, senderKey())
+                if (decryptedSubject != null) subject = decryptedSubject
+            }
             // Decrypt incoming OpenPGP-encrypted bodies (inline armored PGP, not PGP/MIME) with
             // the stored private key so the chat shows plaintext instead of the raw armored PGP
             // block, and verify the sender's signature. Sent messages are handled by the
@@ -863,11 +885,7 @@ class ImapService @Inject constructor(
                 && com.mailchat.crypto.OpenPgpKeyService.hasIdentity(context)
             ) {
                 try {
-                    // Look up the sender's public key: local peer first, then keys.openpgp.org
-                    // (short timeouts so a slow network never blocks the fetch).
-                    val senderPubKey = com.mailchat.crypto.OpenPgpKeyService.getPeer(context, fromAddress)?.publicKeyArmored
-                        ?: com.mailchat.crypto.OpenPgpKeyService.fetchKeyByEmail(fromAddress, 5000, 8000)
-                    val result = com.mailchat.crypto.OpenPgpKeyService.decryptAndVerify(context, bodyFull, senderPubKey)
+                    val result = com.mailchat.crypto.OpenPgpKeyService.decryptAndVerify(context, bodyFull, senderKey())
                     bodyFull = result.plaintext
                     signatureStatus = result.signatureStatus.name
                     com.mailchat.ai.AppLogger.log(
