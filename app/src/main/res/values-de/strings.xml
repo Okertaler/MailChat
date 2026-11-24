@@ -351,6 +351,8 @@
     <string name="drawing_clear">Leeren</string>
     <string name="drawing_undo">Rückgängig</string>
     <string name="drawing_redo">Wiederholen</string>
+    <string name="drawing_shape_line">Linie</string>
+    <string name="drawing_shape_circle">Kreis</string>
     <string name="save">Speichern</string>
     <string name="where_are_you">Wo bist Du?</string>
     <string name="where_are_you_text">Wo bist Du?</string>

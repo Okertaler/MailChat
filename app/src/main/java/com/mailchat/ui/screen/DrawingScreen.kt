@@ -27,8 +27,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.HorizontalRule
 import androidx.compose.material.icons.filled.Image as ImageIcon
 import androidx.compose.material.icons.filled.Redo
 import androidx.compose.material.icons.filled.Undo
@@ -52,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -63,13 +66,20 @@ import com.mailchat.R
 import java.io.File
 import java.io.FileOutputStream
 
+/** The shape drawn by a long-press + drag gesture (a quick touch/drag is freehand). */
+private enum class DrawShape { Line, Circle }
+
 /**
  * A simple finger-drawing screen. The user can draw freehand on a white canvas and optionally
  * load an image to draw on top of it. When the user taps "Save", the drawing is rendered to a
  * PNG file and handed back via [onConfirm] (so it can be attached to the email being composed).
  *
+ * A quick touch/drag draws freehand. A long-press (held still) starts a shape: dragging then
+ * previews a straight line (from the press point) or a circle (centered at the press point,
+ * radius = distance to the finger), which is committed when the finger lifts.
+ *
  * The drawing is done directly onto an Android [Bitmap] (mutated in place). A [version] counter
- * is bumped on every draw operation to force the [Image] to recompose and re-read the bitmap.
+ * is bumped on every draw operation to force the canvas to recompose and re-read the bitmap.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,6 +100,11 @@ fun DrawingScreen(
     // Stroke width level: 1 = thin, 2 = medium, 3 = thick. Clicking the already-selected color
     // cycles through the three levels.
     var strokeWidthLevel by remember { mutableStateOf(1) }
+    // The shape drawn by a long-press + drag gesture.
+    var selectedShape by remember { mutableStateOf(DrawShape.Line) }
+    // The in-progress shape preview (set while a long-press drag is active).
+    var shapeStart by remember { mutableStateOf<Offset?>(null) }
+    var shapeCurrent by remember { mutableStateOf<Offset?>(null) }
     val paint = remember {
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
@@ -267,6 +282,34 @@ fun DrawingScreen(
                     }
                 }
                 Spacer(Modifier.width(8.dp))
+                // Shape selector for the long-press gesture (line / circle).
+                IconButton(
+                    onClick = { selectedShape = DrawShape.Line },
+                    modifier = Modifier.background(
+                        if (selectedShape == DrawShape.Line) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
+                        CircleShape
+                    )
+                ) {
+                    Icon(
+                        Icons.Default.HorizontalRule,
+                        contentDescription = stringResource(R.string.drawing_shape_line),
+                        tint = if (selectedShape == DrawShape.Line) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                IconButton(
+                    onClick = { selectedShape = DrawShape.Circle },
+                    modifier = Modifier.background(
+                        if (selectedShape == DrawShape.Circle) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
+                        CircleShape
+                    )
+                ) {
+                    Icon(
+                        Icons.Default.Circle,
+                        contentDescription = stringResource(R.string.drawing_shape_circle),
+                        tint = if (selectedShape == DrawShape.Circle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
                 IconButton(onClick = { imagePicker.launch("image/*") }) {
                     Icon(Icons.Default.ImageIcon, contentDescription = stringResource(R.string.drawing_load_image))
                 }
@@ -303,44 +346,114 @@ fun DrawingScreen(
                         }
                     }
                     // The pointer input lives on the (stable) Box, not on the Image, so the
-                    // in-progress drag is not interrupted when the Image recomposes.
+                    // in-progress drag is not interrupted when the canvas recomposes.
+                    // A quick touch/drag draws freehand; holding still (long-press) starts a
+                    // shape (line/circle) that is previewed while dragging and committed on release.
                     .pointerInput(Unit) {
+                        val handler = android.os.Handler(android.os.Looper.getMainLooper())
                         awaitPointerEventScope {
-                            var isDrawing = false
+                            var isDown = false
+                            var mode = "idle" // "idle" | "freehand" | "shape"
+                            var startPos: Offset? = null
                             var lastPos: Offset? = null
+                            var longPressRunnable: Runnable? = null
+                            val slop = 20f
+                            val longPressMs = 400L
                             while (true) {
                                 val event = awaitPointerEvent()
                                 val change = event.changes.firstOrNull() ?: continue
                                 val bmp = bitmap ?: continue
-                                val canvas = android.graphics.Canvas(bmp)
                                 when (event.type) {
                                     PointerEventType.Press -> {
-                                        isDrawing = true
-                                        // Save the current state so this stroke can be undone.
-                                        pushUndoState()
-                                        val pos = change.position
-                                        paint.color = strokeColor.toArgb()
-                                        paint.strokeWidth = strokeWidthForLevel(strokeWidthLevel)
-                                        canvas.drawCircle(pos.x, pos.y, paint.strokeWidth / 2, paint)
-                                        lastPos = pos
-                                        version++
+                                        isDown = true
+                                        mode = "idle"
+                                        startPos = change.position
+                                        lastPos = change.position
+                                        shapeStart = change.position
+                                        shapeCurrent = change.position
+                                        // If the finger is held still for longPressMs, switch to shape mode.
+                                        longPressRunnable = Runnable {
+                                            if (isDown && mode == "idle") {
+                                                pushUndoState()
+                                                mode = "shape"
+                                                version++
+                                            }
+                                        }
+                                        handler.postDelayed(longPressRunnable, longPressMs)
                                         change.consume()
                                     }
                                     PointerEventType.Move -> {
-                                        if (isDrawing) {
-                                            val pos = change.position
-                                            val last = lastPos
-                                            if (last != null) {
-                                                canvas.drawLine(last.x, last.y, pos.x, pos.y, paint)
+                                        if (!isDown) continue
+                                        val pos = change.position
+                                        val start = startPos
+                                        when (mode) {
+                                            "idle" -> {
+                                                // Moved beyond the slop before the long-press fired -> freehand.
+                                                if (start != null && dist(start, pos) > slop) {
+                                                    longPressRunnable?.let { handler.removeCallbacks(it) }
+                                                    pushUndoState()
+                                                    mode = "freehand"
+                                                    val canvas = android.graphics.Canvas(bmp)
+                                                    paint.color = strokeColor.toArgb()
+                                                    paint.strokeWidth = strokeWidthForLevel(strokeWidthLevel)
+                                                    canvas.drawLine(start.x, start.y, pos.x, pos.y, paint)
+                                                    lastPos = pos
+                                                    version++
+                                                }
                                             }
-                                            lastPos = pos
-                                            version++
-                                            change.consume()
+                                            "freehand" -> {
+                                                val canvas = android.graphics.Canvas(bmp)
+                                                val last = lastPos
+                                                if (last != null) {
+                                                    paint.color = strokeColor.toArgb()
+                                                    paint.strokeWidth = strokeWidthForLevel(strokeWidthLevel)
+                                                    canvas.drawLine(last.x, last.y, pos.x, pos.y, paint)
+                                                }
+                                                lastPos = pos
+                                                version++
+                                            }
+                                            "shape" -> {
+                                                // Update the live preview (committed on release).
+                                                shapeCurrent = pos
+                                                version++
+                                            }
                                         }
+                                        change.consume()
                                     }
                                     PointerEventType.Release -> {
-                                        isDrawing = false
+                                        longPressRunnable?.let { handler.removeCallbacks(it) }
+                                        when (mode) {
+                                            "shape" -> {
+                                                val canvas = android.graphics.Canvas(bmp)
+                                                paint.color = strokeColor.toArgb()
+                                                paint.strokeWidth = strokeWidthForLevel(strokeWidthLevel)
+                                                val s = shapeStart
+                                                val c = shapeCurrent
+                                                if (s != null && c != null) {
+                                                    when (selectedShape) {
+                                                        DrawShape.Line -> canvas.drawLine(s.x, s.y, c.x, c.y, paint)
+                                                        DrawShape.Circle -> canvas.drawCircle(s.x, s.y, dist(s, c), paint)
+                                                    }
+                                                }
+                                                version++
+                                            }
+                                            "idle" -> {
+                                                // Quick tap -> draw a dot.
+                                                val canvas = android.graphics.Canvas(bmp)
+                                                paint.color = strokeColor.toArgb()
+                                                paint.strokeWidth = strokeWidthForLevel(strokeWidthLevel)
+                                                startPos?.let { p ->
+                                                    canvas.drawCircle(p.x, p.y, paint.strokeWidth / 2, paint)
+                                                }
+                                                version++
+                                            }
+                                            // "freehand": already drawn incrementally, nothing to commit.
+                                        }
+                                        isDown = false
+                                        mode = "idle"
                                         lastPos = null
+                                        shapeStart = null
+                                        shapeCurrent = null
                                         change.consume()
                                     }
                                     else -> { /* ignore */ }
@@ -360,12 +473,32 @@ fun DrawingScreen(
                             // it at its natural size fills the canvas 1:1.
                             drawImage(image = bmp.asImageBitmap())
                         }
+                        // Live preview of the in-progress shape (long-press + drag).
+                        val s = shapeStart
+                        val c = shapeCurrent
+                        if (s != null && c != null) {
+                            val color = strokeColor
+                            val width = strokeWidthForLevel(strokeWidthLevel)
+                            when (selectedShape) {
+                                DrawShape.Line -> drawLine(color, s, c, width)
+                                DrawShape.Circle -> drawCircle(
+                                    color = color,
+                                    radius = dist(s, c),
+                                    center = s,
+                                    style = Stroke(width)
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
 }
+
+/** Euclidean distance between two points. */
+private fun dist(a: Offset, b: Offset): Float =
+    kotlin.math.hypot((a.x - b.x).toDouble(), (a.y - b.y).toDouble()).toFloat()
 
 /** Draws [img] onto [canvas], scaled to fit (centered) within [width]x[height]. */
 private fun drawBaseImage(canvas: android.graphics.Canvas, img: Bitmap, width: Int, height: Int) {
