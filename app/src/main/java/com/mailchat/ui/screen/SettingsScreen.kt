@@ -1980,6 +1980,8 @@ fun SettingsScreen(
                                 onValueChange = { exportPassword = it },
                                 label = { Text(stringResource(R.string.backup_password)) },
                                 singleLine = true,
+                                visualTransformation = PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Spacer(modifier = Modifier.height(12.dp))
@@ -2068,6 +2070,8 @@ fun SettingsScreen(
                                 onValueChange = { importPassword = it },
                                 label = { Text(stringResource(R.string.backup_password)) },
                                 singleLine = true,
+                                visualTransformation = PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Spacer(modifier = Modifier.height(16.dp))
