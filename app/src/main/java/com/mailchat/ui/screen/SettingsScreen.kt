@@ -90,18 +90,46 @@ fun SectionDivider(modifier: Modifier = Modifier) {
 
 /**
  * A small group header used inside a collapsible section (e.g. the secure
- * settings) to visually group related items.
+ * settings) to visually group related items. Optionally shows a help icon
+ * with group-specific help text.
  */
 @Composable
-private fun SecureGroupHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
+private fun SecureGroupHeader(
+    title: String,
+    helpTitle: String? = null,
+    helpText: String? = null
+) {
+    var showGroupHelp by remember { mutableStateOf(false) }
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)
-    )
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f)
+        )
+        if (helpText != null) {
+            IconButton(onClick = { showGroupHelp = true }, modifier = Modifier.size(24.dp)) {
+                Icon(Icons.Outlined.Help, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+            }
+        }
+    }
+    if (showGroupHelp && helpText != null) {
+        AlertDialog(
+            onDismissRequest = { showGroupHelp = false },
+            title = { Text(helpTitle ?: title) },
+            text = { Text(helpText) },
+            confirmButton = {
+                TextButton(onClick = { showGroupHelp = false }) {
+                    Text(stringResource(R.string.ok))
+                }
+            }
+        )
+    }
 }
 
 /**
@@ -1141,7 +1169,11 @@ fun SettingsScreen(
                 val senderId = SettingsUtils.getSenderAccountId(context)
                 (uiState.accounts.firstOrNull { it.id == senderId } ?: uiState.accounts.firstOrNull())?.emailAddress ?: ""
             }
-            SecureGroupHeader("🔑 " + stringResource(R.string.secure_group_key))
+            SecureGroupHeader(
+                title = "🔑 " + stringResource(R.string.secure_group_key),
+                helpTitle = stringResource(R.string.help_secure_title),
+                helpText = stringResource(R.string.help_secure_key_text)
+            )
 
             var showDeleteKeyDialog by remember { mutableStateOf(false) }
             ListItem(
@@ -1384,7 +1416,11 @@ fun SettingsScreen(
                 )
             }
 
-            SecureGroupHeader("🌐 " + stringResource(R.string.secure_group_directory))
+            SecureGroupHeader(
+                title = "🌐 " + stringResource(R.string.secure_group_directory),
+                helpTitle = stringResource(R.string.help_secure_title),
+                helpText = stringResource(R.string.help_secure_directory_text)
+            )
 
             ListItem(
                 headlineContent = { Text("🌐 " + stringResource(R.string.secure_auto_lookup)) },
@@ -1502,7 +1538,11 @@ fun SettingsScreen(
                 )
             }
 
-            SecureGroupHeader("⚙️ " + stringResource(R.string.secure_group_behavior))
+            SecureGroupHeader(
+                title = "⚙️ " + stringResource(R.string.secure_group_behavior),
+                helpTitle = stringResource(R.string.help_secure_title),
+                helpText = stringResource(R.string.help_secure_behavior_text)
+            )
 
             var encryptSubjectEnabled by remember { mutableStateOf(com.mailchat.crypto.OpenPgpKeyService.isEncryptSubjectEnabled(context)) }
             ListItem(
@@ -1574,7 +1614,11 @@ fun SettingsScreen(
                 )
             }
 
-            SecureGroupHeader("👥 " + stringResource(R.string.secure_group_contacts))
+            SecureGroupHeader(
+                title = "👥 " + stringResource(R.string.secure_group_contacts),
+                helpTitle = stringResource(R.string.help_secure_title),
+                helpText = stringResource(R.string.help_secure_contacts_text)
+            )
 
             var showPeersDialog by remember { mutableStateOf(false) }
             val peersCount = com.mailchat.crypto.OpenPgpKeyService.getPeers(context).size
