@@ -156,7 +156,7 @@ class AutoReplyService @Inject constructor(
 
         // Optionally attach a small OpenStreetMap map image of the location. The map is
         // optional: if it cannot be generated (network failure, …) the reply is sent without
-        // it. Note: the map image is an unencrypted attachment (only the body is encrypted).
+        // it. When the recipient has a key, the map is encrypted together with the body.
         val mapFile = if (SettingsUtils.getAutoMap(appContext, sender)) {
             // Tiles are fetched in parallel, so generation normally takes 1–3 s; the 30 s
             // timeout is a safety net (worst case: one tile timeout of 8 s + overhead).
@@ -186,6 +186,11 @@ class AutoReplyService @Inject constructor(
             // the chat comes from the isEncrypted flag. ---
             var finalBody = plainBody
             var isEncryptedMsg = false
+            // The map attachment is encrypted together with the body when the recipient has a
+            // key (same as the normal send flow). If the map encryption fails, the reply is
+            // sent WITHOUT the map (privacy: never send a plaintext location map in an
+            // otherwise encrypted reply).
+            var finalMapFile = mapFile
             if (com.mailchat.crypto.OpenPgpKeyService.hasIdentity(appContext)) {
                 withContext(Dispatchers.IO) {
                     try {
@@ -199,6 +204,17 @@ class AutoReplyService @Inject constructor(
                             isEncryptedMsg = true
                             extraHeaders["X-MailChat-Encryption"] = "OpenPGP"
                             com.mailchat.ai.AppLogger.log(appContext, "Auto-reply: signed+encrypted with OpenPGP")
+                            if (mapFile != null) {
+                                try {
+                                    val encDir = java.io.File(appContext.cacheDir, "enc_attachments").apply { mkdirs() }
+                                    val encFile = java.io.File(encDir, "${mapFile.name}.gpg")
+                                    com.mailchat.crypto.OpenPgpKeyService.encryptFile(mapFile, encFile, pubKey)
+                                    finalMapFile = encFile
+                                } catch (e: Exception) {
+                                    com.mailchat.ai.AppLogger.log(appContext, "Auto-reply: map attachment encryption failed, sending without map: ${e.message}")
+                                    finalMapFile = null
+                                }
+                            }
                         } else {
                             com.mailchat.ai.AppLogger.log(appContext, "Auto-reply: no public key for $sender -> plaintext")
                         }
@@ -218,6 +234,17 @@ class AutoReplyService @Inject constructor(
                         extraHeaders["X-MailChat-Encryption"] = "AES-256-GCM"
                         extraHeaders["X-MailChat-Fingerprint"] = peer.fingerprint
                         com.mailchat.ai.AppLogger.log(appContext, "Auto-reply: encrypted with legacy MAILCHAT_ENC")
+                        if (mapFile != null) {
+                            try {
+                                val encDir = java.io.File(appContext.cacheDir, "enc_attachments").apply { mkdirs() }
+                                val encFile = java.io.File(encDir, "${mapFile.name}.enc")
+                                com.mailchat.crypto.CryptoService.encryptFile(mapFile, encFile, peer.publicKeyArmored)
+                                finalMapFile = encFile
+                            } catch (e: Exception) {
+                                com.mailchat.ai.AppLogger.log(appContext, "Auto-reply: map attachment encryption failed (legacy), sending without map: ${e.message}")
+                                finalMapFile = null
+                            }
+                        }
                     } catch (e: Exception) {
                         com.mailchat.ai.AppLogger.log(appContext, "Auto-reply: legacy encryption failed: ${e.message}")
                     }
@@ -229,7 +256,7 @@ class AutoReplyService @Inject constructor(
                 to = sender,
                 subject = subject,
                 body = finalBody,
-                attachments = mapFile?.let { listOf(it) } ?: emptyList(),
+                attachments = finalMapFile?.let { listOf(it) } ?: emptyList(),
                 extraHeaders = extraHeaders,
                 bodyFormat = if (isEncryptedMsg) com.mailchat.network.BodyFormat.PLAIN
                     else com.mailchat.network.BodyFormat.PLAIN_AS_HTML
