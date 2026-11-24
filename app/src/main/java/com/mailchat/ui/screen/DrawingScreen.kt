@@ -8,7 +8,7 @@ import android.graphics.Rect
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -299,15 +299,17 @@ fun DrawingScreen(
                         }
                     }
             ) {
-                // The drawing surface. key(version) forces the Image to recompose and re-read
-                // the (mutated) bitmap on every draw operation.
+                // The drawing surface. key(version) forces the Canvas to recompose and re-draw
+                // the (mutated/replaced) bitmap on every draw operation, including undo/redo.
+                // A Canvas re-draws on every recomposition, which is more reliable than an
+                // Image with an ImageBitmap (which may cache the rendered pixels).
                 key(version) {
-                    bitmap?.let { bmp ->
-                        Image(
-                            bitmap = bmp.asImageBitmap(),
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize()
-                        )
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        bitmap?.let { bmp ->
+                            // The bitmap is created at the canvas size (onSizeChanged), so drawing
+                            // it at its natural size fills the canvas 1:1.
+                            drawImage(image = bmp.asImageBitmap())
+                        }
                     }
                 }
             }
