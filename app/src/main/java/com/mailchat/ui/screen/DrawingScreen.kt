@@ -139,7 +139,8 @@ fun DrawingScreen(
     fun pushUndoState() {
         bitmap?.let { current ->
             try {
-                undoStack.addLast(current.copy(Bitmap.Config.ARGB_8888, false))
+                // isMutable = true: the restored bitmap must be drawable onto again.
+                undoStack.addLast(current.copy(Bitmap.Config.ARGB_8888, true))
             } catch (e: OutOfMemoryError) {
                 // Out of memory: skip this undo step instead of crashing.
                 return
@@ -155,7 +156,7 @@ fun DrawingScreen(
         val bmp = bitmap ?: return
         if (undoStack.isEmpty()) return
         try {
-            redoStack.addLast(bmp.copy(Bitmap.Config.ARGB_8888, false))
+            redoStack.addLast(bmp.copy(Bitmap.Config.ARGB_8888, true))
         } catch (e: OutOfMemoryError) {
             // Out of memory: the undo still works, only the redo state is lost.
         }
@@ -169,7 +170,7 @@ fun DrawingScreen(
         val bmp = bitmap ?: return
         if (redoStack.isEmpty()) return
         try {
-            undoStack.addLast(bmp.copy(Bitmap.Config.ARGB_8888, false))
+            undoStack.addLast(bmp.copy(Bitmap.Config.ARGB_8888, true))
         } catch (e: OutOfMemoryError) {
             // Out of memory: the redo still works, only the undo state is lost.
         }
