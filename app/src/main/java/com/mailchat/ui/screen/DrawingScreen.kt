@@ -81,8 +81,10 @@ private enum class DrawShape { Line, Circle }
  * previews a straight line (from the press point) or a circle (centered at the press point,
  * radius = distance to the finger), which is committed when the finger lifts.
  *
- * The drawing is done directly onto an Android [Bitmap] (mutated in place). A [version] counter
- * is bumped on every draw operation to force the canvas to recompose and re-read the bitmap.
+ * The strokes live on a transparent [drawingLayer] bitmap, separate from the background: an
+ * image loaded (even after drawing) is rendered BEHIND the existing strokes. A [version]
+ * counter is bumped on every draw operation to force the canvas to recompose and re-read the
+ * bitmaps.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,11 +93,15 @@ fun DrawingScreen(
     onConfirm: (File) -> Unit
 ) {
     val context = LocalContext.current
-    // The drawing surface (mutated in place on every stroke).
-    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
-    // Bumped on every draw operation so the Image recomposes and re-reads the bitmap.
+    // The drawing layer: only the user's strokes on a transparent background (mutated in place
+    // on every stroke). Kept separate from the background so an image loaded later appears
+    // BEHIND the existing drawing.
+    var drawingLayer by remember { mutableStateOf<Bitmap?>(null) }
+    // Bumped on every draw operation so the canvas recomposes and re-reads the bitmaps.
     var version by remember { mutableStateOf(0) }
-    // The image the user loaded to draw on top of (null = plain white canvas).
+    // The loaded image at its (sampled) natural size — the source for the background.
+    var baseImageSource by remember { mutableStateOf<Bitmap?>(null) }
+    // The pre-rendered background (canvas size: white + image scaled to fit, centered).
     var baseImage by remember { mutableStateOf<Bitmap?>(null) }
     // The display name of the loaded image (used for the saved file name).
     var baseImageName by remember { mutableStateOf<String?>(null) }
@@ -124,8 +130,25 @@ fun DrawingScreen(
         2 -> 16f
         else -> 28f
     }
-    // Undo/redo stacks: each entry is a full copy of the bitmap taken BEFORE a stroke (or clear)
-    // started. Bounded to keep memory usage reasonable.
+
+    // Re-renders the background (white + the loaded image scaled to fit, centered) at the
+    // current canvas size. Called when an image is loaded and when the canvas is (re)created.
+    fun renderBaseImage() {
+        val source = baseImageSource ?: return
+        val layer = drawingLayer ?: return
+        try {
+            val bg = Bitmap.createBitmap(layer.width, layer.height, Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bg)
+            canvas.drawColor(android.graphics.Color.WHITE)
+            drawBaseImage(canvas, source, layer.width, layer.height)
+            baseImage = bg
+        } catch (e: OutOfMemoryError) {
+            baseImage = null
+        }
+    }
+
+    // Undo/redo stacks: each entry is a full copy of the drawing layer taken BEFORE a stroke
+    // (or clear) started. Bounded to keep memory usage reasonable.
     val undoStack = remember { ArrayDeque<Bitmap>() }
     val redoStack = remember { ArrayDeque<Bitmap>() }
     // Each entry is a full canvas copy (~10 MB on a phone, ~16 MB on a tablet), so keep the
@@ -137,7 +160,7 @@ fun DrawingScreen(
     var canRedo by remember { mutableStateOf(false) }
 
     fun pushUndoState() {
-        bitmap?.let { current ->
+        drawingLayer?.let { current ->
             try {
                 // isMutable = true: the restored bitmap must be drawable onto again.
                 undoStack.addLast(current.copy(Bitmap.Config.ARGB_8888, true))
@@ -153,28 +176,28 @@ fun DrawingScreen(
     }
 
     fun undo() {
-        val bmp = bitmap ?: return
+        val bmp = drawingLayer ?: return
         if (undoStack.isEmpty()) return
         try {
             redoStack.addLast(bmp.copy(Bitmap.Config.ARGB_8888, true))
         } catch (e: OutOfMemoryError) {
             // Out of memory: the undo still works, only the redo state is lost.
         }
-        bitmap = undoStack.removeLast()
+        drawingLayer = undoStack.removeLast()
         canUndo = undoStack.isNotEmpty()
         canRedo = true
         version++
     }
 
     fun redo() {
-        val bmp = bitmap ?: return
+        val bmp = drawingLayer ?: return
         if (redoStack.isEmpty()) return
         try {
             undoStack.addLast(bmp.copy(Bitmap.Config.ARGB_8888, true))
         } catch (e: OutOfMemoryError) {
             // Out of memory: the redo still works, only the undo state is lost.
         }
-        bitmap = redoStack.removeLast()
+        drawingLayer = redoStack.removeLast()
         canUndo = true
         canRedo = redoStack.isNotEmpty()
         version++
@@ -204,8 +227,9 @@ fun DrawingScreen(
                     outHeight = bounds.outHeight
                 }
                 // Second pass: decode with a sample size so the bitmap stays small enough
-                // (a full-resolution photo can be 50-200 MB and crash the app).
-                val targetMax = (bitmap?.let { maxOf(it.width, it.height) } ?: 1024) * 2
+                // (a full-resolution photo can be 50-200 MB and crash the app). The image is
+                // displayed scaled to fit the canvas, so the canvas size is the target.
+                val targetMax = drawingLayer?.let { maxOf(it.width, it.height) } ?: 2048
                 var sample = 1
                 val maxDim = maxOf(outWidth, outHeight)
                 while (maxDim > 0 && maxDim / sample > targetMax && sample < 32) sample *= 2
@@ -213,14 +237,12 @@ fun DrawingScreen(
                     val opts = BitmapFactory.Options().apply { if (sample > 1) inSampleSize = sample }
                     val bmp = BitmapFactory.decodeStream(input, null, opts)
                     if (bmp != null) {
-                        baseImage = bmp
-                        // Redraw the canvas with the new base image.
-                        bitmap?.let { existing ->
-                            val canvas = android.graphics.Canvas(existing)
-                            canvas.drawColor(android.graphics.Color.WHITE)
-                            drawBaseImage(canvas, bmp, existing.width, existing.height)
-                            version++
-                        }
+                        // Store the image as the background source and re-render the background.
+                        // The drawing layer is left untouched, so the image appears BEHIND any
+                        // existing strokes (even if the user drew before loading the image).
+                        baseImageSource = bmp
+                        renderBaseImage()
+                        version++
                     }
                 }
             } catch (e: Throwable) {
@@ -250,13 +272,13 @@ fun DrawingScreen(
                     }
                     TextButton(
                         onClick = {
-                            bitmap?.let { bmp ->
-                                saveBitmapToPng(context, bmp, baseImageName) { file ->
+                            drawingLayer?.let { layer ->
+                                saveBitmapToPng(context, layer, baseImage, baseImageName) { file ->
                                     onConfirm(file)
                                 }
                             }
                         },
-                        enabled = bitmap != null
+                        enabled = drawingLayer != null
                     ) {
                         Text(stringResource(R.string.save))
                     }
@@ -340,12 +362,12 @@ fun DrawingScreen(
                     Icon(Icons.Default.ImageIcon, contentDescription = stringResource(R.string.drawing_load_image))
                 }
                 IconButton(onClick = {
-                    bitmap?.let { bmp ->
-                        // Save the current state so the clear can be undone.
+                    drawingLayer?.let { layer ->
+                        // Save the current state so the clear can be undone. Only the strokes
+                        // are cleared; the background image (if any) stays in place.
                         pushUndoState()
-                        val canvas = android.graphics.Canvas(bmp)
-                        canvas.drawColor(android.graphics.Color.WHITE)
-                        baseImage?.let { drawBaseImage(canvas, it, bmp.width, bmp.height) }
+                        val canvas = android.graphics.Canvas(layer)
+                        canvas.drawColor(android.graphics.Color.TRANSPARENT)
                         version++
                     }
                 }) {
@@ -360,18 +382,16 @@ fun DrawingScreen(
                     .padding(horizontal = 12.dp, vertical = 8.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color.White)
-                    // Create the bitmap when the canvas size is known.
+                    // Create the (transparent) drawing layer when the canvas size is known.
                     .onSizeChanged { intSize ->
                         if (intSize.width > 0 && intSize.height > 0) {
                             try {
-                                val bmp = Bitmap.createBitmap(intSize.width, intSize.height, Bitmap.Config.ARGB_8888)
-                                val canvas = android.graphics.Canvas(bmp)
-                                canvas.drawColor(android.graphics.Color.WHITE)
-                                baseImage?.let { drawBaseImage(canvas, it, intSize.width, intSize.height) }
-                                bitmap = bmp
+                                val layer = Bitmap.createBitmap(intSize.width, intSize.height, Bitmap.Config.ARGB_8888)
+                                drawingLayer = layer
+                                renderBaseImage()
                                 version++
                             } catch (e: OutOfMemoryError) {
-                                // Canvas too large for the available memory — keep the previous bitmap.
+                                // Canvas too large for the available memory — keep the previous layer.
                             }
                         }
                     }
@@ -392,7 +412,7 @@ fun DrawingScreen(
                             while (true) {
                                 val event = awaitPointerEvent()
                                 val change = event.changes.firstOrNull() ?: continue
-                                val bmp = bitmap ?: continue
+                                val bmp = drawingLayer ?: continue
                                 when (event.type) {
                                     PointerEventType.Press -> {
                                         isDown = true
@@ -498,9 +518,13 @@ fun DrawingScreen(
                 // Image with an ImageBitmap (which may cache the rendered pixels).
                 key(version) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
-                        bitmap?.let { bmp ->
-                            // The bitmap is created at the canvas size (onSizeChanged), so drawing
-                            // it at its natural size fills the canvas 1:1.
+                        // Background first (white + the loaded image, pre-rendered at canvas
+                        // size), then the drawing layer (strokes only) on top. Both bitmaps are
+                        // created at the canvas size (onSizeChanged), so they fill it 1:1.
+                        baseImage?.let { bmp ->
+                            drawImage(image = bmp.asImageBitmap())
+                        }
+                        drawingLayer?.let { bmp ->
                             drawImage(image = bmp.asImageBitmap())
                         }
                         // Live preview of the in-progress shape (long-press + drag).
@@ -580,13 +604,31 @@ private fun drawingFileName(baseImageName: String?): String {
     }
 }
 
-/** Saves [bmp] as a PNG file in the cache directory and hands the file back via [onSaved]. */
-private fun saveBitmapToPng(context: Context, bmp: Bitmap, baseImageName: String?, onSaved: (File) -> Unit) {
+/**
+ * Composites the background (the loaded image or plain white) with the drawing layer and saves
+ * the result as a PNG file in the cache directory, handing the file back via [onSaved].
+ */
+private fun saveBitmapToPng(
+    context: Context,
+    drawingLayer: Bitmap,
+    baseImage: Bitmap?,
+    baseImageName: String?,
+    onSaved: (File) -> Unit
+) {
     try {
         context.cacheDir.mkdirs()
         val file = File(context.cacheDir, drawingFileName(baseImageName))
-        FileOutputStream(file).use { out ->
-            bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
+        // Start from the background (canvas size) or a plain white bitmap.
+        val out = if (baseImage != null) {
+            baseImage.copy(Bitmap.Config.ARGB_8888, true)
+        } else {
+            Bitmap.createBitmap(drawingLayer.width, drawingLayer.height, Bitmap.Config.ARGB_8888).also {
+                android.graphics.Canvas(it).drawColor(android.graphics.Color.WHITE)
+            }
+        }
+        android.graphics.Canvas(out).drawBitmap(drawingLayer, 0f, 0f, null)
+        FileOutputStream(file).use { outStream ->
+            out.compress(Bitmap.CompressFormat.PNG, 100, outStream)
         }
         onSaved(file)
     } catch (e: Throwable) {
