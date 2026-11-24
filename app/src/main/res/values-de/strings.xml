@@ -316,6 +316,7 @@
     <string name="search">Suche</string>
     <string name="search_chats">Chats durchsuchen…</string>
     <string name="search_messages">Nachrichten durchsuchen…</string>
+    <string name="clear_search">Suche leeren</string>
     <string name="no_results">Keine Ergebnisse</string>
     <string name="delete_chats">Chats löschen</string>
     <string name="delete_chats_confirm_title">Ausgewählte Chats löschen?</string>
