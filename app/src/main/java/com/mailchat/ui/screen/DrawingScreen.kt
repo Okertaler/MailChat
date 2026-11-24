@@ -128,7 +128,9 @@ fun DrawingScreen(
     // started. Bounded to keep memory usage reasonable.
     val undoStack = remember { ArrayDeque<Bitmap>() }
     val redoStack = remember { ArrayDeque<Bitmap>() }
-    val maxUndoSteps = 15
+    // Each entry is a full canvas copy (~10 MB on a phone, ~16 MB on a tablet), so keep the
+    // stack small to avoid running out of memory during long drawing sessions.
+    val maxUndoSteps = 10
     // Explicit state for the top-bar buttons: the stacks themselves are not observable, so the
     // TopAppBar would not recompose (and the buttons would stay disabled) when they change.
     var canUndo by remember { mutableStateOf(false) }
@@ -136,7 +138,12 @@ fun DrawingScreen(
 
     fun pushUndoState() {
         bitmap?.let { current ->
-            undoStack.addLast(current.copy(Bitmap.Config.ARGB_8888, false))
+            try {
+                undoStack.addLast(current.copy(Bitmap.Config.ARGB_8888, false))
+            } catch (e: OutOfMemoryError) {
+                // Out of memory: skip this undo step instead of crashing.
+                return
+            }
             if (undoStack.size > maxUndoSteps) undoStack.removeFirst()
             redoStack.clear()
             canUndo = true
@@ -147,7 +154,11 @@ fun DrawingScreen(
     fun undo() {
         val bmp = bitmap ?: return
         if (undoStack.isEmpty()) return
-        redoStack.addLast(bmp.copy(Bitmap.Config.ARGB_8888, false))
+        try {
+            redoStack.addLast(bmp.copy(Bitmap.Config.ARGB_8888, false))
+        } catch (e: OutOfMemoryError) {
+            // Out of memory: the undo still works, only the redo state is lost.
+        }
         bitmap = undoStack.removeLast()
         canUndo = undoStack.isNotEmpty()
         canRedo = true
@@ -157,7 +168,11 @@ fun DrawingScreen(
     fun redo() {
         val bmp = bitmap ?: return
         if (redoStack.isEmpty()) return
-        undoStack.addLast(bmp.copy(Bitmap.Config.ARGB_8888, false))
+        try {
+            undoStack.addLast(bmp.copy(Bitmap.Config.ARGB_8888, false))
+        } catch (e: OutOfMemoryError) {
+            // Out of memory: the redo still works, only the undo state is lost.
+        }
         bitmap = redoStack.removeLast()
         canUndo = true
         canRedo = redoStack.isNotEmpty()
@@ -178,8 +193,24 @@ fun DrawingScreen(
                     }
                 }
                 baseImageName = name
+                // First pass: read the dimensions without decoding the pixels.
+                var outWidth = 0
+                var outHeight = 0
                 context.contentResolver.openInputStream(picked)?.use { input ->
-                    val bmp = BitmapFactory.decodeStream(input)
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeStream(input, null, bounds)
+                    outWidth = bounds.outWidth
+                    outHeight = bounds.outHeight
+                }
+                // Second pass: decode with a sample size so the bitmap stays small enough
+                // (a full-resolution photo can be 50-200 MB and crash the app).
+                val targetMax = (bitmap?.let { maxOf(it.width, it.height) } ?: 1024) * 2
+                var sample = 1
+                val maxDim = maxOf(outWidth, outHeight)
+                while (maxDim > 0 && maxDim / sample > targetMax && sample < 32) sample *= 2
+                context.contentResolver.openInputStream(picked)?.use { input ->
+                    val opts = BitmapFactory.Options().apply { if (sample > 1) inSampleSize = sample }
+                    val bmp = BitmapFactory.decodeStream(input, null, opts)
                     if (bmp != null) {
                         baseImage = bmp
                         // Redraw the canvas with the new base image.
@@ -191,8 +222,8 @@ fun DrawingScreen(
                         }
                     }
                 }
-            } catch (e: Exception) {
-                // Ignore — the user can pick another image.
+            } catch (e: Throwable) {
+                // Ignore (including OutOfMemoryError) — the user can pick another image.
             }
         }
     }
@@ -331,12 +362,16 @@ fun DrawingScreen(
                     // Create the bitmap when the canvas size is known.
                     .onSizeChanged { intSize ->
                         if (intSize.width > 0 && intSize.height > 0) {
-                            val bmp = Bitmap.createBitmap(intSize.width, intSize.height, Bitmap.Config.ARGB_8888)
-                            val canvas = android.graphics.Canvas(bmp)
-                            canvas.drawColor(android.graphics.Color.WHITE)
-                            baseImage?.let { drawBaseImage(canvas, it, intSize.width, intSize.height) }
-                            bitmap = bmp
-                            version++
+                            try {
+                                val bmp = Bitmap.createBitmap(intSize.width, intSize.height, Bitmap.Config.ARGB_8888)
+                                val canvas = android.graphics.Canvas(bmp)
+                                canvas.drawColor(android.graphics.Color.WHITE)
+                                baseImage?.let { drawBaseImage(canvas, it, intSize.width, intSize.height) }
+                                bitmap = bmp
+                                version++
+                            } catch (e: OutOfMemoryError) {
+                                // Canvas too large for the available memory — keep the previous bitmap.
+                            }
                         }
                     }
                     // The pointer input lives on the (stable) Box, not on the Image, so the
@@ -553,7 +588,7 @@ private fun saveBitmapToPng(context: Context, bmp: Bitmap, baseImageName: String
             bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
         onSaved(file)
-    } catch (e: Exception) {
-        // Ignore — the user can try again.
+    } catch (e: Throwable) {
+        // Ignore (including OutOfMemoryError) — the user can try again.
     }
 }
