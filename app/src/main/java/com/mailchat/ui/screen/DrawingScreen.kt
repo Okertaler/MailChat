@@ -3,6 +3,7 @@ package com.mailchat.ui.screen
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Rect
 import android.net.Uri
@@ -35,6 +36,8 @@ import androidx.compose.material.icons.filled.HorizontalRule
 import androidx.compose.material.icons.filled.Image as ImageIcon
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Redo
+import androidx.compose.material.icons.filled.RotateRight
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -144,6 +147,27 @@ fun DrawingScreen(
             baseImage = bg
         } catch (e: OutOfMemoryError) {
             baseImage = null
+        }
+    }
+
+    // Rotates the loaded background image 90° clockwise. The strokes on the drawing layer
+    // are left untouched (they stay where the user drew them). Only available with an image.
+    fun rotateBaseImage90() {
+        val source = baseImageSource ?: return
+        try {
+            val rotated = Bitmap.createBitmap(source.height, source.width, Bitmap.Config.ARGB_8888)
+            val matrix = Matrix().apply {
+                postRotate(90f)
+                postTranslate(source.height.toFloat(), 0f)
+            }
+            val canvas = android.graphics.Canvas(rotated)
+            canvas.drawBitmap(source, matrix, null)
+            source.recycle()
+            baseImageSource = rotated
+            renderBaseImage()
+            version++
+        } catch (e: OutOfMemoryError) {
+            // Out of memory: keep the old (unrotated) image.
         }
     }
 
@@ -270,7 +294,7 @@ fun DrawingScreen(
                     IconButton(onClick = { redo() }, enabled = canRedo) {
                         Icon(Icons.Default.Redo, contentDescription = stringResource(R.string.drawing_redo))
                     }
-                    TextButton(
+                    IconButton(
                         onClick = {
                             drawingLayer?.let { layer ->
                                 saveBitmapToPng(context, layer, baseImage, baseImageName) { file ->
@@ -280,7 +304,10 @@ fun DrawingScreen(
                         },
                         enabled = drawingLayer != null
                     ) {
-                        Text(stringResource(R.string.save))
+                        Icon(Icons.Filled.Save, contentDescription = stringResource(R.string.save))
+                    }
+                    IconButton(onClick = { rotateBaseImage90() }, enabled = baseImageSource != null) {
+                        Icon(Icons.Filled.RotateRight, contentDescription = stringResource(R.string.drawing_rotate))
                     }
                 }
             )
