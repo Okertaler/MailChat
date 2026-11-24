@@ -98,12 +98,18 @@ fun DrawingScreen(
     val undoStack = remember { ArrayDeque<Bitmap>() }
     val redoStack = remember { ArrayDeque<Bitmap>() }
     val maxUndoSteps = 15
+    // Explicit state for the top-bar buttons: the stacks themselves are not observable, so the
+    // TopAppBar would not recompose (and the buttons would stay disabled) when they change.
+    var canUndo by remember { mutableStateOf(false) }
+    var canRedo by remember { mutableStateOf(false) }
 
     fun pushUndoState() {
         bitmap?.let { current ->
             undoStack.addLast(current.copy(Bitmap.Config.ARGB_8888, false))
             if (undoStack.size > maxUndoSteps) undoStack.removeFirst()
             redoStack.clear()
+            canUndo = true
+            canRedo = false
         }
     }
 
@@ -112,6 +118,8 @@ fun DrawingScreen(
         if (undoStack.isEmpty()) return
         redoStack.addLast(bmp.copy(Bitmap.Config.ARGB_8888, false))
         bitmap = undoStack.removeLast()
+        canUndo = undoStack.isNotEmpty()
+        canRedo = true
         version++
     }
 
@@ -120,6 +128,8 @@ fun DrawingScreen(
         if (redoStack.isEmpty()) return
         undoStack.addLast(bmp.copy(Bitmap.Config.ARGB_8888, false))
         bitmap = redoStack.removeLast()
+        canUndo = true
+        canRedo = redoStack.isNotEmpty()
         version++
     }
 
@@ -157,10 +167,10 @@ fun DrawingScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { undo() }, enabled = undoStack.isNotEmpty()) {
+                    IconButton(onClick = { undo() }, enabled = canUndo) {
                         Icon(Icons.Default.Undo, contentDescription = stringResource(R.string.drawing_undo))
                     }
-                    IconButton(onClick = { redo() }, enabled = redoStack.isNotEmpty()) {
+                    IconButton(onClick = { redo() }, enabled = canRedo) {
                         Icon(Icons.Default.Redo, contentDescription = stringResource(R.string.drawing_redo))
                     }
                     TextButton(

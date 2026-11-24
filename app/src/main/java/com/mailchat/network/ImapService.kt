@@ -131,31 +131,39 @@ class ImapService @Inject constructor(
                 // mail). The missing-attachment repair passes includeOutgoing=true, because a reply
                 // (e.g. "AW: …") with an inline attachment lives in the Sent folder.
                 val folders = getSyncFolders(account).filter { includeOutgoing || !isOutgoingFolder(it) }
+                com.mailchat.ai.AppLogger.log(
+                    context,
+                    "fetchMessageByMessageId: searching ${folders.size} folder(s) ${folders} for mid=${messageId.take(40)} includeOutgoing=$includeOutgoing"
+                )
                 for (folderName in folders) {
                     try {
                         val folder = store.getFolder(folderName)
                         if (!folder.exists()) continue
+                        val isIncoming = !isOutgoingFolder(folderName)
                         folder.open(Folder.READ_ONLY)
                         try {
                             // 1) server-side SEARCH (kann von manchen Providern abgelehnt werden)
                             try {
                                 val found = folder.search(javax.mail.search.HeaderTerm("Message-ID", messageId))
                                 if (found.isNotEmpty()) {
-                                    val parsed = parseMessage(found.first(), true)
+                                    com.mailchat.ai.AppLogger.log(context, "fetchMessageByMessageId: found in $folderName via SEARCH")
+                                    val parsed = parseMessage(found.first(), isIncoming)
                                     if (parsed != null) return@withContext parsed
                                 }
-                            } catch (_: Exception) {
+                            } catch (e: Exception) {
+                                com.mailchat.ai.AppLogger.log(context, "fetchMessageByMessageId: SEARCH in $folderName failed: ${e.message}")
                             }
                             // 2) Fallback: Header der neuesten Nachrichten scannen
                             val messages = folder.messages
                             var checked = 0
                             for (i in messages.indices.reversed()) {
-                                if (checked >= 300) break
+                                if (checked >= 500) break
                                 checked++
                                 try {
                                     val mid = messages[i].getHeader("Message-ID")?.firstOrNull()
                                     if (mid != null && mid.trim() == messageId.trim()) {
-                                        val parsed = parseMessage(messages[i], true)
+                                        com.mailchat.ai.AppLogger.log(context, "fetchMessageByMessageId: found in $folderName via header scan (checked $checked)")
+                                        val parsed = parseMessage(messages[i], isIncoming)
                                         if (parsed != null) return@withContext parsed
                                         break
                                     }
@@ -169,11 +177,75 @@ class ImapService @Inject constructor(
                         android.util.Log.w("MailchatSync", "repair search $folderName failed", e)
                     }
                 }
+                com.mailchat.ai.AppLogger.log(context, "fetchMessageByMessageId: NOT FOUND for mid=${messageId.take(40)}")
                 null
             } finally {
                 store.close()
             }
         }
+
+    /**
+     * Fallback lookup when the Message-ID search fails (provider rejects SEARCH, the message is
+     * older than the header-scan window, or the stored Message-ID is empty). Finds a message in
+     * the sync folders whose subject matches [subject] and whose date is within [windowMs] of
+     * [timestamp]. Returns the parsed message, or null if nothing matches.
+     */
+    suspend fun fetchMessageBySubjectAndDate(
+        account: EmailAccount,
+        subject: String,
+        timestamp: Long,
+        windowMs: Long = 24 * 60 * 60 * 1000L,
+        includeOutgoing: Boolean = true
+    ): FetchedMessage? = withContext(Dispatchers.IO) {
+        if (subject.isBlank()) return@withContext null
+        val wantSubject = subject.trim().lowercase()
+        val store = connectStore(account)
+        try {
+            val folders = getSyncFolders(account).filter { includeOutgoing || !isOutgoingFolder(it) }
+            com.mailchat.ai.AppLogger.log(
+                context,
+                "fetchMessageBySubjectAndDate: searching ${folders.size} folder(s) for subject='${subject.take(40)}' ts=$timestamp"
+            )
+            for (folderName in folders) {
+                try {
+                    val folder = store.getFolder(folderName)
+                    if (!folder.exists()) continue
+                    val isIncoming = !isOutgoingFolder(folderName)
+                    folder.open(Folder.READ_ONLY)
+                    try {
+                        val messages = folder.messages
+                        var checked = 0
+                        for (i in messages.indices.reversed()) {
+                            if (checked >= 800) break
+                            checked++
+                            try {
+                                val m = messages[i]
+                                val subj = m.subject?.trim()?.lowercase() ?: ""
+                                if (subj != wantSubject) continue
+                                val date = messageDate(m).time
+                                if (kotlin.math.abs(date - timestamp) > windowMs) continue
+                                com.mailchat.ai.AppLogger.log(
+                                    context,
+                                    "fetchMessageBySubjectAndDate: match in $folderName (checked $checked, dateDelta=${date - timestamp}ms)"
+                                )
+                                val parsed = parseMessage(m, isIncoming)
+                                if (parsed != null) return@withContext parsed
+                            } catch (_: Exception) {
+                            }
+                        }
+                    } finally {
+                        folder.close(false)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("MailchatSync", "subject search $folderName failed", e)
+                }
+            }
+            com.mailchat.ai.AppLogger.log(context, "fetchMessageBySubjectAndDate: NOT FOUND for subject='${subject.take(40)}'")
+            null
+        } finally {
+            store.close()
+        }
+    }
 
     suspend fun fetchRawMessage(account: EmailAccount, messageId: String): String? =
         withContext(Dispatchers.IO) {

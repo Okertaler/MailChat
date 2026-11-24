@@ -124,8 +124,10 @@ class ChatDetailViewModel @Inject constructor(
     // Message-IDs for which a PGP/MIME re-fetch/repair was already attempted (avoids repeated
     // network calls for messages that genuinely have no decryptable content).
     private val repairedPgpMessageIds = java.util.Collections.synchronizedSet(mutableSetOf<String>())
-    // Message-IDs for which a missing-attachment re-fetch was already attempted in this session.
-    private val repairedAttachMessageIds = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+    // Local message IDs for which a missing-attachment re-fetch was already attempted in this
+    // session. Keyed by local id (not Message-ID) so messages with an empty stored Message-ID are
+    // also guarded.
+    private val repairedAttachLocalIds = java.util.Collections.synchronizedSet(mutableSetOf<Long>())
 
     private val _uiState = MutableStateFlow(ChatDetailUiState())
     val uiState: StateFlow<ChatDetailUiState> = _uiState.asStateFlow()
@@ -420,27 +422,59 @@ class ChatDetailViewModel @Inject constructor(
         val failedIds = com.mailchat.util.SettingsUtils.getAttachRepairFailedMessageIds(appContext)
         val candidates = messages
             .filter { msg ->
-                msg.messageId.isNotBlank() &&
-                    msg.messageId !in failedIds &&
-                    msg.messageId !in repairedAttachMessageIds &&
-                    (attachmentsMap[msg.id]?.isEmpty() ?: true)
+                (attachmentsMap[msg.id]?.isEmpty() ?: true) &&
+                    !repairedAttachLocalIds.contains(msg.id) &&
+                    // Skip only if we already know the server copy is text-only (needs a Message-ID).
+                    (msg.messageId.isBlank() || msg.messageId !in failedIds)
             }
             .sortedByDescending { it.timestamp }
             .take(50)
         if (candidates.isEmpty()) return
+        com.mailchat.ai.AppLogger.log(
+            appContext,
+            "ATTACH repair (chat): ${candidates.size} candidate(s) with 0 local attachments: " +
+                candidates.joinToString(", ") { "'${it.subject.take(25)}' mid=${if (it.messageId.isBlank()) "<EMPTY>" else it.messageId.take(25)}" }
+        )
         viewModelScope.launch {
             val chat = _uiState.value.chat ?: return@launch
             val account = accountRepository.getAccountById(chat.accountId) ?: return@launch
             for (msg in candidates) {
-                if (!repairedAttachMessageIds.add(msg.messageId)) continue
+                if (!repairedAttachLocalIds.add(msg.id)) continue
                 try {
                     // includeOutgoing=true: a reply ("AW: …") with an inline attachment is in the
                     // Sent folder, not the INBOX.
-                    val fetched = imapService.fetchMessageByMessageId(account, msg.messageId, includeOutgoing = true) ?: continue
+                    var fetched = if (msg.messageId.isNotBlank()) {
+                        imapService.fetchMessageByMessageId(account, msg.messageId, includeOutgoing = true)
+                    } else {
+                        null
+                    }
+                    // Fallback: Message-ID missing or the server lookup failed -> match by subject+date.
+                    if (fetched == null) {
+                        com.mailchat.ai.AppLogger.log(
+                            appContext,
+                            "ATTACH repair (chat): Message-ID lookup failed/empty for '${msg.subject.take(40)}' (mid='${msg.messageId.take(30)}') -> trying subject+date"
+                        )
+                        fetched = imapService.fetchMessageBySubjectAndDate(
+                            account, msg.subject, msg.timestamp, includeOutgoing = true
+                        )
+                    }
+                    if (fetched == null) {
+                        com.mailchat.ai.AppLogger.log(
+                            appContext,
+                            "ATTACH repair (chat): server copy NOT FOUND for '${msg.subject.take(40)}' (mid='${msg.messageId.take(30)}')"
+                        )
+                        continue
+                    }
                     if (fetched.attachments.isEmpty()) {
                         // The server copy has no attachments either — a genuinely text-only email.
                         // Remember it so it is not re-fetched on every chat open forever.
-                        com.mailchat.util.SettingsUtils.addAttachRepairFailedMessageId(appContext, msg.messageId)
+                        if (msg.messageId.isNotBlank()) {
+                            com.mailchat.util.SettingsUtils.addAttachRepairFailedMessageId(appContext, msg.messageId)
+                        }
+                        com.mailchat.ai.AppLogger.log(
+                            appContext,
+                            "ATTACH repair (chat): server copy has 0 attachments for '${msg.subject.take(40)}' (text-only)"
+                        )
                         continue
                     }
                     for (att in fetched.attachments) {
@@ -454,6 +488,7 @@ class ChatDetailViewModel @Inject constructor(
                     )
                 } catch (e: Exception) {
                     android.util.Log.w("MailchatChat", "attach repair failed for ${msg.messageId}", e)
+                    com.mailchat.ai.AppLogger.log(appContext, "ATTACH repair (chat) error for '${msg.subject.take(40)}': ${e.message}")
                 }
             }
         }
