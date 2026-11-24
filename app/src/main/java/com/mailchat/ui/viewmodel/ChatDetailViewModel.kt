@@ -124,6 +124,8 @@ class ChatDetailViewModel @Inject constructor(
     // Message-IDs for which a PGP/MIME re-fetch/repair was already attempted (avoids repeated
     // network calls for messages that genuinely have no decryptable content).
     private val repairedPgpMessageIds = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+    // Message-IDs for which a missing-attachment re-fetch was already attempted in this session.
+    private val repairedAttachMessageIds = java.util.Collections.synchronizedSet(mutableSetOf<String>())
 
     private val _uiState = MutableStateFlow(ChatDetailUiState())
     val uiState: StateFlow<ChatDetailUiState> = _uiState.asStateFlow()
@@ -161,6 +163,7 @@ class ChatDetailViewModel @Inject constructor(
                 }
                 loadAttachments(messages)
                 repairUndecryptedPgpMime(messages)
+                repairMissingAttachments(messages)
             }
         }
         // Fetch new emails for this chat from the server when the chat is opened. The chat detail
@@ -397,6 +400,60 @@ class ChatDetailViewModel @Inject constructor(
                     com.mailchat.ai.AppLogger.log(appContext, "Repaired PGP/MIME message: subject=${updated.subject.take(40)}")
                 } catch (e: Exception) {
                     com.mailchat.ai.AppLogger.log(appContext, "PGP/MIME repair failed: ${e.message}")
+                }
+            }
+        }
+    }
+
+    /**
+     * Repairs messages that were cached before the inline-attachment fix (e.g. a PDF sent with
+     * `Content-Disposition: inline` and no file name was skipped and never stored). Such messages
+     * show up with zero attachments even though the server copy has them. Re-fetches the message
+     * by its Message-ID and adds any attachments found.
+     *
+     * Only messages with zero local attachments are candidates. Messages whose server copy also
+     * has no attachments (genuinely text-only) are remembered in a persistent set so they are not
+     * re-fetched on every chat open forever. Capped per session to keep the IMAP load reasonable.
+     */
+    private fun repairMissingAttachments(messages: List<Message>) {
+        val attachmentsMap = _uiState.value.attachmentsByMessage
+        val failedIds = com.mailchat.util.SettingsUtils.getAttachRepairFailedMessageIds(appContext)
+        val candidates = messages
+            .filter { msg ->
+                msg.messageId.isNotBlank() &&
+                    msg.messageId !in failedIds &&
+                    msg.messageId !in repairedAttachMessageIds &&
+                    (attachmentsMap[msg.id]?.isEmpty() ?: true)
+            }
+            .sortedByDescending { it.timestamp }
+            .take(50)
+        if (candidates.isEmpty()) return
+        viewModelScope.launch {
+            val chat = _uiState.value.chat ?: return@launch
+            val account = accountRepository.getAccountById(chat.accountId) ?: return@launch
+            for (msg in candidates) {
+                if (!repairedAttachMessageIds.add(msg.messageId)) continue
+                try {
+                    // includeOutgoing=true: a reply ("AW: …") with an inline attachment is in the
+                    // Sent folder, not the INBOX.
+                    val fetched = imapService.fetchMessageByMessageId(account, msg.messageId, includeOutgoing = true) ?: continue
+                    if (fetched.attachments.isEmpty()) {
+                        // The server copy has no attachments either — a genuinely text-only email.
+                        // Remember it so it is not re-fetched on every chat open forever.
+                        com.mailchat.util.SettingsUtils.addAttachRepairFailedMessageId(appContext, msg.messageId)
+                        continue
+                    }
+                    for (att in fetched.attachments) {
+                        messageRepository.insertAttachment(att.copy(messageId = msg.id))
+                    }
+                    // Refresh the attachments map so the UI shows the newly added attachments.
+                    loadAttachments(_uiState.value.messages)
+                    com.mailchat.ai.AppLogger.log(
+                        appContext,
+                        "ATTACH repair (chat): re-fetched ${fetched.attachments.size} attachment(s) for '${msg.subject.take(40)}'"
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.w("MailchatChat", "attach repair failed for ${msg.messageId}", e)
                 }
             }
         }

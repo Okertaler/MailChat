@@ -118,12 +118,19 @@ class ImapService @Inject constructor(
         }
     }
 
-    suspend fun fetchMessageByMessageId(account: EmailAccount, messageId: String): FetchedMessage? =
+    suspend fun fetchMessageByMessageId(
+        account: EmailAccount,
+        messageId: String,
+        includeOutgoing: Boolean = false
+    ): FetchedMessage? =
         withContext(Dispatchers.IO) {
             if (messageId.isBlank()) return@withContext null
             val store = connectStore(account)
             try {
-                val folders = getSyncFolders(account).filter { !isOutgoingFolder(it) }
+                // By default only incoming folders are searched (CID/PGP repairs are for received
+                // mail). The missing-attachment repair passes includeOutgoing=true, because a reply
+                // (e.g. "AW: …") with an inline attachment lives in the Sent folder.
+                val folders = getSyncFolders(account).filter { includeOutgoing || !isOutgoingFolder(it) }
                 for (folderName in folders) {
                     try {
                         val folder = store.getFolder(folderName)

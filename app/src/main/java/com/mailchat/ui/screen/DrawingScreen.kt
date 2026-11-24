@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Image as ImageIcon
+import androidx.compose.material.icons.filled.Redo
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -92,6 +93,35 @@ fun DrawingScreen(
             strokeWidth = 8f
         }
     }
+    // Undo/redo stacks: each entry is a full copy of the bitmap taken BEFORE a stroke (or clear)
+    // started. Bounded to keep memory usage reasonable.
+    val undoStack = remember { ArrayDeque<Bitmap>() }
+    val redoStack = remember { ArrayDeque<Bitmap>() }
+    val maxUndoSteps = 15
+
+    fun pushUndoState() {
+        bitmap?.let { current ->
+            undoStack.addLast(current.copy(Bitmap.Config.ARGB_8888, false))
+            if (undoStack.size > maxUndoSteps) undoStack.removeFirst()
+            redoStack.clear()
+        }
+    }
+
+    fun undo() {
+        val bmp = bitmap ?: return
+        if (undoStack.isEmpty()) return
+        redoStack.addLast(bmp.copy(Bitmap.Config.ARGB_8888, false))
+        bitmap = undoStack.removeLast()
+        version++
+    }
+
+    fun redo() {
+        val bmp = bitmap ?: return
+        if (redoStack.isEmpty()) return
+        undoStack.addLast(bmp.copy(Bitmap.Config.ARGB_8888, false))
+        bitmap = redoStack.removeLast()
+        version++
+    }
 
     val imagePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
@@ -127,6 +157,12 @@ fun DrawingScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { undo() }, enabled = undoStack.isNotEmpty()) {
+                        Icon(Icons.Default.Undo, contentDescription = stringResource(R.string.drawing_undo))
+                    }
+                    IconButton(onClick = { redo() }, enabled = redoStack.isNotEmpty()) {
+                        Icon(Icons.Default.Redo, contentDescription = stringResource(R.string.drawing_redo))
+                    }
                     TextButton(
                         onClick = {
                             bitmap?.let { bmp ->
@@ -187,6 +223,8 @@ fun DrawingScreen(
                 }
                 IconButton(onClick = {
                     bitmap?.let { bmp ->
+                        // Save the current state so the clear can be undone.
+                        pushUndoState()
                         val canvas = android.graphics.Canvas(bmp)
                         canvas.drawColor(android.graphics.Color.WHITE)
                         baseImage?.let { drawBaseImage(canvas, it, bmp.width, bmp.height) }
@@ -229,6 +267,8 @@ fun DrawingScreen(
                                 when (event.type) {
                                     PointerEventType.Press -> {
                                         isDrawing = true
+                                        // Save the current state so this stroke can be undone.
+                                        pushUndoState()
                                         val pos = change.position
                                         paint.color = strokeColor.toArgb()
                                         canvas.drawCircle(pos.x, pos.y, paint.strokeWidth / 2, paint)

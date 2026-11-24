@@ -496,6 +496,25 @@ object SettingsUtils {
         prefs.edit().putStringSet("cid_repair_failed_message_ids", trimmed).apply()
     }
 
+    /**
+     * Message IDs for which the missing-attachment repair was attempted but the server copy has
+     * no attachments either (a genuinely text-only email). These are skipped on every repair
+     * pass — without this, the same messages would be re-fetched from the server on every chat
+     * open forever (a persistent network/battery drain).
+     */
+    fun getAttachRepairFailedMessageIds(context: Context): Set<String> =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getStringSet("attach_repair_failed_message_ids", emptySet())!!.toSet()
+
+    fun addAttachRepairFailedMessageId(context: Context, messageId: String) {
+        if (messageId.isBlank()) return
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val current = prefs.getStringSet("attach_repair_failed_message_ids", emptySet())!!.toMutableSet()
+        current.add(messageId)
+        val trimmed = if (current.size > 500) current.toList().takeLast(500).toSet() else current
+        prefs.edit().putStringSet("attach_repair_failed_message_ids", trimmed).apply()
+    }
+
     fun getAutoMap(context: Context, email: String): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean("auto_map_" + email.trim().lowercase(), false)

@@ -350,6 +350,7 @@
     <string name="drawing_load_image">Load image to draw on</string>
     <string name="drawing_clear">Clear</string>
     <string name="drawing_undo">Undo</string>
+    <string name="drawing_redo">Redo</string>
     <string name="save">Save</string>
     <string name="where_are_you">Where are you?</string>
     <string name="where_are_you_text">Where are you?</string>
