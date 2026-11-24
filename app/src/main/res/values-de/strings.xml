@@ -1282,6 +1282,12 @@
     <string name="secure_writeback_hint">Nach dem Versand wird die verschlüsselte E-Mail im Postausgang durch die entschlüsselte Version ersetzt, damit du sie mit allen E-Mail-Clients lesen kannst. Der Empfänger bekommt weiterhin die verschlüsselte Version.</string>
     <string name="secure_writeback_inbox_title">Entschlüsselte Kopie im Posteingang</string>
     <string name="secure_writeback_inbox_hint">Wenn eine verschlüsselte E-Mail eintrifft, wird sie im Posteingang durch die entschlüsselte Version ersetzt (gleicher Thread, gleiches Datum). Die ursprüngliche verschlüsselte Nachricht wird aus dem Posteingang entfernt. Standardmäßig aus.</string>
+    <string name="secure_writeback_combined_title">Entschlüsselte Kopie im Postfach</string>
+    <string name="secure_writeback_combined_hint">Verschlüsselte E-Mails im Postausgang und Posteingang durch die entschlüsselte Version ersetzen</string>
+    <string name="secure_group_key">Dein Schlüssel</string>
+    <string name="secure_group_directory">keys.openpgp.org</string>
+    <string name="secure_group_behavior">Verhalten</string>
+    <string name="secure_group_contacts">Kontakte</string>
     <string name="secure_writeback_button">Entschlüsselt im Postausgang speichern</string>
     <string name="secure_writeback_success">Entschlüsselte Version im Postausgang gespeichert</string>
     <string name="secure_writeback_failed">Nachricht im Postausgang konnte nicht ersetzt werden (noch nicht gefunden oder nicht PGP-verschlüsselt)</string>

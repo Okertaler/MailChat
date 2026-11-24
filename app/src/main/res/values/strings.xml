@@ -1282,6 +1282,12 @@
     <string name="secure_writeback_hint">After sending, replace the encrypted email in the Sent folder with the decrypted version, so you can read it with all your email clients. The recipient still receives the encrypted version.</string>
     <string name="secure_writeback_inbox_title">Decrypted copy in Inbox</string>
     <string name="secure_writeback_inbox_hint">When an encrypted email arrives, replace it in the Inbox with the decrypted version (same thread, same date). The original encrypted message is removed from the Inbox. Off by default.</string>
+    <string name="secure_writeback_combined_title">Decrypted copy in mailbox</string>
+    <string name="secure_writeback_combined_hint">Replace encrypted emails in Sent and Inbox with their decrypted version</string>
+    <string name="secure_group_key">Your key</string>
+    <string name="secure_group_directory">keys.openpgp.org</string>
+    <string name="secure_group_behavior">Behavior</string>
+    <string name="secure_group_contacts">Contacts</string>
     <string name="secure_writeback_button">Save decrypted in Sent</string>
     <string name="secure_writeback_success">Decrypted version saved in Sent</string>
     <string name="secure_writeback_failed">Could not replace the message in Sent (not found yet or not PGP-encrypted)</string>

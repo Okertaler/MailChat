@@ -89,6 +89,22 @@ fun SectionDivider(modifier: Modifier = Modifier) {
 }
 
 /**
+ * A small group header used inside a collapsible section (e.g. the secure
+ * settings) to visually group related items.
+ */
+@Composable
+private fun SecureGroupHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)
+    )
+}
+
+/**
  * A single-line, tappable section header with a help icon and an expand/collapse chevron.
  * The whole row toggles the section; the help icon shows its own dialog without toggling.
  */
@@ -1125,6 +1141,8 @@ fun SettingsScreen(
                 val senderId = SettingsUtils.getSenderAccountId(context)
                 (uiState.accounts.firstOrNull { it.id == senderId } ?: uiState.accounts.firstOrNull())?.emailAddress ?: ""
             }
+            SecureGroupHeader("🔑 " + stringResource(R.string.secure_group_key))
+
             var showDeleteKeyDialog by remember { mutableStateOf(false) }
             ListItem(
                 headlineContent = { Text("🔑 " + stringResource(R.string.secure_generate_key)) },
@@ -1183,119 +1201,6 @@ fun SettingsScreen(
                     }
                 )
             }
-            ListItem(
-                headlineContent = { Text("🌐 " + stringResource(R.string.secure_auto_lookup)) },
-                supportingContent = { Text(stringResource(R.string.secure_auto_lookup_hint)) },
-                trailingContent = {
-                    Switch(
-                        checked = autoLookupEnabled,
-                        onCheckedChange = {
-                            autoLookupEnabled = it
-                            com.mailchat.crypto.OpenPgpKeyService.setAutoLookupEnabled(context, it)
-                        }
-                    )
-                }
-            )
-
-            var encryptSubjectEnabled by remember { mutableStateOf(com.mailchat.crypto.OpenPgpKeyService.isEncryptSubjectEnabled(context)) }
-            ListItem(
-                headlineContent = { Text("🔏 " + stringResource(R.string.secure_encrypt_subject_title)) },
-                supportingContent = { Text(stringResource(R.string.secure_encrypt_subject_hint)) },
-                trailingContent = {
-                    Switch(
-                        checked = encryptSubjectEnabled,
-                        onCheckedChange = {
-                            encryptSubjectEnabled = it
-                            com.mailchat.crypto.OpenPgpKeyService.setEncryptSubjectEnabled(context, it)
-                        }
-                    )
-                }
-            )
-
-            var writeBackEnabled by remember { mutableStateOf(com.mailchat.crypto.OpenPgpKeyService.isAutoWriteBackEnabled(context)) }
-            ListItem(
-                headlineContent = { Text("🔓 " + stringResource(R.string.secure_writeback_title)) },
-                supportingContent = { Text(stringResource(R.string.secure_writeback_hint)) },
-                trailingContent = {
-                    Switch(
-                        checked = writeBackEnabled,
-                        onCheckedChange = {
-                            writeBackEnabled = it
-                            com.mailchat.crypto.OpenPgpKeyService.setAutoWriteBackEnabled(context, it)
-                        }
-                    )
-                }
-            )
-
-            var writeBackInboxEnabled by remember { mutableStateOf(com.mailchat.crypto.OpenPgpKeyService.isAutoWriteBackInboxEnabled(context)) }
-            ListItem(
-                headlineContent = { Text("📥 " + stringResource(R.string.secure_writeback_inbox_title)) },
-                supportingContent = { Text(stringResource(R.string.secure_writeback_inbox_hint)) },
-                trailingContent = {
-                    Switch(
-                        checked = writeBackInboxEnabled,
-                        onCheckedChange = {
-                            writeBackInboxEnabled = it
-                            com.mailchat.crypto.OpenPgpKeyService.setAutoWriteBackInboxEnabled(context, it)
-                        }
-                    )
-                }
-            )
-
-            var showPublishKeyDialog by remember { mutableStateOf(false) }
-            var isPublishing by remember { mutableStateOf(false) }
-            ListItem(
-                headlineContent = { Text("📤 " + stringResource(R.string.secure_publish_key)) },
-                supportingContent = { Text(stringResource(R.string.secure_publish_key_hint)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = hasPgpKey) { showPublishKeyDialog = true }
-            )
-            if (showPublishKeyDialog) {
-                AlertDialog(
-                    onDismissRequest = { if (!isPublishing) showPublishKeyDialog = false },
-                    title = { Text(stringResource(R.string.secure_publish_key)) },
-                    text = { Text(stringResource(R.string.secure_publish_key_warning)) },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                isPublishing = true
-                                MainScope().launch {
-                                    val result = withContext(Dispatchers.IO) {
-                                        com.mailchat.crypto.OpenPgpKeyService.publishKey(context)
-                                    }
-                                    isPublishing = false
-                                    showPublishKeyDialog = false
-                                    val message = when (result) {
-                                        com.mailchat.crypto.OpenPgpKeyService.PublishResult.VERIFICATION_SENT ->
-                                            context.getString(R.string.secure_publish_key_success)
-                                        com.mailchat.crypto.OpenPgpKeyService.PublishResult.UPLOADED ->
-                                            context.getString(R.string.secure_publish_key_uploaded)
-                                        com.mailchat.crypto.OpenPgpKeyService.PublishResult.FAILED ->
-                                            context.getString(R.string.secure_publish_key_failed)
-                                    }
-                                    android.widget.Toast.makeText(
-                                        context, message, android.widget.Toast.LENGTH_LONG
-                                    ).show()
-                                }
-                            },
-                            enabled = !isPublishing
-                        ) {
-                            if (isPublishing) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                            } else {
-                                Text(stringResource(R.string.secure_publish_key_confirm))
-                            }
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { if (!isPublishing) showPublishKeyDialog = false }) {
-                            Text(stringResource(R.string.cancel))
-                        }
-                    }
-                )
-            }
-
             // Export the private key as a .asc file (only if a key exists).
             // The user chooses the passphrase of the exported file in a dialog first,
             // because the key stored in the app is protected by an internal passphrase
@@ -1479,6 +1384,76 @@ fun SettingsScreen(
                 )
             }
 
+            SecureGroupHeader("🌐 " + stringResource(R.string.secure_group_directory))
+
+            ListItem(
+                headlineContent = { Text("🌐 " + stringResource(R.string.secure_auto_lookup)) },
+                supportingContent = { Text(stringResource(R.string.secure_auto_lookup_hint)) },
+                trailingContent = {
+                    Switch(
+                        checked = autoLookupEnabled,
+                        onCheckedChange = {
+                            autoLookupEnabled = it
+                            com.mailchat.crypto.OpenPgpKeyService.setAutoLookupEnabled(context, it)
+                        }
+                    )
+                }
+            )
+
+            var showPublishKeyDialog by remember { mutableStateOf(false) }
+            var isPublishing by remember { mutableStateOf(false) }
+            ListItem(
+                headlineContent = { Text("📤 " + stringResource(R.string.secure_publish_key)) },
+                supportingContent = { Text(stringResource(R.string.secure_publish_key_hint)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = hasPgpKey) { showPublishKeyDialog = true }
+            )
+            if (showPublishKeyDialog) {
+                AlertDialog(
+                    onDismissRequest = { if (!isPublishing) showPublishKeyDialog = false },
+                    title = { Text(stringResource(R.string.secure_publish_key)) },
+                    text = { Text(stringResource(R.string.secure_publish_key_warning)) },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                isPublishing = true
+                                MainScope().launch {
+                                    val result = withContext(Dispatchers.IO) {
+                                        com.mailchat.crypto.OpenPgpKeyService.publishKey(context)
+                                    }
+                                    isPublishing = false
+                                    showPublishKeyDialog = false
+                                    val message = when (result) {
+                                        com.mailchat.crypto.OpenPgpKeyService.PublishResult.VERIFICATION_SENT ->
+                                            context.getString(R.string.secure_publish_key_success)
+                                        com.mailchat.crypto.OpenPgpKeyService.PublishResult.UPLOADED ->
+                                            context.getString(R.string.secure_publish_key_uploaded)
+                                        com.mailchat.crypto.OpenPgpKeyService.PublishResult.FAILED ->
+                                            context.getString(R.string.secure_publish_key_failed)
+                                    }
+                                    android.widget.Toast.makeText(
+                                        context, message, android.widget.Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            },
+                            enabled = !isPublishing
+                        ) {
+                            if (isPublishing) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                            } else {
+                                Text(stringResource(R.string.secure_publish_key_confirm))
+                            }
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { if (!isPublishing) showPublishKeyDialog = false }) {
+                            Text(stringResource(R.string.cancel))
+                        }
+                    }
+                )
+            }
+
             var showDeleteDirKeyDialog by remember { mutableStateOf(false) }
             var isDeletingDirKey by remember { mutableStateOf(false) }
             ListItem(
@@ -1526,6 +1501,80 @@ fun SettingsScreen(
                     }
                 )
             }
+
+            SecureGroupHeader("⚙️ " + stringResource(R.string.secure_group_behavior))
+
+            var encryptSubjectEnabled by remember { mutableStateOf(com.mailchat.crypto.OpenPgpKeyService.isEncryptSubjectEnabled(context)) }
+            ListItem(
+                headlineContent = { Text("🔏 " + stringResource(R.string.secure_encrypt_subject_title)) },
+                supportingContent = { Text(stringResource(R.string.secure_encrypt_subject_hint)) },
+                trailingContent = {
+                    Switch(
+                        checked = encryptSubjectEnabled,
+                        onCheckedChange = {
+                            encryptSubjectEnabled = it
+                            com.mailchat.crypto.OpenPgpKeyService.setEncryptSubjectEnabled(context, it)
+                        }
+                    )
+                }
+            )
+
+            var writeBackEnabled by remember { mutableStateOf(com.mailchat.crypto.OpenPgpKeyService.isAutoWriteBackEnabled(context)) }
+            var writeBackInboxEnabled by remember { mutableStateOf(com.mailchat.crypto.OpenPgpKeyService.isAutoWriteBackInboxEnabled(context)) }
+            var showWriteBackDialog by remember { mutableStateOf(false) }
+            ListItem(
+                headlineContent = { Text("🔓 " + stringResource(R.string.secure_writeback_combined_title)) },
+                supportingContent = { Text(stringResource(R.string.secure_writeback_combined_hint)) },
+                trailingContent = {
+                    Text(">", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showWriteBackDialog = true }
+            )
+            if (showWriteBackDialog) {
+                AlertDialog(
+                    onDismissRequest = { showWriteBackDialog = false },
+                    title = { Text(stringResource(R.string.secure_writeback_combined_title)) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(stringResource(R.string.secure_writeback_title), style = MaterialTheme.typography.bodyMedium)
+                                    Text(stringResource(R.string.secure_writeback_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Switch(
+                                    checked = writeBackEnabled,
+                                    onCheckedChange = {
+                                        writeBackEnabled = it
+                                        com.mailchat.crypto.OpenPgpKeyService.setAutoWriteBackEnabled(context, it)
+                                    }
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(stringResource(R.string.secure_writeback_inbox_title), style = MaterialTheme.typography.bodyMedium)
+                                    Text(stringResource(R.string.secure_writeback_inbox_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Switch(
+                                    checked = writeBackInboxEnabled,
+                                    onCheckedChange = {
+                                        writeBackInboxEnabled = it
+                                        com.mailchat.crypto.OpenPgpKeyService.setAutoWriteBackInboxEnabled(context, it)
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showWriteBackDialog = false }) {
+                            Text(stringResource(R.string.close))
+                        }
+                    }
+                )
+            }
+
+            SecureGroupHeader("👥 " + stringResource(R.string.secure_group_contacts))
 
             var showPeersDialog by remember { mutableStateOf(false) }
             val peersCount = com.mailchat.crypto.OpenPgpKeyService.getPeers(context).size
