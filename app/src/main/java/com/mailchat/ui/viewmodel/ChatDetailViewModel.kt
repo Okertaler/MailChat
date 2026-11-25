@@ -73,6 +73,8 @@ data class ChatDetailUiState(
     val aiSuggestedSubject: String = "",
     val quickReplies: List<String> = emptyList(),
     val isGeneratingQuickReplies: Boolean = false,
+    val followUps: List<com.mailchat.ai.GeminiService.FollowUp> = emptyList(),
+    val isGeneratingFollowUps: Boolean = false,
     val draftSubject: String? = null,
     val selectedRecipient: String? = null,
     val replyQuote: String? = null,
@@ -1153,6 +1155,62 @@ class ChatDetailViewModel @Inject constructor(
                 _uiState.update { it.copy(isGeneratingQuickReplies = false) }
             }
         }
+    }
+
+    /**
+     * Detects follow-ups, deadlines and tasks in the latest incoming message (on-device).
+     * The result is stored in [ChatDetailUiState.followUps] and shown as a card above the
+     * compose bar, where each entry can be turned into a calendar reminder.
+     */
+    fun generateFollowUps() {
+        viewModelScope.launch {
+            val latestIncoming = _uiState.value.messages.lastOrNull { it.isIncoming } ?: return@launch
+            _uiState.update { it.copy(isGeneratingFollowUps = true, followUps = emptyList()) }
+            try {
+                com.mailchat.util.AiEngine.configureAndInitialize(appContext)
+                if (!com.mailchat.ai.GeminiService.isEngineReady()) {
+                    throw IllegalStateException("No model")
+                }
+                val lang = com.mailchat.util.LanguageUtils.getLanguage(appContext)
+                val text = latestIncoming.bodyFull.ifBlank { latestIncoming.body }
+                val result = com.mailchat.ai.GeminiService.extractFollowUps(text, lang)
+                _uiState.update { it.copy(followUps = result, isGeneratingFollowUps = false) }
+            } catch (e: IllegalStateException) {
+                _uiState.update { it.copy(isGeneratingFollowUps = false) }
+                android.widget.Toast.makeText(
+                    appContext, appContext.getString(com.mailchat.R.string.assistant_model_missing),
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            } catch (e: Exception) {
+                android.util.Log.e("MailchatAI", "generateFollowUps failed: ${e.message}")
+                _uiState.update { it.copy(isGeneratingFollowUps = false) }
+            }
+        }
+    }
+
+    /**
+     * Opens the calendar app's "new event" screen pre-filled with the follow-up as title and
+     * the detected date/time as description (the user confirms the event in the calendar app).
+     */
+    fun createFollowUpReminder(followUp: com.mailchat.ai.GeminiService.FollowUp) {
+        val description = buildString {
+            if (followUp.date.isNotBlank()) append("🗓 ").append(followUp.date)
+            if (followUp.time.isNotBlank()) {
+                if (isNotEmpty()) append(' ')
+                append("🕐 ").append(followUp.time)
+            }
+        }
+        val calendarIntent = android.content.Intent(android.content.Intent.ACTION_INSERT).apply {
+            data = android.net.Uri.parse("content://com.android.calendar/events")
+            putExtra("title", followUp.text)
+            if (description.isNotBlank()) putExtra("description", description)
+            // appContext is the Application context (not an Activity), so starting an
+            // activity from it requires FLAG_ACTIVITY_NEW_TASK.
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            appContext.startActivity(calendarIntent)
+        } catch (_: Exception) { }
     }
 
     fun generateMessageReply(message: Message, tone: String) {

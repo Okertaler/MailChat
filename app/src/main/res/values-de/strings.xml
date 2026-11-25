@@ -389,6 +389,8 @@
     <string name="ai_translation_empty">Keine Übersetzung.</string>
     <string name="ai_suggest_subject">Betreff per KI vorschlagen</string>
     <string name="ai_quick_replies">Schnell-Antworten</string>
+    <string name="ai_follow_ups">Follow-ups</string>
+    <string name="follow_up_reminder">Erinnerung anlegen</string>
     <string name="ai_reply_tone_question">Wie soll die KI antworten?</string>
     <string name="ai_reply_formal">Formell (Sie)</string>
     <string name="ai_reply_informal">Persönlich (Du)</string>

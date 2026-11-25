@@ -1216,6 +1216,21 @@ fun ChatDetailScreen(
                                         viewModel.generateQuickReplies()
                                     }
                                 )
+                                androidx.compose.material3.DropdownMenuItem(
+                                    enabled = !uiState.isGeneratingFollowUps,
+                                    leadingIcon = {
+                                        if (uiState.isGeneratingFollowUps) {
+                                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                        } else {
+                                            Text("⏰", fontSize = 18.sp)
+                                        }
+                                    },
+                                    text = { Text(stringResource(R.string.ai_follow_ups)) },
+                                    onClick = {
+                                        showAddMenu = false
+                                        viewModel.generateFollowUps()
+                                    }
+                                )
                             }
                             androidx.compose.material3.DropdownMenuItem(
                                 leadingIcon = {
@@ -1455,6 +1470,43 @@ fun ChatDetailScreen(
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
+                        }
+                    }
+                }
+                // Follow-up-Erkennung: detected deadlines/tasks with a "create reminder" button.
+                if (uiState.followUps.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        uiState.followUps.forEach { followUp ->
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("⏰", fontSize = 16.sp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = buildString {
+                                            append(followUp.text)
+                                            if (followUp.date.isNotBlank()) append(" · ").append(followUp.date)
+                                            if (followUp.time.isNotBlank()) append(" · ").append(followUp.time)
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    TextButton(onClick = { viewModel.createFollowUpReminder(followUp) }) {
+                                        Text(stringResource(R.string.follow_up_reminder))
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
                         }
                     }
                 }
