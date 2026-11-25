@@ -388,6 +388,7 @@
     <string name="ai_translating">Translating…</string>
     <string name="ai_translation_empty">No translation.</string>
     <string name="ai_suggest_subject">Suggest subject with AI</string>
+    <string name="ai_quick_replies">Quick replies</string>
     <string name="ai_reply_tone_question">How should the AI reply?</string>
     <string name="ai_reply_formal">Formal (you)</string>
     <string name="ai_reply_informal">Personal (you)</string>

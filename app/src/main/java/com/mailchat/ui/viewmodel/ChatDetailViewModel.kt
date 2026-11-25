@@ -71,6 +71,8 @@ data class ChatDetailUiState(
     val translationError: String = "",
     val isSuggestingSubject: Boolean = false,
     val aiSuggestedSubject: String = "",
+    val quickReplies: List<String> = emptyList(),
+    val isGeneratingQuickReplies: Boolean = false,
     val draftSubject: String? = null,
     val selectedRecipient: String? = null,
     val replyQuote: String? = null,
@@ -1121,6 +1123,36 @@ class ChatDetailViewModel @Inject constructor(
 
     fun clearSuggestedSubject() {
         _uiState.update { it.copy(aiSuggestedSubject = "") }
+    }
+
+    /**
+     * Generates 2-3 one-tap quick replies for the latest incoming message (on-device). The result
+     * is stored in [ChatDetailUiState.quickReplies] and shown as chips above the compose bar.
+     */
+    fun generateQuickReplies() {
+        viewModelScope.launch {
+            val latestIncoming = _uiState.value.messages.lastOrNull { it.isIncoming } ?: return@launch
+            _uiState.update { it.copy(isGeneratingQuickReplies = true, quickReplies = emptyList()) }
+            try {
+                com.mailchat.util.AiEngine.configureAndInitialize(appContext)
+                if (!com.mailchat.ai.GeminiService.isEngineReady()) {
+                    throw IllegalStateException("No model")
+                }
+                val lang = com.mailchat.util.LanguageUtils.getLanguage(appContext)
+                val text = latestIncoming.bodyFull.ifBlank { latestIncoming.body }
+                val result = com.mailchat.ai.GeminiService.quickReplies(text, lang)
+                _uiState.update { it.copy(quickReplies = result, isGeneratingQuickReplies = false) }
+            } catch (e: IllegalStateException) {
+                _uiState.update { it.copy(isGeneratingQuickReplies = false) }
+                android.widget.Toast.makeText(
+                    appContext, appContext.getString(com.mailchat.R.string.assistant_model_missing),
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            } catch (e: Exception) {
+                android.util.Log.e("MailchatAI", "generateQuickReplies failed: ${e.message}")
+                _uiState.update { it.copy(isGeneratingQuickReplies = false) }
+            }
+        }
     }
 
     fun generateMessageReply(message: Message, tone: String) {

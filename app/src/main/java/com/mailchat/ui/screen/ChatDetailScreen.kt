@@ -1201,6 +1201,21 @@ fun ChatDetailScreen(
                                         }
                                     }
                                 )
+                                androidx.compose.material3.DropdownMenuItem(
+                                    enabled = !uiState.isGeneratingQuickReplies,
+                                    leadingIcon = {
+                                        if (uiState.isGeneratingQuickReplies) {
+                                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                        } else {
+                                            Text("💬", fontSize = 18.sp)
+                                        }
+                                    },
+                                    text = { Text(stringResource(R.string.ai_quick_replies)) },
+                                    onClick = {
+                                        showAddMenu = false
+                                        viewModel.generateQuickReplies()
+                                    }
+                                )
                             }
                             androidx.compose.material3.DropdownMenuItem(
                                 leadingIcon = {
@@ -1408,6 +1423,38 @@ fun ChatDetailScreen(
                         )
                         IconButton(onClick = { viewModel.clearComposeCc() }, modifier = Modifier.size(20.dp)) {
                             Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp))
+                        }
+                    }
+                }
+                // Schnell-Antworten: one-tap quick-reply chips for the latest incoming message.
+                if (uiState.quickReplies.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        uiState.quickReplies.forEach { reply ->
+                            Surface(
+                                onClick = {
+                                    viewModel.onComposeTextChange(
+                                        if (uiState.composeText.isBlank()) reply
+                                        else "${uiState.composeText}\n\n$reply"
+                                    )
+                                },
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Text(
+                                    text = reply,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
