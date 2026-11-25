@@ -383,6 +383,10 @@
     <string name="ai_apply">Übernehmen</string>
     <string name="ai_reply">KI-Antwort</string>
     <string name="ai_summarize">KI-Zusammenfassung</string>
+    <string name="ai_translate">Übersetzen</string>
+    <string name="ai_translation">Übersetzung</string>
+    <string name="ai_translating">Übersetze…</string>
+    <string name="ai_translation_empty">Keine Übersetzung.</string>
     <string name="ai_reply_tone_question">Wie soll die KI antworten?</string>
     <string name="ai_reply_formal">Formell (Sie)</string>
     <string name="ai_reply_informal">Persönlich (Du)</string>
@@ -565,6 +569,19 @@
         <item>Gruppenchats: E-Mails mit mehreren Empfängern werden in einem Chat gesammelt</item>
         <item>Neue E-Mails können an mehrere Empfänger (kommagetrennt) gesendet werden</item>
         <item>Antworten in einem Gruppenchat gehen an alle Mitglieder</item>
+    </string-array>
+    <string-array name="version_2_9_changes">
+        <item>Neu: Zeichnung / Bild im Plus-Menü – mit dem Finger zeichnen (Freihand, Punkte, Linien und Kreise per Langdruck), 3 Strichstärken, optional über einem geladenen Bild; das Ergebnis wird als PNG angehängt</item>
+        <item>Neu: Notizzettel-Farben – gelb (Standard), pink, orange und lila; neue Chat-Filter pro Farbe</item>
+        <item>Neu: Optionale Betreff-Verschlüsselung (Einstellung) – der Betreff wird mit dem Schlüssel des Empfängers verschlüsselt</item>
+        <item>Neu: Löschen-(x)-Button in beiden Suchfeldern</item>
+        <item>Verbessert: Sichere Einstellungen vereinfacht (Gruppen-Kopfzeilen, gemeinsames Speichern); der Hilfetext ist in Abschnitte aufgeteilt</item>
+        <item>Verbessert: KI-Antwort funktioniert auch in Chats ohne E-Mails (nutzt die Verfassen-Felder)</item>
+        <item>Verbessert: Die „Wo bist Du?"-Auto-Antwort verschlüsselt das Kartenbild</item>
+        <item>Verbessert: Backup-Passwortfelder werden maskiert; das neue Export-Passwort muss zweimal eingegeben werden</item>
+        <item>Behoben: Gelegentliche Abstürze beim Zeichnen (Speicher) und nach Rückgängig/Wiederholen</item>
+        <item>Behoben: PDF-Anhänge ohne Dateinamen werden mit generiertem Namen gespeichert; Inline-PDFs und reine Bild-Anhänge werden auch bei bereits synchronisierten Mails repariert</item>
+        <item>Behoben: Hintergrund-Standort-Berechtigung entfernt (Play-Richtlinie) – die „Wo bist Du?"-Auto-Antwort nutzt im Hintergrund die zuletzt bekannte Position</item>
     </string-array>
     <string-array name="version_2_8_changes">
         <item>Neu: „Mein Standort" im Plus-Menü – hängt ein OpenStreetMap-Kartenbild (rote Markierung) deiner aktuellen Position an die Nachricht, plus Karten-Links (OpenStreetMap, Google Maps, Apple Maps)</item>
@@ -1221,7 +1238,9 @@
     <string name="help_filter_menu_title">Filter-Menü</string>
     <string name="help_filter_menu_text">Tippe auf das Filter-Icon (oben rechts), um das Dropdown-Menü zu öffnen. Filter für Favoriten, Ungelesen, Erledigt, Offen, Ausgeblendet, Notizzettel, Phishing, Unerwünscht, Newsletter und eigene Tags aktivieren. Das Badge zeigt die Gesamtzahl der aktiven Filter einschließlich eigener Tags. Die Filter bleiben zwischen den Sitzungen erhalten; der Eintrag „Filter löschen" oben im Menü setzt alle Filter zurück.</string>
     <string name="help_sticky_note_title">Notizzettel</string>
-    <string name="help_sticky_note_text">Tippe auf das gelbe Notizzettel-Icon in der Chat-Kopfzeile, um eine Notiz direkt in den Chat zu schreiben. Notizen werden lokal gespeichert und nie als E-Mail gesendet. Sie werden als gelbe Blasen mit dem Hinweis „Notizzettel – nicht gesendet" angezeigt. Tippe auf eine Notiz, um sie zu bearbeiten. Notizen können über das normale Nachrichtenmenü gelöscht werden (lang drücken, auswählen, löschen). Notizzettel werden nie KI-verarbeitet (keine Zusammenfassung, keine Spam-Klassifikation, keine Tags). In der Chat-Übersicht zeigt der Filter „Notizzettel" nur Chats mit mindestens einer Notiz.</string>
+    <string name="help_sticky_note_text">Tippe auf das Notizzettel-Icon in der Chat-Kopfzeile, um eine Notiz direkt in den Chat zu schreiben. Notizen werden lokal gespeichert und nie als E-Mail gesendet. Sie werden als farbige Blasen mit dem Hinweis „Notizzettel – nicht gesendet" angezeigt. Die Farbe (gelb, pink, orange oder lila) wählst du im Editor. Tippe auf eine Notiz, um sie zu bearbeiten. Notizen können über das normale Nachrichtenmenü gelöscht werden (lang drücken, auswählen, löschen). Notizzettel werden nie KI-verarbeitet (keine Zusammenfassung, keine Spam-Klassifikation, keine Tags). In der Chat-Übersicht zeigt der Filter „Notizzettel" nur Chats mit mindestens einer Notiz; die Farbfilter (gelb, pink, orange, lila) verfeinern die Auswahl.</string>
+    <string name="help_drawing_title">Zeichnung / Bild</string>
+    <string name="help_drawing_text">„Zeichnung / Bild" im Plus-Menü: mit dem Finger zeichnen – schneller Touch und Ziehen für Freihand, Antippen für einen Punkt, lang drücken (still halten) und ziehen für Linie oder Kreis (Form per Button neben dem Bild-Button umschalten). Farbe antippen zum Auswählen; die gewählte Farbe erneut antippen wechselt die Strichstärke (dünn, mittel, dick). Der Bild-Button lädt ein Bild zum Darübermalen (deine Striche kommen darüber; das geladene Bild lässt sich 90° nach rechts drehen). Rückgängig/Wiederholen und Leeren in der oberen Leiste. Speichern (Disketten-Symbol) hängt die Zeichnung als PNG an (Name: Drawing_Datum_Uhrzeit, bzw. Drawing_Bildname bei geladenem Bild).</string>
     <string name="help_my_location_title">Mein Standort (Karte)</string>
     <string name="help_my_location_text">Tippe auf „Mein Standort" im Plus-Menü, um deine aktuelle Position an die Nachricht anzuhängen: Karten-Links (OpenStreetMap, Google Maps, Apple Maps) werden in den Text eingefügt und ein OpenStreetMap-Kartenbild mit roter Markierung an deiner Position wird als PNG angehängt. Die Karte wird auf deinem Gerät aus Kartenkacheln (tile.openstreetmap.org) erzeugt und ist optional – wenn sie nicht erstellt werden kann, werden trotzdem die Links hinzugefügt. Die Auto-Antwort „Wo bist Du?" kann ebenfalls ein Kartenbild anhängen (Kontakt-Option „Karte anhängen").</string>
     <string name="help_unread_filter_title">Ungelesen-Filter</string>

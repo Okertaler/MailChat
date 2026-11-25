@@ -363,6 +363,10 @@ class AutoReplyService @Inject constructor(
      * Returns the current location: first the last known location (fast path). If none is
      * available, a fresh fix is requested (GPS first, then network) with a timeout. Returns
      * null if no location can be determined (the caller logs the failure).
+     *
+     * Note: ACCESS_BACKGROUND_LOCATION is not declared (Play policy), so the fresh fix only
+     * works while the app is in the foreground. In the background the last known (cached)
+     * location is used; if there is none, the auto-reply is sent without a location.
      */
     private suspend fun getLocation(): Location? {
         val lm = appContext.getSystemService(Context.LOCATION_SERVICE) as? LocationManager

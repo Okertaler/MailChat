@@ -16,10 +16,6 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <!-- Needed for the "Wo bist Du?" auto-reply to read a fresh location fix while the phone
-         is locked (app in the background). Without it, requestSingleUpdate() only works in the
-         foreground, so the auto-reply fails whenever there is no recent cached location. -->
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.NFC" />
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
 

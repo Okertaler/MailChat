@@ -107,6 +107,7 @@ import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Summarize
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.AlertDialog
@@ -218,6 +219,7 @@ fun ChatDetailScreen(
     var messageMenuFor by remember { mutableStateOf<Message?>(null) }
     var customTagMessage by remember { mutableStateOf<Message?>(null) }
     var replyToneMessage by remember { mutableStateOf<Message?>(null) }
+    var translatedMessage by remember { mutableStateOf<Message?>(null) }
     var showComposeAiTone by remember { mutableStateOf(false) }
     var showPollEditor by remember { mutableStateOf(false) }
     var showAppointmentEditor by remember { mutableStateOf(false) }
@@ -1117,6 +1119,12 @@ fun ChatDetailScreen(
                                     Icon(Icons.Default.Create, contentDescription = null)
                                 },
                                 text = { Text(stringResource(R.string.drawing)) },
+                                trailingIcon = {
+                                    com.mailchat.ui.component.HelpIcon(
+                                        title = stringResource(R.string.help_drawing_title),
+                                        text = stringResource(R.string.help_drawing_text)
+                                    )
+                                },
                                 onClick = {
                                     showAddMenu = false
                                     showDrawingScreen = true
@@ -1230,8 +1238,7 @@ fun ChatDetailScreen(
                                         android.widget.Toast.makeText(context, R.string.location_permission_needed, android.widget.Toast.LENGTH_LONG).show()
                                         locationPermissionLauncher.launch(
                                             arrayOf(
-                                                android.Manifest.permission.ACCESS_FINE_LOCATION,
-                                                android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                                                android.Manifest.permission.ACCESS_FINE_LOCATION
                                             )
                                         )
                                         return@DropdownMenuItem
@@ -1297,8 +1304,7 @@ fun ChatDetailScreen(
                                         android.widget.Toast.makeText(context, R.string.location_permission_needed, android.widget.Toast.LENGTH_LONG).show()
                                         locationPermissionLauncher.launch(
                                             arrayOf(
-                                                android.Manifest.permission.ACCESS_FINE_LOCATION,
-                                                android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                                                android.Manifest.permission.ACCESS_FINE_LOCATION
                                             )
                                         )
                                         return@DropdownMenuItem
@@ -1916,6 +1922,30 @@ fun ChatDetailScreen(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .clickable(enabled = !uiState.isTranslating) {
+                                            messageMenuFor = null
+                                            translatedMessage = actionMessage
+                                            viewModel.translateMessage(actionMessage)
+                                        }
+                                        .padding(horizontal = 24.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Translate,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(22.dp),
+                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = if (uiState.isTranslating) 0.4f else 1f)
+                                    )
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Text(
+                                        text = stringResource(R.string.ai_translate),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (uiState.isTranslating) 0.4f else 1f)
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
                                         .clickable(enabled = !uiState.isGeneratingSuggestion) {
                                             messageMenuFor = null
                                             replyToneMessage = actionMessage
@@ -1965,6 +1995,38 @@ fun ChatDetailScreen(
                 }
             }
         }
+    }
+
+    translatedMessage?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { translatedMessage = null },
+            title = { Text(stringResource(R.string.ai_translation)) },
+            text = {
+                if (uiState.isTranslating) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(stringResource(R.string.ai_translating))
+                    }
+                } else if (uiState.translationError.isNotBlank()) {
+                    Text(uiState.translationError)
+                } else if (uiState.translationText.isBlank()) {
+                    Text(stringResource(R.string.ai_translation_empty))
+                } else {
+                    Text(uiState.translationText)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (uiState.translationText.isNotBlank()) {
+                        val cm = android.content.ClipData.newPlainText("translation", uiState.translationText)
+                        val cmService = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        cmService.setPrimaryClip(cm)
+                    }
+                    translatedMessage = null
+                }) { Text(stringResource(R.string.close)) }
+            }
+        )
     }
 
     customTagMessage?.let { targetMessage ->
@@ -5217,6 +5279,9 @@ private fun FullEmailView(
     var pendingUrl by remember { mutableStateOf<String?>(null) }
     // Help dialog for the link-confirmation dialog (explains the phishing option).
     var showLinkHelp by remember { mutableStateOf(false) }
+    // KI-Übersetzen: one-tap translation of this email (on-device).
+    var showTranslation by remember { mutableStateOf(false) }
+    val fullEmailUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val htmlForView = remember(message.bodyFull, attachments, loadImages) {
         val selectionCss = "<style>*{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;} body{margin:0;padding:8px;}</style>"
         var h = message.bodyFull
@@ -5328,6 +5393,15 @@ private fun FullEmailView(
                                 contentDescription = stringResource(R.string.secure_writeback_button)
                             )
                         }
+                    }
+                    IconButton(onClick = {
+                        showTranslation = true
+                        viewModel.translateMessage(message)
+                    }) {
+                        Icon(
+                            Icons.Outlined.Translate,
+                            contentDescription = stringResource(R.string.ai_translate)
+                        )
                     }
                     IconButton(onClick = onShowRawSource) {
                         Icon(Icons.Default.Subject, contentDescription = stringResource(R.string.show_raw_source))
@@ -5743,6 +5817,39 @@ private fun FullEmailView(
                 }
             }
         }
+    }
+
+    // KI-Übersetzen: one-tap translation dialog for this email.
+    if (showTranslation) {
+        AlertDialog(
+            onDismissRequest = { showTranslation = false },
+            title = { Text(stringResource(R.string.ai_translation)) },
+            text = {
+                if (fullEmailUiState.isTranslating) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(stringResource(R.string.ai_translating))
+                    }
+                } else if (fullEmailUiState.translationError.isNotBlank()) {
+                    Text(fullEmailUiState.translationError)
+                } else if (fullEmailUiState.translationText.isBlank()) {
+                    Text(stringResource(R.string.ai_translation_empty))
+                } else {
+                    Text(fullEmailUiState.translationText)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (fullEmailUiState.translationText.isNotBlank()) {
+                        val cm = android.content.ClipData.newPlainText("translation", fullEmailUiState.translationText)
+                        val cmService = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        cmService.setPrimaryClip(cm)
+                    }
+                    showTranslation = false
+                }) { Text(stringResource(R.string.close)) }
+            }
+        )
     }
 
     // Multiple appointments were detected: let the user pick one before it is created in the

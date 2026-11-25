@@ -218,6 +218,14 @@ fun HelpScreen(
                 text = stringResource(R.string.help_image_mosaic_text)
             )
             HelpSection(
+                title = stringResource(R.string.help_sticky_note_title),
+                text = stringResource(R.string.help_sticky_note_text)
+            )
+            HelpSection(
+                title = stringResource(R.string.help_drawing_title),
+                text = stringResource(R.string.help_drawing_text)
+            )
+            HelpSection(
                 title = stringResource(R.string.help_permissions_title),
                 text = stringResource(R.string.help_permissions_text)
             )

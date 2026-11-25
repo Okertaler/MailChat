@@ -383,6 +383,10 @@
     <string name="ai_apply">Apply</string>
     <string name="ai_reply">AI reply</string>
     <string name="ai_summarize">AI summary</string>
+    <string name="ai_translate">Translate</string>
+    <string name="ai_translation">Translation</string>
+    <string name="ai_translating">Translating…</string>
+    <string name="ai_translation_empty">No translation.</string>
     <string name="ai_reply_tone_question">How should the AI reply?</string>
     <string name="ai_reply_formal">Formal (you)</string>
     <string name="ai_reply_informal">Personal (you)</string>
@@ -565,6 +569,19 @@
         <item>Group chats: emails with multiple recipients are collected in one chat</item>
         <item>New emails can be sent to multiple recipients (comma separated)</item>
         <item>Replies in a group chat are sent to all members</item>
+    </string-array>
+    <string-array name="version_2_9_changes">
+        <item>New: Drawing / image in the plus menu – draw with your finger (freehand, dots, lines and circles via long-press), 3 stroke widths, optionally on top of a loaded image; the result is attached as a PNG</item>
+        <item>New: Sticky note colors – yellow (default), pink, orange and purple; new chat list filters per color</item>
+        <item>New: Optional subject encryption (Settings toggle) – the subject is encrypted with the recipient\'s key</item>
+        <item>New: Clear (x) button in both search fields</item>
+        <item>Improved: Secure settings simplified (group headers, combined save); the help text is split into subsections</item>
+        <item>Improved: AI reply also works in chats without emails (uses the compose fields)</item>
+        <item>Improved: The "Where are you?" auto-reply encrypts the map image attachment</item>
+        <item>Improved: Backup password fields are masked; the new export passphrase must be entered twice</item>
+        <item>Fixed: Intermittent crashes while drawing (memory) and after undo/redo</item>
+        <item>Fixed: PDF attachments without a file name are saved with a generated name; inline PDFs and image-only attachments are repaired for already-synced mail</item>
+        <item>Fixed: Background location permission removed (Play policy) – the "Where are you?" auto-reply uses the last known location in the background</item>
     </string-array>
     <string-array name="version_2_8_changes">
         <item>New: "My Location" in the plus menu – attaches an OpenStreetMap map image (red marker) of your current position to the message being composed, plus map links (OpenStreetMap, Google Maps, Apple Maps)</item>
@@ -1221,7 +1238,9 @@
     <string name="help_filter_menu_title">Filter Menu</string>
     <string name="help_filter_menu_text">Tap the filter icon (top right) to open the filter dropdown. Toggle filters for favorites, unread, processed, todo, hidden, sticky notes, phishing, unwanted, newsletter, and custom tags. The badge shows the total number of active filters including custom tags. Filters are kept between sessions; the "Clear filters" entry at the top of the menu resets all filters.</string>
     <string name="help_sticky_note_title">Sticky Notes</string>
-    <string name="help_sticky_note_text">Tap the yellow sticky note icon in the chat header to write a note directly into the chat. Notes are stored locally and are never sent as an email. They are shown as yellow bubbles with a "Sticky note – not sent" label. Tap a note to edit it. Notes can be deleted via the normal message menu (long-press, select, delete). Sticky notes are never processed by the AI (no summary, no spam classification, no tags). In the chat list, the "Sticky notes" filter shows only chats that contain at least one note.</string>
+    <string name="help_sticky_note_text">Tap the sticky note icon in the chat header to write a note directly into the chat. Notes are stored locally and are never sent as an email. They are shown as colored bubbles with a "Sticky note – not sent" label. Choose the color (yellow, pink, orange or purple) in the editor. Tap a note to edit it. Notes can be deleted via the normal message menu (long-press, select, delete). Sticky notes are never processed by the AI (no summary, no spam classification, no tags). In the chat list, the "Sticky notes" filter shows only chats that contain at least one note; the per-color filters (yellow, pink, orange, purple) narrow the selection down further.</string>
+    <string name="help_drawing_title">Drawing / Image</string>
+    <string name="help_drawing_text">Use "Drawing / image" in the plus menu to draw with your finger: quick touch and drag for freehand, tap for a dot, long-press (hold still) and drag for a line or circle (toggle the shape with the button next to the image button). Tap a color to select it; tap the selected color again to cycle the stroke width (thin, medium, thick). The image button loads an image to draw on (your strokes go on top; the loaded image can be rotated 90° clockwise). Undo/redo and clear are in the top bar. Save (floppy icon) attaches the drawing as a PNG (name: Drawing_date_time, or Drawing_image_name when an image is loaded).</string>
     <string name="help_my_location_title">My Location (Map)</string>
     <string name="help_my_location_text">Tap "My Location" in the plus menu to add your current position to the message being composed: map links (OpenStreetMap, Google Maps, Apple Maps) are inserted into the text and an OpenStreetMap map image with a red marker at your position is attached as a PNG. The map is generated on your device from map tiles (tile.openstreetmap.org) and is optional — if it cannot be created, the links are still added. The "Where are you?" auto-reply can also attach a map image (per-contact option "Attach map").</string>
     <string name="help_unread_filter_title">Unread Filter</string>

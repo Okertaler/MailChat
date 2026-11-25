@@ -250,7 +250,7 @@ fun ChatListScreen(
             onDismissRequest = { showPermissionDialog = false },
             title = { Text("Berechtigungen") },
             text = {
-                Text("MailChat benötigt Zugriff auf Kontakte (für Namen und Fotos), Mikrofon (für Sprachnachrichten) und Standort — auch im Hintergrund (für die „Wo bist Du?“-Auto-Antwort, die auch bei gesperrtem Handy funktionieren soll). Diese Berechtigungen sind optional.")
+                Text("MailChat benötigt Zugriff auf Kontakte (für Namen und Fotos), Mikrofon (für Sprachnachrichten) und Standort (für die „Wo bist Du?“-Auto-Antwort). Diese Berechtigungen sind optional.")
             },
             confirmButton = {
                 TextButton(onClick = {
@@ -259,8 +259,7 @@ fun ChatListScreen(
                         arrayOf(
                             android.Manifest.permission.READ_CONTACTS,
                             android.Manifest.permission.RECORD_AUDIO,
-                            android.Manifest.permission.ACCESS_FINE_LOCATION,
-                            android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                            android.Manifest.permission.ACCESS_FINE_LOCATION
                         )
                     )
                 }) { Text("OK") }
@@ -278,15 +277,14 @@ fun ChatListScreen(
             onDismissRequest = { showLocationPermissionDialog = false },
             title = { Text("Standort-Berechtigung") },
             text = {
-                Text("MailChat benötigt die Standort-Berechtigung — auch im Hintergrund — für die „Wo bist Du?“-Auto-Antwort (sendet deinen Standort, wenn ein Kontakt fragt, auch bei gesperrtem Handy). Diese Berechtigung ist optional.")
+                Text("MailChat benötigt die Standort-Berechtigung für die „Wo bist Du?“-Auto-Antwort (sendet deinen Standort, wenn ein Kontakt fragt). Diese Berechtigung ist optional.")
             },
             confirmButton = {
                 TextButton(onClick = {
                     showLocationPermissionDialog = false
                     permissionLauncher.launch(
                         arrayOf(
-                            android.Manifest.permission.ACCESS_FINE_LOCATION,
-                            android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                            android.Manifest.permission.ACCESS_FINE_LOCATION
                         )
                     )
                 }) { Text("OK") }

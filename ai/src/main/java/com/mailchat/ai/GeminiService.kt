@@ -546,6 +546,129 @@ Regeln:
         generate(prompt)
     }
 
+    // --- Translation (KI-Übersetzen) ---
+
+    /**
+     * Translates [text] into [targetLanguage] ("de" or "en"). Returns the translation only,
+     * no preamble. Used by the one-tap "translate" action on chat messages and the full email view.
+     */
+    suspend fun translate(text: String, targetLanguage: String): String = withContext(Dispatchers.IO) {
+        val lang = when (targetLanguage) {
+            "de" -> "German (Deutsch)"
+            "en" -> "English"
+            else -> "the same language as the input"
+        }
+        val truncated = text.stripHtml().take(8000)
+        val prompt = "Translate the following text into $lang. Output ONLY the translation, " +
+            "no introduction, no preamble, no quotes, no explanation. Keep the original line " +
+            "breaks and formatting as much as possible.\n\n$truncated"
+        generate(prompt, maxOutputToken = 1024)
+    }
+
+    // --- Subject suggestion (KI-Betreff) ---
+
+    /**
+     * Suggests a short email subject line for the given [body] (the text being composed).
+     * Returns only the subject, no preamble.
+     */
+    suspend fun suggestSubject(body: String, language: String): String = withContext(Dispatchers.IO) {
+        val lang = when (language) {
+            "de" -> "German"
+            "en" -> "English"
+            else -> "the same language as the text"
+        }
+        val truncated = body.stripHtml().take(3000)
+        val prompt = "Write a short, clear email subject line (max 8 words) for the following " +
+            "email text. The subject must be in $lang. Output ONLY the subject, no quotes, " +
+            "no preamble, no \"Subject:\" prefix.\n\n$truncated"
+        generate(prompt, maxOutputToken = 64).trim()
+            .removePrefix("Subject:")
+            .removePrefix("Betreff:")
+            .trim(' ', '"', '«', '»', '„', '“', '”')
+    }
+
+    // --- Quick replies (Schnell-Antworten) ---
+
+    /**
+     * Suggests up to 3 short one-tap quick replies for the given incoming [context] (the message
+     * being answered). Returns the replies as a list of strings (may be empty).
+     */
+    suspend fun quickReplies(context: String, language: String): List<String> = withContext(Dispatchers.IO) {
+        val lang = when (language) {
+            "de" -> "German"
+            "en" -> "English"
+            else -> "the same language as the message"
+        }
+        val truncated = context.stripHtml().take(3000)
+        val prompt = "Suggest 3 short quick replies (each max 12 words) that the recipient could " +
+            "send as a one-tap answer to this message. The replies must be in $lang. They should " +
+            "be practical and cover different intents (e.g. confirm, decline, ask a question). " +
+            "Output ONLY a JSON array of 3 strings, nothing else.\n\nMessage:\n$truncated"
+        val raw = generate(prompt, maxOutputToken = 256).trim()
+        parseStringArray(raw)
+    }
+
+    // --- Follow-up / deadline detection ---
+
+    data class FollowUp(val text: String, val date: String, val time: String)
+
+    /**
+     * Detects follow-ups, deadlines and tasks in [text] (e.g. "please reply by Friday",
+     * "the contract expires on 30.06."). Returns a list of detected follow-ups (may be empty).
+     */
+    suspend fun extractFollowUps(text: String, language: String): List<FollowUp> = withContext(Dispatchers.IO) {
+        val lang = when (language) {
+            "de" -> "German"
+            "en" -> "English"
+            else -> "the same language as the text"
+        }
+        val truncated = text.stripHtml().take(6000)
+        val prompt = "Find all deadlines, due dates, follow-up tasks or things the recipient must " +
+            "do in the future in this text. For each, output a JSON object with: " +
+            "\"text\" (a short description of the task in $lang, max 10 words), " +
+            "\"date\" (the date as written in the text, or \"\" if none), " +
+            "\"time\" (the time as written, or \"\" if none). " +
+            "Output ONLY a JSON array of such objects (empty array if none found), nothing else.\n\n" +
+            "Text:\n$truncated"
+        val raw = generate(prompt, maxOutputToken = 512).trim()
+        parseFollowUpArray(raw)
+    }
+
+    /** Parses a JSON array of strings, tolerating a leading/trailing code fence or prose. */
+    private fun parseStringArray(raw: String): List<String> {
+        val start = raw.indexOf('[')
+        val end = raw.lastIndexOf(']')
+        if (start < 0 || end <= start) return emptyList()
+        val json = raw.substring(start, end + 1)
+        return try {
+            val arr = org.json.JSONArray(json)
+            (0 until arr.length()).mapNotNull { arr.optString(it).trim().takeIf { s -> s.isNotBlank() } }
+                .distinct()
+                .take(3)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    /** Parses a JSON array of follow-up objects, tolerating a leading/trailing code fence or prose. */
+    private fun parseFollowUpArray(raw: String): List<FollowUp> {
+        val start = raw.indexOf('[')
+        val end = raw.lastIndexOf(']')
+        if (start < 0 || end <= start) return emptyList()
+        val json = raw.substring(start, end + 1)
+        return try {
+            val arr = org.json.JSONArray(json)
+            (0 until arr.length()).mapNotNull { i ->
+                val obj = arr.optJSONObject(i) ?: return@mapNotNull null
+                val text = obj.optString("text").trim()
+                if (text.isBlank()) return@mapNotNull null
+                FollowUp(text, obj.optString("date").trim(), obj.optString("time").trim())
+            }.distinct()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
     fun release() {
         closeEngine()
         _downloadState.value = DownloadState.Idle

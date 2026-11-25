@@ -66,6 +66,9 @@ data class ChatDetailUiState(
     val aiSuggestion: String = "",
     val aiError: String = "",
     val isGeneratingSuggestion: Boolean = false,
+    val isTranslating: Boolean = false,
+    val translationText: String = "",
+    val translationError: String = "",
     val draftSubject: String? = null,
     val selectedRecipient: String? = null,
     val replyQuote: String? = null,
@@ -1052,6 +1055,33 @@ class ChatDetailViewModel @Inject constructor(
                     appContext.getString(com.mailchat.R.string.ai_summary_error, e.message ?: ""),
                     android.widget.Toast.LENGTH_LONG
                 ).show()
+            }
+        }
+    }
+
+    /**
+     * Translates the given message into the app's UI language (on-device, one-tap). The result is
+     * stored in [ChatDetailUiState.translationText] and shown in a dialog by the screen.
+     */
+    fun translateMessage(message: Message) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isTranslating = true, translationText = "", translationError = "") }
+            try {
+                com.mailchat.util.AiEngine.configureAndInitialize(appContext)
+                if (!com.mailchat.ai.GeminiService.isEngineReady()) {
+                    throw IllegalStateException("No model")
+                }
+                val text = message.bodyFull.ifBlank { message.body }
+                val lang = com.mailchat.util.LanguageUtils.getLanguage(appContext)
+                val result = com.mailchat.ai.GeminiService.translate(text, lang)
+                _uiState.update { it.copy(translationText = result, isTranslating = false) }
+            } catch (e: IllegalStateException) {
+                _uiState.update {
+                    it.copy(isTranslating = false, translationError = appContext.getString(com.mailchat.R.string.assistant_model_missing))
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MailchatAI", "translateMessage failed: ${e.message}")
+                _uiState.update { it.copy(isTranslating = false, translationError = e.message ?: "error") }
             }
         }
     }

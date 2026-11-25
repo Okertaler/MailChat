@@ -16,14 +16,14 @@ MailChat
 
 In der Play Console unter **Release → What's new** eintragen.
 
-### Englisch (455 Zeichen)
+### Englisch (469 Zeichen)
 ```
-New: "My Location" in the plus menu attaches an OpenStreetMap map image of your position. Sticky notes: yellow notes in the chat (never sent), tap to edit, own filter. Attachments show the file type (PDF, TXT, DOCX…) in the circle. Filters are now kept; new "Clear filters" entry. Maps are generated faster and zoomed 30% in around your position. Fixed: repeated re-fetching of the last email (battery); auto-reply with map also works with a locked phone.
+New: Drawing/image in the plus menu – draw with your finger (freehand, dots, lines, circles via long-press), 3 stroke widths, optionally on top of an image; attached as PNG. Sticky note colors: yellow, pink, orange, purple + per-color filters. Optional subject encryption. Clear button in the search fields. Improved: simplified secure settings; auto-reply encrypts the map image. Fixed: drawing crashes; nameless PDF attachments; background location permission removed.
 ```
 
-### Deutsch (474 Zeichen)
+### Deutsch (489 Zeichen)
 ```
-Neu: „Mein Standort" im Plus-Menü hängt eine OpenStreetMap-Karte mit deinem Standort als Bild an. Notizzettel: gelbe Notizen im Chat (nie gesendet), per Tipp bearbeiten, eigener Filter. Anhänge zeigen im Kreis das Dateiformat (PDF, TXT, DOCX…). Filter bleiben erhalten; neuer Eintrag „Filter löschen". Karten werden schneller erstellt und 30 % näher um den Standort gezeigt. Behoben: doppelte Abrufe der letzten Mail (Akku); Auto-Antwort mit Karte auch bei gesperrtem Handy.
+Neu: Zeichnen/Bild im Plus-Menü – mit dem Finger zeichnen (Freihand, Punkte, Linien, Kreise per Langdruck), 3 Strichstärken, optional über einem Bild; Ergebnis als PNG. Notizzettel-Farben: gelb, pink, orange, lila + Filter pro Farbe. Optionale Betreff-Verschlüsselung. Löschen-Button in den Suchfeldern. Verbessert: Sichere Einstellungen vereinfacht; Auto-Antwort verschlüsselt das Kartenbild. Behoben: Abstürze beim Zeichnen; PDF-Anhänge ohne Namen; Hintergrund-Standort-Berechtigung entfernt.
 ```
 
 > Hinweis: In der Play Console unter **Release → What's new** wird der Text **ohne** die `<de-DE>`/`<en-GB>`-Tags eingetragen (die Tags sind nur für `version.md` im Repo). Pro Sprache ein eigener Eintrag, jeweils ≤ 500 Zeichen.
@@ -211,8 +211,7 @@ Unter **App Information → Targeting → Location** oder im Data-Safety-Formula
 - Die App verwendet `ACCESS_FINE_LOCATION` für:
   - „Mein Standort" (Plus-Menü)
   - Auto-Antwort „Wo bist Du?"
-- Die App verwendet `ACCESS_BACKGROUND_LOCATION` für:
-  - Auto-Antwort „Wo bist Du?" auch bei gesperrtem Handy (Standort wird nur an den von dir gewählten Kontakt gesendet)
+- `ACCESS_BACKGROUND_LOCATION` wird **nicht** verwendet (aus dem Manifest entfernt, Play-Richtlinie „Zugriff auf Standortermittlung im Hintergrund"). Die „Wo bist Du?"-Auto-Antwort nutzt im Hintergrund die zuletzt bekannte (gecachte) Position; nur wenn keine gecachte Position verfügbar ist und die App im Hintergrund läuft, wird keine Standort-Antwort gesendet.
 - Deklarationstext (Beispiel):
   > „Die App kann mit deiner Erlaubnis deinen genauen Standort abrufen, um ihn auf Wunsch als Karten-Link und optionales Kartenbild an einen von dir gewählten Kontakt zu senden (Funktion 'Wo bist Du?'). Der Standort wird nicht an Dritte übermittelt."
 
@@ -269,7 +268,7 @@ Die Play Console verlangt eine **öffentliche Privacy-Policy-URL**.
 - ✅ Release-AAB: `app/build/outputs/bundle/release/app-release.aab` (signiert)
 - ✅ Source: `https://github.com/Okertaler/MailChat`
 - ✅ Legal-Dokumente: in der App + `legal/`-Ordner
-- ✅ Version: 2.8 (versionCode 91, targetSdk 36 / Android 16)
+- ✅ Version: 2.9 (versionCode 92, targetSdk 36 / Android 16)
 
 ---
 
