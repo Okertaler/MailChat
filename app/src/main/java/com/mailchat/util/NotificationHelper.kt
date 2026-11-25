@@ -12,6 +12,7 @@ import com.mailchat.R
 object NotificationHelper {
     private const val CHANNEL_ID = "new_emails"
     private const val SYNC_CHANNEL_ID = "sync_status"
+    private const val POLL_CHANNEL_ID = "poll_reminders"
     private const val SYNC_ERROR_NOTIFICATION_ID = 4712
     // Fixed ID for the "N new emails" summary notification, so repeated summaries replace each
     // other instead of stacking up in the notification shade.
@@ -43,9 +44,46 @@ object NotificationHelper {
             context.getString(R.string.sync_error_channel_name),
             NotificationManager.IMPORTANCE_DEFAULT
         )
+        val pollChannel = NotificationChannel(
+            POLL_CHANNEL_ID,
+            context.getString(R.string.poll_reminder_channel_name),
+            NotificationManager.IMPORTANCE_DEFAULT
+        )
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(channel)
         manager.createNotificationChannel(syncChannel)
+        manager.createNotificationChannel(pollChannel)
+    }
+
+    /**
+     * Reminds the user about an open poll that was sent to them and has not been answered yet.
+     * Tapping it opens the chat containing the poll. [pollId] is used to derive a stable
+     * notification ID (offset so it cannot collide with chat-based notification IDs).
+     */
+    fun postPollReminder(context: Context, chatId: Long, pollId: String, title: String, question: String) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            action = Intent.ACTION_VIEW
+            putExtra("chat_id", chatId)
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val notificationId = 100_000_000 + (pollId.hashCode() and 0x7fffffff) % 1_000_000
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val text = title.ifBlank { question.take(80) }
+        val notification = NotificationCompat.Builder(context, POLL_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(context.getString(R.string.poll_reminder_title))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(question.ifBlank { text }))
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(notificationId, notification)
     }
 
     fun postSyncError(context: Context, message: String) {

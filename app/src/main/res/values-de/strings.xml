@@ -243,6 +243,8 @@
     <string name="poll_answer">Antworten</string>
     <string name="poll_close">Umfrage abschließen</string>
     <string name="poll_closed">Umfrage abgeschlossen</string>
+    <string name="poll_reminder_title">Umfrage unbeantwortet</string>
+    <string name="poll_reminder_channel_name">Umfrage-Erinnerungen</string>
     <string name="poll_votes">%1$d Stimmen</string>
     <string name="poll_recipients">Empfänger</string>
     <string name="poll_result">Ergebnis</string>

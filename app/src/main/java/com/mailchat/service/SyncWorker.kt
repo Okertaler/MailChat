@@ -15,6 +15,7 @@ import com.mailchat.data.model.EmailAccount
 import com.mailchat.data.repository.AccountRepository
 import com.mailchat.data.repository.ChatRepository
 import com.mailchat.data.repository.MessageRepository
+import com.mailchat.data.repository.PollRepository
 import com.mailchat.network.FetchedMessage
 import com.mailchat.network.ImapService
 import com.mailchat.util.EmailGrouping
@@ -35,6 +36,7 @@ class SyncWorker @AssistedInject constructor(
     private val accountRepository: AccountRepository,
     private val chatRepository: ChatRepository,
     private val messageRepository: MessageRepository,
+    private val pollRepository: PollRepository,
     private val syncEngine: SyncEngine
 ) : CoroutineWorker(appContext, params) {
 
@@ -72,6 +74,7 @@ class SyncWorker @AssistedInject constructor(
                 android.util.Log.w("MailchatSync", "attach repair pass failed", e)
             }
         }
+        pollReminderPass(accounts)
         embedPendingMessages()
         return if (result.failedAccounts > 0 && result.failedAccounts == result.totalAccounts) {
             Result.retry()
@@ -245,6 +248,43 @@ class SyncWorker @AssistedInject constructor(
         val buf = java.nio.ByteBuffer.allocate(vec.size * 4)
         vec.forEach { buf.putFloat(it) }
         return buf.array()
+    }
+
+    /**
+     * Reminds the user about open polls that were sent to them and have not been answered yet
+     * (one notification per poll, deduped via [SettingsUtils.getPollReminderSentIds]). Runs on
+     * every periodic sync — it is a local DB pass only, no network involved.
+     */
+    private suspend fun pollReminderPass(accounts: List<EmailAccount>) {
+        try {
+            // The channel is normally created in MainActivity; ensure it exists here too so the
+            // reminder works even if the app has not been opened since the last install.
+            NotificationHelper.createChannel(applicationContext)
+            for (account in accounts) {
+                val myEmail = account.emailAddress.trim().lowercase()
+                if (myEmail.isBlank()) continue
+                val openPolls = pollRepository.getOpenPolls(account.id)
+                if (openPolls.isEmpty()) continue
+                val sent = SettingsUtils.getPollReminderSentIds(applicationContext)
+                for (poll in openPolls) {
+                    // Only remind for polls addressed to this account (not the creator's own).
+                    if (poll.creatorEmail.trim().lowercase() == myEmail) continue
+                    if (poll.id in sent) continue
+                    val votes = pollRepository.getVotesSync(poll.id, account.id)
+                    if (votes.any { it.voterEmail.trim().lowercase() == myEmail }) continue
+                    NotificationHelper.postPollReminder(
+                        context = applicationContext,
+                        chatId = poll.chatId,
+                        pollId = poll.id,
+                        title = poll.title,
+                        question = poll.question
+                    )
+                    SettingsUtils.addPollReminderSentId(applicationContext, poll.id)
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("MailchatSync", "poll reminder pass failed", e)
+        }
     }
 
     companion object {

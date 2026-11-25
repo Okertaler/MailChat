@@ -5190,10 +5190,13 @@ private fun PollBarChart(options: List<String>, counts: List<Int>, totalVotes: I
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         for (i in options.indices) {
             val count = counts.getOrElse(i) { 0 }
+            // Highlight the leading option (bold label) in a regular count poll.
+            val isLeader = !numberMode && maxCount > 0 && count == maxCount
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     options[i],
                     style = MaterialTheme.typography.bodySmall,
+                    fontWeight = if (isLeader) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal,
                     modifier = Modifier.widthIn(max = 140.dp),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -5262,10 +5265,18 @@ private fun PollBarChart(options: List<String>, counts: List<Int>, totalVotes: I
                     }
                 }
                 Spacer(Modifier.width(8.dp))
+                // Regular count polls: show the percentage of all votes next to the count.
+                val countLabel = if (numberMode) {
+                    "$count"
+                } else {
+                    val pct = if (totalVotes > 0) count * 100 / totalVotes else 0
+                    "$count ($pct%)"
+                }
                 Text(
-                    "$count",
+                    countLabel,
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.width(if (numberMode) 44.dp else 28.dp)
+                    color = if (isLeader) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.width(if (numberMode) 44.dp else 72.dp)
                 )
             }
         }

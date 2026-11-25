@@ -243,6 +243,8 @@
     <string name="poll_answer">Answer</string>
     <string name="poll_close">Close poll</string>
     <string name="poll_closed">Poll closed</string>
+    <string name="poll_reminder_title">Poll unanswered</string>
+    <string name="poll_reminder_channel_name">Poll reminders</string>
     <string name="poll_votes">%1$d votes</string>
     <string name="poll_recipients">Recipients</string>
     <string name="poll_result">Result</string>

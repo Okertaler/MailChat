@@ -563,6 +563,24 @@ object SettingsUtils {
     }
 
     /**
+     * The set of poll IDs for which an "unanswered poll" reminder notification has already
+     * been posted. Used to remind the user only once per poll (not on every sync).
+     */
+    fun getPollReminderSentIds(context: Context): Set<String> =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getStringSet("poll_reminder_sent_ids", emptySet())!!.toSet()
+
+    fun addPollReminderSentId(context: Context, pollId: String) {
+        if (pollId.isBlank()) return
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val current = prefs.getStringSet("poll_reminder_sent_ids", emptySet())!!.toMutableSet()
+        current.add(pollId)
+        // Keep the set bounded so it doesn't grow without limit.
+        val trimmed = if (current.size > 500) current.toList().takeLast(500).toSet() else current
+        prefs.edit().putStringSet("poll_reminder_sent_ids", trimmed).apply()
+    }
+
+    /**
      * One-time flag: the chat list previews (lastMessageSubject/timestamp) have been backfilled
      * from the latest message. Older app versions did not update lastMessageSubject when
      * messages were fetched via background sync, leaving some chats with an empty or stale
