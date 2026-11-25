@@ -268,6 +268,11 @@ fun SettingsScreen(
     var mailSettingsExpanded by remember { mutableStateOf(false) }
     var signatureExpanded by remember { mutableStateOf(false) }
     var aiSettingsExpanded by remember { mutableStateOf(false) }
+    var awayAutoReplyExpanded by remember { mutableStateOf(false) }
+    var awayAutoReplyEnabled by remember { mutableStateOf(SettingsUtils.getAwayAutoReplyEnabled(context)) }
+    var awayAutoReplyMessage by remember { mutableStateOf(SettingsUtils.getAwayAutoReplyMessage(context)) }
+    var awayAutoReplyContacts by remember { mutableStateOf(SettingsUtils.getAwayAutoReplyContacts(context)) }
+    var showAwayContactsDialog by remember { mutableStateOf(false) }
     var secureSettingsExpanded by remember { mutableStateOf(false) }
     var generalExpanded by remember { mutableStateOf(false) }
     var backupExpanded by remember { mutableStateOf(false) }
@@ -987,6 +992,66 @@ fun SettingsScreen(
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                 )
             }
+            }
+
+            SectionDivider()
+
+            CollapsibleSectionHeader(
+                title = "✉️ " + stringResource(R.string.away_auto_reply_title),
+                expanded = awayAutoReplyExpanded,
+                onToggle = { awayAutoReplyExpanded = !awayAutoReplyExpanded }
+            )
+
+            if (awayAutoReplyExpanded) {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.away_auto_reply_switch)) },
+                    supportingContent = {
+                        Text(stringResource(R.string.away_auto_reply_desc))
+                    },
+                    trailingContent = {
+                        androidx.compose.material3.Switch(
+                            checked = awayAutoReplyEnabled,
+                            onCheckedChange = {
+                                awayAutoReplyEnabled = it
+                                SettingsUtils.setAwayAutoReplyEnabled(context, it)
+                            }
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (awayAutoReplyEnabled) {
+                    OutlinedTextField(
+                        value = awayAutoReplyMessage,
+                        onValueChange = {
+                            awayAutoReplyMessage = it
+                            SettingsUtils.setAwayAutoReplyMessage(context, it)
+                        },
+                        label = { Text(stringResource(R.string.away_auto_reply_message)) },
+                        minLines = 3,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.away_auto_reply_contacts)) },
+                        supportingContent = {
+                            Text(
+                                if (awayAutoReplyContacts.isEmpty()) {
+                                    stringResource(R.string.away_auto_reply_contacts_empty)
+                                } else {
+                                    awayAutoReplyContacts.sorted().joinToString(", ")
+                                }
+                            )
+                        },
+                        trailingContent = {
+                            TextButton(onClick = { showAwayContactsDialog = true }) {
+                                Text(stringResource(R.string.away_auto_reply_pick_contacts))
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
             SectionDivider()
@@ -2433,6 +2498,19 @@ fun SettingsScreen(
         )
     }
 
+    if (showAwayContactsDialog) {
+        AwayContactsPickerDialog(
+            contacts = uiState.contacts,
+            selected = awayAutoReplyContacts,
+            onDismiss = { showAwayContactsDialog = false },
+            onConfirm = { selected ->
+                awayAutoReplyContacts = selected
+                SettingsUtils.setAwayAutoReplyContacts(context, selected)
+                showAwayContactsDialog = false
+            }
+        )
+    }
+
     if (showAiWarning) {
         Dialog(onDismissRequest = { showAiWarning = false }) {
             Surface(
@@ -2812,5 +2890,101 @@ private fun LanguageOption(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
+    )
+}
+
+/**
+ * Multi-select dialog for the away auto-reply contacts: a search field plus the device
+ * contacts as a checkbox list. [selected] holds the currently selected email addresses
+ * (lowercase); [onConfirm] receives the new selection.
+ */
+@Composable
+private fun AwayContactsPickerDialog(
+    contacts: List<com.mailchat.service.Contact>,
+    selected: Set<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (Set<String>) -> Unit
+) {
+    // NOTE: must be updated immutably (selectedEmails = selectedEmails + x) so Compose
+    // detects the change; mutating a Set in place does NOT trigger recomposition.
+    var selectedEmails by remember { mutableStateOf(selected) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    val filteredContacts = remember(contacts, searchQuery) {
+        if (searchQuery.isBlank()) contacts
+        else contacts.filter {
+            it.name.contains(searchQuery, ignoreCase = true) ||
+                it.email.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.away_auto_reply_pick_contacts)) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text(stringResource(R.string.away_auto_reply_search)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                if (filteredContacts.isEmpty()) {
+                    Text(
+                        stringResource(R.string.away_auto_reply_no_contacts),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    filteredContacts.forEach { contact ->
+                        val email = contact.email.trim().lowercase()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (email in selectedEmails) selectedEmails = selectedEmails - email
+                                    else selectedEmails = selectedEmails + email
+                                }
+                                .padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(checked = email in selectedEmails, onCheckedChange = { checked ->
+                                if (checked) selectedEmails = selectedEmails + email
+                                else selectedEmails = selectedEmails - email
+                            })
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    contact.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    contact.email,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(selectedEmails) }) {
+                Text(stringResource(R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        }
     )
 }

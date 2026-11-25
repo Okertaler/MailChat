@@ -210,9 +210,11 @@ class SyncEngine @Inject constructor(
                     }
                 }
             }
-            // Automatic "Wo bist Du?" reply (see AutoReplyService).
+            // Automatic "Wo bist Du?" reply + away auto-reply for selected contacts
+            // (see AutoReplyService).
             try {
                 autoReplyService.maybeAutoReply(account, message.copy(id = dbMessageId))
+                autoReplyService.maybeAwayAutoReply(account, message.copy(id = dbMessageId))
             } catch (e: Exception) {
                 android.util.Log.w("MailchatSync", "auto-reply failed", e)
             }

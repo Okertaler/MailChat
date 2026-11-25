@@ -328,6 +328,137 @@ class AutoReplyService @Inject constructor(
         }
     }
 
+    /**
+     * Away auto-reply: when an email arrives from one of the selected contacts and the away
+     * auto-reply is enabled, the app replies with the configured message (e.g. "I'm on
+     * vacation until ..."). One reply per message (deduped by message ID), and skipped when
+     * the location auto-reply already answered this message (no double reply).
+     * Returns true if a reply was sent.
+     */
+    suspend fun maybeAwayAutoReply(account: EmailAccount, message: Message): Boolean {
+        if (!message.isIncoming) return false
+        if (!SettingsUtils.getAwayAutoReplyEnabled(appContext)) return false
+        val sender = message.from.trim().lowercase()
+        if (sender.isBlank()) return false
+        if (sender !in SettingsUtils.getAwayAutoReplyContacts(appContext)) return false
+        val replyText = SettingsUtils.getAwayAutoReplyMessage(appContext).trim()
+        if (replyText.isBlank()) return false
+        // Avoid replying twice to the same message (e.g. on re-sync), and avoid a double
+        // reply when the location auto-reply already answered this message.
+        if (message.messageId.isNotBlank()) {
+            if (message.messageId in SettingsUtils.getAwayAutoRepliedMessageIds(appContext)) {
+                com.mailchat.ai.AppLogger.log(appContext, "Away auto-reply skipped: already replied to ${message.messageId}")
+                return false
+            }
+            if (message.messageId in SettingsUtils.getAutoRepliedMessageIds(appContext)) {
+                com.mailchat.ai.AppLogger.log(appContext, "Away auto-reply skipped: location auto-reply already answered ${message.messageId}")
+                return false
+            }
+        }
+        val german = SettingsUtils.isGermanUi(appContext)
+        return try {
+            val subject = if (message.subject.isNotBlank()) {
+                if (message.subject.startsWith("Re:", ignoreCase = true) ||
+                    message.subject.startsWith("Aw:", ignoreCase = true)
+                ) message.subject else "Re: ${message.subject}"
+            } else if (german) "Automatische Antwort" else "Automatic reply"
+
+            val extraHeaders = mutableMapOf<String, String>()
+            if (message.messageId.isNotBlank()) {
+                extraHeaders["In-Reply-To"] = message.messageId
+                extraHeaders["References"] = message.messageId
+            }
+
+            // Encryption: same as the normal send flow (OpenPGP primary, legacy fallback).
+            var finalBody = replyText
+            var isEncryptedMsg = false
+            if (com.mailchat.crypto.OpenPgpKeyService.hasIdentity(appContext)) {
+                withContext(Dispatchers.IO) {
+                    try {
+                        val pubKey = com.mailchat.crypto.OpenPgpKeyService.currentPeerKey(appContext, sender)
+                        if (!pubKey.isNullOrBlank()) {
+                            val keySig = SettingsUtils.getEncryptedKeySignatureText(appContext)
+                            val bodyToEncrypt = if (keySig.isNotBlank()) "$replyText\n\n$keySig" else replyText
+                            finalBody = com.mailchat.crypto.OpenPgpKeyService.signAndEncryptForRecipient(appContext, bodyToEncrypt, pubKey)
+                            isEncryptedMsg = true
+                            extraHeaders["X-MailChat-Encryption"] = "OpenPGP"
+                            com.mailchat.ai.AppLogger.log(appContext, "Away auto-reply: signed+encrypted with OpenPGP")
+                        }
+                    } catch (e: Exception) {
+                        com.mailchat.ai.AppLogger.log(appContext, "Away auto-reply: OpenPGP encryption failed: ${e.message}")
+                    }
+                }
+            }
+            if (!isEncryptedMsg) {
+                val peer = com.mailchat.crypto.CryptoService.getPeers(appContext)
+                    .firstOrNull { it.email.lowercase() == sender && it.pinVerified }
+                if (peer != null) {
+                    try {
+                        val encrypted = com.mailchat.crypto.CryptoService.encryptForRecipient(replyText, peer.publicKeyArmored)
+                        finalBody = "MAILCHAT_ENC:$encrypted"
+                        isEncryptedMsg = true
+                        extraHeaders["X-MailChat-Encryption"] = "AES-256-GCM"
+                        extraHeaders["X-MailChat-Fingerprint"] = peer.fingerprint
+                        com.mailchat.ai.AppLogger.log(appContext, "Away auto-reply: encrypted with legacy MAILCHAT_ENC")
+                    } catch (e: Exception) {
+                        com.mailchat.ai.AppLogger.log(appContext, "Away auto-reply: legacy encryption failed: ${e.message}")
+                    }
+                }
+            }
+
+            val sentMessageId = smtpService.sendEmail(
+                account = account,
+                to = sender,
+                subject = subject,
+                body = finalBody,
+                attachments = emptyList(),
+                extraHeaders = extraHeaders,
+                bodyFormat = if (isEncryptedMsg) com.mailchat.network.BodyFormat.PLAIN
+                    else com.mailchat.network.BodyFormat.PLAIN_AS_HTML
+            )
+            if (message.messageId.isNotBlank()) {
+                SettingsUtils.addAwayAutoRepliedMessageId(appContext, message.messageId)
+            }
+
+            // Store the reply locally so it shows up in this chat (the auto-reply is sent
+            // directly via SMTP and would otherwise be invisible to the user).
+            if (message.chatId > 0) {
+                try {
+                    val sentMsg = Message(
+                        chatId = message.chatId,
+                        accountId = account.id,
+                        from = account.emailAddress,
+                        subject = subject,
+                        body = replyText,
+                        bodyFull = replyText,
+                        timestamp = System.currentTimeMillis(),
+                        isRead = true,
+                        isIncoming = false,
+                        messageId = sentMessageId,
+                        isEncrypted = isEncryptedMsg
+                    )
+                    messageRepository.insertMessage(sentMsg)
+                    chatRepository.getChatById(message.chatId)?.let { chat ->
+                        chatRepository.updateChat(
+                            chat.copy(
+                                lastMessageTimestamp = System.currentTimeMillis(),
+                                lastMessageBody = replyText,
+                                lastMessageSubject = subject
+                            )
+                        )
+                    }
+                } catch (e: Exception) {
+                    com.mailchat.ai.AppLogger.log(appContext, "Away auto-reply: local save failed: ${e.message}")
+                }
+            }
+            com.mailchat.ai.AppLogger.log(appContext, "Away auto-reply sent to $sender (encrypted=$isEncryptedMsg)")
+            true
+        } catch (e: Exception) {
+            com.mailchat.ai.AppLogger.log(appContext, "Away auto-reply failed: ${e.message}")
+            false
+        }
+    }
+
     /** Whether the text looks like a "Wo bist Du?" (where are you) question. */
     private fun isWhereAreYouQuestion(text: String): Boolean {
         val normalized = text.lowercase()

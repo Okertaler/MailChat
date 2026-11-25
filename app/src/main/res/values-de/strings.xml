@@ -245,6 +245,15 @@
     <string name="poll_closed">Umfrage abgeschlossen</string>
     <string name="poll_reminder_title">Umfrage unbeantwortet</string>
     <string name="poll_reminder_channel_name">Umfrage-Erinnerungen</string>
+    <string name="away_auto_reply_title">Auto-Antwort (Abwesenheit)</string>
+    <string name="away_auto_reply_switch">Auto-Antwort aktivieren</string>
+    <string name="away_auto_reply_desc">Beantwortet die gewählten Kontakte automatisch mit einer festen Nachricht (z. B. während der Abwesenheit)</string>
+    <string name="away_auto_reply_message">Antwort-Nachricht</string>
+    <string name="away_auto_reply_contacts">Kontakte</string>
+    <string name="away_auto_reply_contacts_empty">Keine Kontakte ausgewählt</string>
+    <string name="away_auto_reply_pick_contacts">Kontakte auswählen</string>
+    <string name="away_auto_reply_search">Kontakte suchen</string>
+    <string name="away_auto_reply_no_contacts">Keine Kontakte gefunden</string>
     <string name="poll_votes">%1$d Stimmen</string>
     <string name="poll_recipients">Empfänger</string>
     <string name="poll_result">Ergebnis</string>

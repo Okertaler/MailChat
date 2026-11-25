@@ -245,6 +245,15 @@
     <string name="poll_closed">Poll closed</string>
     <string name="poll_reminder_title">Poll unanswered</string>
     <string name="poll_reminder_channel_name">Poll reminders</string>
+    <string name="away_auto_reply_title">Away auto-reply</string>
+    <string name="away_auto_reply_switch">Enable away auto-reply</string>
+    <string name="away_auto_reply_desc">Automatically reply to the selected contacts with a fixed message (e.g. while you are away)</string>
+    <string name="away_auto_reply_message">Reply message</string>
+    <string name="away_auto_reply_contacts">Contacts</string>
+    <string name="away_auto_reply_contacts_empty">No contacts selected</string>
+    <string name="away_auto_reply_pick_contacts">Select contacts</string>
+    <string name="away_auto_reply_search">Search contacts</string>
+    <string name="away_auto_reply_no_contacts">No contacts found</string>
     <string name="poll_votes">%1$d votes</string>
     <string name="poll_recipients">Recipients</string>
     <string name="poll_result">Result</string>

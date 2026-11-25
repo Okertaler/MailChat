@@ -580,6 +580,56 @@ object SettingsUtils {
         prefs.edit().putStringSet("poll_reminder_sent_ids", trimmed).apply()
     }
 
+    // --- Away auto-reply: automatically reply to selected contacts with a fixed message ---
+
+    fun getAwayAutoReplyEnabled(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean("away_auto_reply_enabled", false)
+
+    fun setAwayAutoReplyEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean("away_auto_reply_enabled", enabled).apply()
+    }
+
+    fun getAwayAutoReplyMessage(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("away_auto_reply_message", "") ?: ""
+
+    fun setAwayAutoReplyMessage(context: Context, message: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString("away_auto_reply_message", message).apply()
+    }
+
+    /** The set of contact email addresses (lowercase) that receive the away auto-reply. */
+    fun getAwayAutoReplyContacts(context: Context): Set<String> =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getStringSet("away_auto_reply_contacts", emptySet())!!.toSet()
+
+    fun setAwayAutoReplyContacts(context: Context, contacts: Set<String>) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putStringSet("away_auto_reply_contacts", contacts.map { it.trim().lowercase() }.toSet())
+            .apply()
+    }
+
+    /**
+     * The set of message IDs that have already received the away auto-reply.
+     * Used to avoid replying twice to the same message (e.g. on re-sync).
+     */
+    fun getAwayAutoRepliedMessageIds(context: Context): Set<String> =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getStringSet("away_auto_replied_message_ids", emptySet())!!.toSet()
+
+    fun addAwayAutoRepliedMessageId(context: Context, messageId: String) {
+        if (messageId.isBlank()) return
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val current = prefs.getStringSet("away_auto_replied_message_ids", emptySet())!!.toMutableSet()
+        current.add(messageId)
+        // Keep the set bounded so it doesn't grow without limit.
+        val trimmed = if (current.size > 500) current.toList().takeLast(500).toSet() else current
+        prefs.edit().putStringSet("away_auto_replied_message_ids", trimmed).apply()
+    }
+
     /**
      * One-time flag: the chat list previews (lastMessageSubject/timestamp) have been backfilled
      * from the latest message. Older app versions did not update lastMessageSubject when

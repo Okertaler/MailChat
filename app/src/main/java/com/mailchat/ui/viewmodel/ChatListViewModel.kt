@@ -406,6 +406,7 @@ class ChatListViewModel @Inject constructor(
         // both paths ever see the same message.)
         if (fetchedMsg.isIncoming) {
             autoReplyService.maybeAutoReply(account, message.copy(id = dbMessageId))
+            autoReplyService.maybeAwayAutoReply(account, message.copy(id = dbMessageId))
         }
         // Decrypted copy in the inbox: replace the encrypted incoming message on the server
         // with its decrypted version (same Message-ID, date and headers). Background + retry;
