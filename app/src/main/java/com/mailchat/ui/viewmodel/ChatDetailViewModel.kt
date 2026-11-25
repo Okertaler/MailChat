@@ -69,6 +69,8 @@ data class ChatDetailUiState(
     val isTranslating: Boolean = false,
     val translationText: String = "",
     val translationError: String = "",
+    val isSuggestingSubject: Boolean = false,
+    val aiSuggestedSubject: String = "",
     val draftSubject: String? = null,
     val selectedRecipient: String? = null,
     val replyQuote: String? = null,
@@ -1084,6 +1086,41 @@ class ChatDetailViewModel @Inject constructor(
                 _uiState.update { it.copy(isTranslating = false, translationError = e.message ?: "error") }
             }
         }
+    }
+
+    /**
+     * Suggests a subject line for the text currently being composed (on-device, one-tap). The
+     * result is stored in [ChatDetailUiState.aiSuggestedSubject]; the screen observes it and fills
+     * the subject field, then calls [clearSuggestedSubject].
+     */
+    fun suggestSubjectForCompose() {
+        viewModelScope.launch {
+            val body = _uiState.value.composeText
+            if (body.isBlank()) return@launch
+            _uiState.update { it.copy(isSuggestingSubject = true) }
+            try {
+                com.mailchat.util.AiEngine.configureAndInitialize(appContext)
+                if (!com.mailchat.ai.GeminiService.isEngineReady()) {
+                    throw IllegalStateException("No model")
+                }
+                val lang = com.mailchat.util.LanguageUtils.getLanguage(appContext)
+                val result = com.mailchat.ai.GeminiService.suggestSubject(body, lang)
+                _uiState.update { it.copy(aiSuggestedSubject = result, isSuggestingSubject = false) }
+            } catch (e: IllegalStateException) {
+                _uiState.update { it.copy(isSuggestingSubject = false) }
+                android.widget.Toast.makeText(
+                    appContext, appContext.getString(com.mailchat.R.string.assistant_model_missing),
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            } catch (e: Exception) {
+                android.util.Log.e("MailchatAI", "suggestSubjectForCompose failed: ${e.message}")
+                _uiState.update { it.copy(isSuggestingSubject = false) }
+            }
+        }
+    }
+
+    fun clearSuggestedSubject() {
+        _uiState.update { it.copy(aiSuggestedSubject = "") }
     }
 
     fun generateMessageReply(message: Message, tone: String) {

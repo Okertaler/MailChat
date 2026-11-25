@@ -318,6 +318,15 @@ fun ChatDetailScreen(
         }
     }
 
+    // KI-Betreff: when the AI suggests a subject, fill the subject field and clear the suggestion.
+    LaunchedEffect(uiState.aiSuggestedSubject) {
+        if (uiState.aiSuggestedSubject.isNotBlank()) {
+            selectedSubject = uiState.aiSuggestedSubject
+            viewModel.onSubjectChange(uiState.aiSuggestedSubject)
+            viewModel.clearSuggestedSubject()
+        }
+    }
+
     val recordPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -1022,8 +1031,22 @@ fun ChatDetailScreen(
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                                 trailingIcon = {
-                                    IconButton(onClick = { showSubjectDropdown = true }) {
-                                        Text("▼", style = MaterialTheme.typography.labelSmall)
+                                    Row {
+                                        if (aiEnabled) {
+                                            IconButton(
+                                                onClick = { viewModel.suggestSubjectForCompose() },
+                                                enabled = !uiState.isSuggestingSubject
+                                            ) {
+                                                Icon(
+                                                    Icons.Outlined.AutoAwesome,
+                                                    contentDescription = stringResource(R.string.ai_suggest_subject),
+                                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = if (uiState.isSuggestingSubject) 0.4f else 1f)
+                                                )
+                                            }
+                                        }
+                                        IconButton(onClick = { showSubjectDropdown = true }) {
+                                            Text("▼", style = MaterialTheme.typography.labelSmall)
+                                        }
                                     }
                                 }
                             )
