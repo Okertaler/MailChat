@@ -20,8 +20,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -87,26 +89,33 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import java.io.File
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
@@ -133,6 +142,8 @@ fun ChatListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var activeChatId by remember { mutableStateOf(SettingsUtils.getActiveChatId(context).takeIf { it != 0L }) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val listState = rememberLazyListState()
+    val listScope = rememberCoroutineScope()
     var showMergeDialog by remember { mutableStateOf(false) }
     var mergePhotoOptions by remember { mutableStateOf<List<Triple<String, String, String>>>(emptyList()) }
     var mergeSelectedPhoto by remember { mutableStateOf(0) }
@@ -576,6 +587,16 @@ fun ChatListScreen(
                             }
                         }
                     } else {
+                        // Comic-style "NEW" button: shown whenever there are unread emails.
+                        // Tapping it smoothly scrolls the list to the newest unread chat.
+                        if (uiState.chats.any { it.unreadCount > 0 }) {
+                            ComicNewButton(onClick = {
+                                val idx = filteredChats.indexOfFirst { it.unreadCount > 0 }
+                                if (idx >= 0) {
+                                    listScope.launch { listState.animateScrollToItem(idx) }
+                                }
+                            })
+                        }
                         SpinningRefreshButton(isSpinning = uiState.isSyncing || uiState.isAiProcessing, onClick = { viewModel.syncAll() })
                         IconButton(onClick = {
                             showSearch = !showSearch
@@ -930,6 +951,7 @@ fun ChatListScreen(
                     }
                 } else {
                     LazyColumn(
+                        state = listState,
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
                         items(
@@ -2055,5 +2077,46 @@ fun EmptyState(
         ) {
             Text(stringResource(R.string.backup_import))
         }
+    }
+}
+
+/**
+ * Comic-style "NEW" button for the top bar: white background, yellow star-shaped border
+ * (12-point starburst) and bold red "NEW" text. Shown whenever unread emails exist; tapping
+ * it smoothly scrolls the chat list to the newest unread chat.
+ */
+@Composable
+private fun ComicNewButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(width = 76.dp, height = 42.dp)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size(width = 76.dp, height = 42.dp)) {
+            val cx = size.width / 2f
+            val cy = size.height / 2f
+            val rx = size.width / 2f - 2f
+            val ry = size.height / 2f - 2f
+            val n = 12 // 12-point starburst
+            val path = Path().apply {
+                for (i in 0 until n * 2) {
+                    val angle = Math.PI * i / n - Math.PI / 2
+                    val r = if (i % 2 == 0) 1f else 0.74f
+                    val x = cx + (r * cos(angle).toFloat()) * rx
+                    val y = cy + (r * sin(angle).toFloat()) * ry
+                    if (i == 0) moveTo(x, y) else lineTo(x, y)
+                }
+                close()
+            }
+            drawPath(path, Color.White)
+            drawPath(path, Color(0xFFFFD500), style = Stroke(width = 4f))
+        }
+        Text(
+            text = stringResource(R.string.new_button),
+            color = Color(0xFFD32F2F),
+            fontWeight = FontWeight.Black,
+            fontSize = 14.sp
+        )
     }
 }

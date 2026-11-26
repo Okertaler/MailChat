@@ -32,6 +32,7 @@
     <string name="group_encrypt_warning">Mitglieder ohne öffentlichen Schlüssel können die verschlüsselten E-Mails nicht lesen.</string>
     <string name="rename_group">Gruppe umbenennen</string>
     <string name="new_chat">Neuer Chat</string>
+    <string name="new_button">NEW</string>
     <string name="create">Erstellen</string>
     <string name="no_contacts">Keine Kontakte gefunden</string>
     <string name="selected_contacts">Ausgewählte Kontakte</string>

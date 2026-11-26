@@ -32,6 +32,7 @@
     <string name="group_encrypt_warning">Members without a public key cannot read the encrypted emails.</string>
     <string name="rename_group">Rename group</string>
     <string name="new_chat">New chat</string>
+    <string name="new_button">NEW</string>
     <string name="create">Create</string>
     <string name="no_contacts">No contacts found</string>
     <string name="selected_contacts">Selected contacts</string>
