@@ -591,6 +591,13 @@
         <item>Antworten in einem Gruppenchat gehen an alle Mitglieder</item>
     </string-array>
     <string-array name="version_2_9_changes">
+        <item>Neu: KI-Übersetzung (On-Device) – jede Chat-Nachricht oder Detail-E-Mail per Ein-Tipp in die App-Sprache (Deutsch/Englisch) übersetzen; die Absätze des Originals bleiben erhalten und das Ergebnis kann in die Zwischenablage kopiert werden</item>
+        <item>Neu: KI-Betreff-Vorschlag – beim Schreiben lässt die KI einen Betreff aus deinem Text vorschlagen</item>
+        <item>Neu: Schnell-Antworten – 2–3 Ein-Tipp-Antwort-Chips für die neueste eingehende Nachricht, automatisch beim Tippen generiert (schaltbar unter Einstellungen > KI)</item>
+        <item>Neu: Follow-up-Erkennung – die KI erkennt Follow-ups in E-Mails und kann eine Kalender-Erinnerung erstellen</item>
+        <item>Neu: Umfrage-Erinnerung – Benachrichtigung, wenn eine von dir erstellte Umfrage fällig ist; verbessertes Umfrage-Ergebnis-Chart</item>
+        <item>Neu: Away-Auto-Antwort – automatische Antwort an gewählte Kontakte, wenn du nicht erreichbar bist</item>
+        <item>Neu: „NEW"-Button in der TopBar (Comic-Stil) – erscheint, sobald ungelesene E-Mails vorliegen; per Tipp smooth-Scroll zum neuesten ungelesenen Chat</item>
         <item>Neu: Zeichnung / Bild im Plus-Menü – mit dem Finger zeichnen (Freihand, Punkte, Linien und Kreise per Langdruck), 3 Strichstärken, optional über einem geladenen Bild; das Ergebnis wird als PNG angehängt</item>
         <item>Neu: Notizzettel-Farben – gelb (Standard), pink, orange und lila; neue Chat-Filter pro Farbe</item>
         <item>Neu: Optionale Betreff-Verschlüsselung (Einstellung) – der Betreff wird mit dem Schlüssel des Empfängers verschlüsselt</item>

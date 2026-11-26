@@ -591,6 +591,13 @@
         <item>Replies in a group chat are sent to all members</item>
     </string-array>
     <string-array name="version_2_9_changes">
+        <item>New: On-device AI translation – translate any chat message or full email with one tap into the app\'s language (German/English); the paragraph breaks of the original are preserved and the result can be copied to the clipboard</item>
+        <item>New: AI subject suggestion – while composing, let the AI suggest a subject from your message body</item>
+        <item>New: Quick replies – 2–3 one-tap reply chips for the latest incoming message, generated automatically while you type (can be enabled in Settings > AI)</item>
+        <item>New: Follow-up detection – the AI spots follow-ups in emails and can create a calendar reminder</item>
+        <item>New: Poll reminders – get notified when a poll you created is due; improved poll result chart</item>
+        <item>New: Away auto-reply – automatically reply to selected contacts when you are away</item>
+        <item>New: "NEW" button in the top bar (comic style) – appears whenever there are unread emails; tap it to smoothly scroll to the newest unread chat</item>
         <item>New: Drawing / image in the plus menu – draw with your finger (freehand, dots, lines and circles via long-press), 3 stroke widths, optionally on top of a loaded image; the result is attached as a PNG</item>
         <item>New: Sticky note colors – yellow (default), pink, orange and purple; new chat list filters per color</item>
         <item>New: Optional subject encryption (Settings toggle) – the subject is encrypted with the recipient\'s key</item>
