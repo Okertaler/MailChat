@@ -121,8 +121,6 @@ class ChatDetailViewModel @Inject constructor(
     )
     private var lastForwardParams: ForwardParams? = null
     private var draftJob: kotlinx.coroutines.Job? = null
-    // Debounce job for auto-generating quick-reply chips while the user types.
-    private var quickRepliesJob: kotlinx.coroutines.Job? = null
     // Job of the running AI processing (so the "AI in use" banner can stop it).
     private var aiProcessingJob: kotlinx.coroutines.Job? = null
 
@@ -908,31 +906,23 @@ class ChatDetailViewModel @Inject constructor(
     fun onComposeTextChange(text: String) {
         _uiState.update { it.copy(composeText = text, sendError = null) }
         scheduleDraftSave()
-        // Auto-generate quick-reply chips while the user types (if enabled in Settings → AI).
-        if (com.mailchat.util.SettingsUtils.getQuickRepliesEnabled(appContext)) {
-            scheduleQuickReplies()
-        }
     }
 
     /**
-     * Debounced trigger for auto-generating quick-reply chips while the user types in the compose
-     * field. Waits until the user pauses typing (800 ms) before generating, so we don't fire an
-     * AI call on every keystroke. Only generates when there is a latest incoming message to reply
-     * to and the feature is enabled.
+     * Called when the compose field gains or loses focus. When the field gains focus (and the
+     * quick-replies feature is enabled in Settings → AI), one-tap reply chips for the latest
+     * incoming message are generated — as soon as the user focuses the field, not only after the
+     * first character is typed. Skips generation when fresh chips already exist.
      */
-    private fun scheduleQuickReplies() {
-        quickRepliesJob?.cancel()
-        quickRepliesJob = viewModelScope.launch {
-            kotlinx.coroutines.delay(800)
-            val state = _uiState.value
-            // Only generate when the user is actually composing (text present) and there is an
-            // incoming message to reply to.
-            if (state.composeText.isBlank()) return@launch
-            if (state.messages.none { it.isIncoming }) return@launch
-            // Skip if we already have fresh chips for this compose session.
-            if (state.quickReplies.isNotEmpty() && !state.isGeneratingQuickReplies) return@launch
-            generateQuickReplies()
-        }
+    fun onComposeFocusChanged(focused: Boolean) {
+        if (!focused) return
+        if (!com.mailchat.util.SettingsUtils.getAiEnabled(appContext)) return
+        if (!com.mailchat.util.SettingsUtils.getQuickRepliesEnabled(appContext)) return
+        val state = _uiState.value
+        if (state.messages.none { it.isIncoming }) return
+        // Skip if we already have fresh chips for this compose session.
+        if (state.quickReplies.isNotEmpty() && !state.isGeneratingQuickReplies) return
+        generateQuickReplies()
     }
 
     fun onSubjectChange(subject: String) {

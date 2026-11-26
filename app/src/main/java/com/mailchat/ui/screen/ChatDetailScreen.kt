@@ -156,6 +156,7 @@ import kotlinx.coroutines.flow.filter
 import kotlin.math.abs
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
@@ -1183,28 +1184,8 @@ fun ChatDetailScreen(
                                 }
                             )
                             if (aiEnabled) {
-                                androidx.compose.material3.DropdownMenuItem(
-                                    enabled = !uiState.isGeneratingSuggestion,
-                                    leadingIcon = {
-                                        if (uiState.isGeneratingSuggestion) {
-                                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                                        } else {
-                                            Text("✦", color = androidx.compose.ui.graphics.Color(0xFF7C4DFF), fontSize = 20.sp)
-                                        }
-                                    },
-                                    text = { Text(stringResource(R.string.ai_reply)) },
-                                    onClick = {
-                                        showAddMenu = false
-                                        val latestIncoming = uiState.messages.lastOrNull { it.isIncoming }
-                                        if (latestIncoming != null) {
-                                            replyToneMessage = latestIncoming
-                                        } else {
-                                            // No email in the chat yet: suggest a reply based on the
-                                            // text already in the compose fields (subject + body).
-                                            showComposeAiTone = true
-                                        }
-                                    }
-                                )
+                                // Note: "KI-Antwort" was moved out of this menu into the magic
+                                // (sparkle) button inside the compose field (see ComposeBar).
                                 androidx.compose.material3.DropdownMenuItem(
                                     enabled = !uiState.isGeneratingFollowUps,
                                     leadingIcon = {
@@ -1541,7 +1522,17 @@ fun ChatDetailScreen(
                     onRecordCancel = {
                         VoiceRecorder.cancel()
                         isRecording = false
-                    }
+                    },
+                    showAiButton = aiEnabled,
+                    onGenerateAi = {
+                        val latestIncoming = uiState.messages.lastOrNull { it.isIncoming }
+                        if (latestIncoming != null) {
+                            replyToneMessage = latestIncoming
+                        } else {
+                            showComposeAiTone = true
+                        }
+                    },
+                    onFocusChange = { viewModel.onComposeFocusChanged(it) }
                 )
                 }
             }
@@ -2124,9 +2115,16 @@ fun ChatDetailScreen(
                 } else if (uiState.translationText.isBlank()) {
                     Text(stringResource(R.string.ai_translation_empty))
                 } else {
-                    // Selectable so the user can mark parts of the translation and copy them.
-                    SelectionContainer {
-                        Text(uiState.translationText)
+                    // Selectable so the user can mark parts of the translation and copy them,
+                    // and scrollable so long translations can be read in full.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        SelectionContainer {
+                            Text(uiState.translationText)
+                        }
                     }
                 }
             },
@@ -5986,9 +5984,16 @@ private fun FullEmailView(
                 } else if (fullEmailUiState.translationText.isBlank()) {
                     Text(stringResource(R.string.ai_translation_empty))
                 } else {
-                    // Selectable so the user can mark parts of the translation and copy them.
-                    SelectionContainer {
-                        Text(fullEmailUiState.translationText)
+                    // Selectable so the user can mark parts of the translation and copy them,
+                    // and scrollable so long translations can be read in full.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        SelectionContainer {
+                            Text(fullEmailUiState.translationText)
+                        }
                     }
                 }
             },
@@ -6423,7 +6428,10 @@ private fun ComposeBar(
     recordingSeconds: Long,
     onRecordStart: () -> Unit,
     onRecordStop: () -> Unit,
-    onRecordCancel: () -> Unit
+    onRecordCancel: () -> Unit,
+    showAiButton: Boolean = false,
+    onGenerateAi: () -> Unit = {},
+    onFocusChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -6536,9 +6544,25 @@ private fun ComposeBar(
                 value = text,
                 onValueChange = onTextChange,
                 placeholder = { Text(stringResource(R.string.compose_hint)) },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { onFocusChange(it.isFocused) },
                 maxLines = 8,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                leadingIcon = {
+                    if (showAiButton) {
+                        // "Magic" AI button: opens the AI-reply tone dialog (replaces the old
+                        // "KI-Antwort" entry in the "+" menu). Shown only when AI is enabled.
+                        IconButton(onClick = onGenerateAi) {
+                            Icon(
+                                Icons.Outlined.AutoAwesome,
+                                contentDescription = stringResource(R.string.ai_reply),
+                                tint = androidx.compose.ui.graphics.Color(0xFF7C4DFF),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                },
                 trailingIcon = {
                     if (text.isNotEmpty()) {
                         IconButton(onClick = { onTextChange("") }) {

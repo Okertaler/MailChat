@@ -593,7 +593,25 @@ fun ChatListScreen(
                             ComicNewButton(onClick = {
                                 val idx = filteredChats.indexOfFirst { it.unreadCount > 0 }
                                 if (idx >= 0) {
-                                    listScope.launch { listState.animateScrollToItem(idx) }
+                                    listScope.launch {
+                                        // Slow, smooth slide to the newest unread chat. We step through
+                                        // the first-visible index over ~750 ms with an ease-out curve
+                                        // (the foundation version here has no animationSpec parameter on
+                                        // animateScrollToItem, so we drive the scroll manually).
+                                        val startIndex = listState.firstVisibleItemIndex
+                                        if (startIndex != idx) {
+                                            val steps = 30
+                                            val durationMs = 750L
+                                            for (i in 1..steps) {
+                                                val progress = i.toFloat() / steps
+                                                val eased = 1f - (1f - progress) * (1f - progress)
+                                                val current = (startIndex + (idx - startIndex) * eased).toInt()
+                                                listState.scrollToItem(current)
+                                                kotlinx.coroutines.delay(durationMs / steps)
+                                            }
+                                            listState.scrollToItem(idx)
+                                        }
+                                    }
                                 }
                             })
                         }
@@ -2089,11 +2107,11 @@ fun EmptyState(
 private fun ComicNewButton(onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(width = 76.dp, height = 42.dp)
+            .size(width = 62.dp, height = 34.dp)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.size(width = 76.dp, height = 42.dp)) {
+        Canvas(modifier = Modifier.size(width = 62.dp, height = 34.dp)) {
             val cx = size.width / 2f
             val cy = size.height / 2f
             val rx = size.width / 2f - 2f
@@ -2110,13 +2128,13 @@ private fun ComicNewButton(onClick: () -> Unit) {
                 close()
             }
             drawPath(path, Color.White)
-            drawPath(path, Color(0xFFFFD500), style = Stroke(width = 4f))
+            drawPath(path, Color(0xFFFFD500), style = Stroke(width = 6f))
         }
         Text(
             text = stringResource(R.string.new_button),
             color = Color(0xFFD32F2F),
             fontWeight = FontWeight.Black,
-            fontSize = 14.sp
+            fontSize = 12.sp
         )
     }
 }
