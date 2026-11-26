@@ -2139,18 +2139,24 @@ fun ChatDetailScreen(
                 } else if (uiState.translationText.isBlank()) {
                     Text(stringResource(R.string.ai_translation_empty))
                 } else {
-                    Text(uiState.translationText)
+                    // Selectable so the user can mark parts of the translation and copy them.
+                    SelectionContainer {
+                        Text(uiState.translationText)
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
+                Row {
                     if (uiState.translationText.isNotBlank()) {
-                        val cm = android.content.ClipData.newPlainText("translation", uiState.translationText)
-                        val cmService = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        cmService.setPrimaryClip(cm)
+                        TextButton(onClick = {
+                            val cm = android.content.ClipData.newPlainText("translation", uiState.translationText)
+                            val cmService = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            cmService.setPrimaryClip(cm)
+                            android.widget.Toast.makeText(context, context.getString(R.string.copied_to_clipboard), android.widget.Toast.LENGTH_SHORT).show()
+                        }) { Text(stringResource(R.string.copy)) }
                     }
-                    translatedMessage = null
-                }) { Text(stringResource(R.string.close)) }
+                    TextButton(onClick = { translatedMessage = null }) { Text(stringResource(R.string.close)) }
+                }
             }
         )
     }
@@ -5995,18 +6001,24 @@ private fun FullEmailView(
                 } else if (fullEmailUiState.translationText.isBlank()) {
                     Text(stringResource(R.string.ai_translation_empty))
                 } else {
-                    Text(fullEmailUiState.translationText)
+                    // Selectable so the user can mark parts of the translation and copy them.
+                    SelectionContainer {
+                        Text(fullEmailUiState.translationText)
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
+                Row {
                     if (fullEmailUiState.translationText.isNotBlank()) {
-                        val cm = android.content.ClipData.newPlainText("translation", fullEmailUiState.translationText)
-                        val cmService = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        cmService.setPrimaryClip(cm)
+                        TextButton(onClick = {
+                            val cm = android.content.ClipData.newPlainText("translation", fullEmailUiState.translationText)
+                            val cmService = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            cmService.setPrimaryClip(cm)
+                            android.widget.Toast.makeText(context, context.getString(R.string.copied_to_clipboard), android.widget.Toast.LENGTH_SHORT).show()
+                        }) { Text(stringResource(R.string.copy)) }
                     }
-                    showTranslation = false
-                }) { Text(stringResource(R.string.close)) }
+                    TextButton(onClick = { showTranslation = false }) { Text(stringResource(R.string.close)) }
+                }
             }
         )
     }

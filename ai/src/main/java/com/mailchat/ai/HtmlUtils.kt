@@ -32,3 +32,27 @@ fun String.stripHtml(): String {
         .replace(Regex(" {2,}"), " ")
         .trim()
 }
+
+/**
+ * Converts HTML to plain text while PRESERVING the paragraph structure: block boundaries
+ * (</p>, </div>, </tr>, </li>, headings) become a blank line (double newline) and <br> a
+ * single newline. Used for translation, where the user wants the paragraph layout of the
+ * original email to survive (unlike [stripHtml], which collapses all blank lines).
+ */
+fun String.htmlToTextPreservingParagraphs(): String {
+    if (!contains("<")) return this
+    val cleaned = this
+        .replace(Regex("<style[^>]*>[\\s\\S]*?</style>", RegexOption.IGNORE_CASE), " ")
+        .replace(Regex("<script[^>]*>[\\s\\S]*?</script>", RegexOption.IGNORE_CASE), " ")
+        .replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
+        .replace(Regex("</p>|</div>|</tr>|</li>|</h[1-6]>", RegexOption.IGNORE_CASE), "\n\n")
+        .replace(Regex("<[^>]*>"), " ")
+    return cleaned
+        .replace("&nbsp;", " ")
+        .replace(Regex("&[a-z]+;"), " ")
+        .replace(Regex("[ \\t]+\\n"), "\n")
+        .replace(Regex("\\n[ \\t]+"), "\n")
+        .replace(Regex(" {2,}"), " ")
+        .replace(Regex("\\n{3,}"), "\n\n")
+        .trim()
+}

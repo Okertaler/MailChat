@@ -558,10 +558,13 @@ Regeln:
             "en" -> "English"
             else -> "the same language as the input"
         }
-        val truncated = text.stripHtml().take(8000)
+        // Preserve the paragraph structure of the original email (blank lines between
+        // paragraphs), so the translation keeps the same layout.
+        val truncated = text.htmlToTextPreservingParagraphs().take(8000)
         val prompt = "Translate the following text into $lang. Output ONLY the translation, " +
             "no introduction, no preamble, no quotes, no explanation. Keep the original line " +
-            "breaks and formatting as much as possible.\n\n$truncated"
+            "breaks, paragraphs and formatting as much as possible: where the input has a blank " +
+            "line between paragraphs, the translation must have a blank line there too.\n\n$truncated"
         generate(prompt, maxOutputToken = 1024)
     }
 

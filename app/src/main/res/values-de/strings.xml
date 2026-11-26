@@ -1209,6 +1209,7 @@
     <string name="images_links_blocked_phishing">Externe Bilder und Links wegen Phishing blockiert</string>
     <string name="raw_source_title">Quelltext</string>
     <string name="copy">Kopieren</string>
+    <string name="copied_to_clipboard">In die Zwischenablage kopiert</string>
     <string name="secure_connection">Sichere Verbindung</string>
     <string name="secure_connected">Sichere Verbindung hergestellt</string>
     <string name="secure_no_key">Noch kein PGP-Schlüssel generiert. In den Einstellungen generieren.</string>
