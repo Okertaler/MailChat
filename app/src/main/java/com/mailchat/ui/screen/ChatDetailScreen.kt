@@ -1037,11 +1037,15 @@ fun ChatDetailScreen(
                                                 onClick = { viewModel.suggestSubjectForCompose() },
                                                 enabled = !uiState.isSuggestingSubject
                                             ) {
-                                                Icon(
-                                                    Icons.Outlined.AutoAwesome,
-                                                    contentDescription = stringResource(R.string.ai_suggest_subject),
-                                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = if (uiState.isSuggestingSubject) 0.4f else 1f)
-                                                )
+                                                if (uiState.isSuggestingSubject) {
+                                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                                } else {
+                                                    Icon(
+                                                        Icons.Outlined.AutoAwesome,
+                                                        contentDescription = stringResource(R.string.ai_suggest_subject),
+                                                        tint = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
                                             }
                                         }
                                         IconButton(onClick = { showSubjectDropdown = true }) {
@@ -2483,6 +2487,8 @@ fun ChatDetailScreen(
             recordingSeconds = recordingSeconds,
             isGeneratingSuggestion = uiState.isGeneratingSuggestion,
             aiSuggestion = uiState.aiSuggestion,
+            isSuggestingSubject = uiState.isSuggestingSubject,
+            onSuggestSubject = { viewModel.suggestSubjectForCompose() },
             onClose = { viewModel.closeFullCompose() },
             onSend = {
                 viewModel.send(to = uiState.selectedRecipient?.takeIf { it.isNotBlank() }, subject = selectedSubject.takeIf { it.isNotBlank() })
@@ -3692,6 +3698,8 @@ private fun FullComposeOverlay(
     recordingSeconds: Long,
     isGeneratingSuggestion: Boolean,
     aiSuggestion: String,
+    isSuggestingSubject: Boolean,
+    onSuggestSubject: () -> Unit,
     onClose: () -> Unit,
     onSend: () -> Unit,
     onToChange: (String) -> Unit,
@@ -4030,6 +4038,24 @@ private fun FullComposeOverlay(
                         onValueChange = onSubjectChange,
                         label = { Text(stringResource(R.string.subject)) },
                         singleLine = true,
+                        trailingIcon = {
+                            // KI-Betreff: suggest a subject from the message text (same as the
+                            // inline compose bar).
+                            IconButton(
+                                onClick = onSuggestSubject,
+                                enabled = !isSuggestingSubject
+                            ) {
+                                if (isSuggestingSubject) {
+                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(
+                                        Icons.Outlined.AutoAwesome,
+                                        contentDescription = stringResource(R.string.ai_suggest_subject),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                     )
                     // Rich-text editor — used for the detail-email reply / reply-all / forward.

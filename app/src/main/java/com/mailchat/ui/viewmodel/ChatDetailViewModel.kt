@@ -1100,7 +1100,14 @@ class ChatDetailViewModel @Inject constructor(
     fun suggestSubjectForCompose() {
         viewModelScope.launch {
             val body = _uiState.value.composeText
-            if (body.isBlank()) return@launch
+            if (body.isBlank()) {
+                // Give visible feedback instead of a silent no-op.
+                android.widget.Toast.makeText(
+                    appContext, appContext.getString(com.mailchat.R.string.ai_suggest_subject_empty_body),
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                return@launch
+            }
             _uiState.update { it.copy(isSuggestingSubject = true) }
             try {
                 com.mailchat.util.AiEngine.configureAndInitialize(appContext)
@@ -1109,6 +1116,14 @@ class ChatDetailViewModel @Inject constructor(
                 }
                 val lang = com.mailchat.util.LanguageUtils.getLanguage(appContext)
                 val result = com.mailchat.ai.GeminiService.suggestSubject(body, lang)
+                if (result.isBlank()) {
+                    _uiState.update { it.copy(isSuggestingSubject = false) }
+                    android.widget.Toast.makeText(
+                        appContext, appContext.getString(com.mailchat.R.string.ai_suggest_subject_failed),
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    return@launch
+                }
                 _uiState.update { it.copy(aiSuggestedSubject = result, isSuggestingSubject = false) }
             } catch (e: IllegalStateException) {
                 _uiState.update { it.copy(isSuggestingSubject = false) }
@@ -1119,6 +1134,10 @@ class ChatDetailViewModel @Inject constructor(
             } catch (e: Exception) {
                 android.util.Log.e("MailchatAI", "suggestSubjectForCompose failed: ${e.message}")
                 _uiState.update { it.copy(isSuggestingSubject = false) }
+                android.widget.Toast.makeText(
+                    appContext, appContext.getString(com.mailchat.R.string.ai_suggest_subject_failed),
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }
