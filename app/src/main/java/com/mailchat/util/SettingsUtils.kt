@@ -248,6 +248,22 @@ object SettingsUtils {
             .apply()
     }
 
+    /**
+     * When enabled, one-tap quick-reply chips are generated automatically while the user types in
+     * the compose field (see [com.mailchat.ui.viewmodel.ChatDetailViewModel]). The chips suggest
+     * short replies to the latest incoming message.
+     */
+    fun getQuickRepliesEnabled(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean("quick_replies_enabled", true)
+
+    fun setQuickRepliesEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("quick_replies_enabled", enabled)
+            .apply()
+    }
+
     fun getAiModel(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_AI_MODEL, DEFAULT_AI_MODEL) ?: DEFAULT_AI_MODEL

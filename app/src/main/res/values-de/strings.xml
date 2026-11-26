@@ -402,6 +402,8 @@
     <string name="ai_suggest_subject_empty_body">Bitte zuerst eine Nachricht schreiben</string>
     <string name="ai_suggest_subject_failed">Betreff-Vorschlag fehlgeschlagen</string>
     <string name="ai_quick_replies">Schnell-Antworten</string>
+    <string name="ai_quick_replies_setting">Schnell-Antworten</string>
+    <string name="ai_quick_replies_setting_desc">Vorschlägt beim Tippen automatisch Ein-Tipp-Antwort-Chips</string>
     <string name="ai_follow_ups">Follow-ups</string>
     <string name="follow_up_reminder">Erinnerung anlegen</string>
     <string name="ai_reply_tone_question">Wie soll die KI antworten?</string>

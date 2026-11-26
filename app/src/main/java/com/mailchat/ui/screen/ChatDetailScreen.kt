@@ -1206,21 +1206,6 @@ fun ChatDetailScreen(
                                     }
                                 )
                                 androidx.compose.material3.DropdownMenuItem(
-                                    enabled = !uiState.isGeneratingQuickReplies,
-                                    leadingIcon = {
-                                        if (uiState.isGeneratingQuickReplies) {
-                                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                                        } else {
-                                            Text("💬", fontSize = 18.sp)
-                                        }
-                                    },
-                                    text = { Text(stringResource(R.string.ai_quick_replies)) },
-                                    onClick = {
-                                        showAddMenu = false
-                                        viewModel.generateQuickReplies()
-                                    }
-                                )
-                                androidx.compose.material3.DropdownMenuItem(
                                     enabled = !uiState.isGeneratingFollowUps,
                                     leadingIcon = {
                                         if (uiState.isGeneratingFollowUps) {

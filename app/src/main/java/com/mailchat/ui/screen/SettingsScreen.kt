@@ -201,6 +201,7 @@ fun SettingsScreen(
     var aiEnabled by remember { mutableStateOf(SettingsUtils.getAiEnabled(context)) }
     var aiAutoProcess by remember { mutableStateOf(SettingsUtils.getAiAutoProcess(context)) }
     var aiAutoRealNames by remember { mutableStateOf(SettingsUtils.getAiAutoRealNames(context)) }
+    var quickRepliesEnabled by remember { mutableStateOf(SettingsUtils.getQuickRepliesEnabled(context)) }
     var showAiWarning by remember { mutableStateOf(false) }
     var showAiLog by remember { mutableStateOf(false) }
     var showOpenAiWarning by remember { mutableStateOf(false) }
@@ -773,6 +774,23 @@ fun SettingsScreen(
                             onCheckedChange = {
                                 aiAutoRealNames = it
                                 SettingsUtils.setAiAutoRealNames(context, it)
+                            }
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.ai_quick_replies_setting)) },
+                    supportingContent = {
+                        Text(stringResource(R.string.ai_quick_replies_setting_desc))
+                    },
+                    trailingContent = {
+                        androidx.compose.material3.Switch(
+                            checked = quickRepliesEnabled,
+                            onCheckedChange = {
+                                quickRepliesEnabled = it
+                                SettingsUtils.setQuickRepliesEnabled(context, it)
                             }
                         )
                     },
